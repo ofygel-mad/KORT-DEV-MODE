@@ -41,9 +41,14 @@
 
 .backBtn:hover {
   transform: var(--feedback-raise-hover);
-  background: color-mix(in srgb, var(--bg-hover) 78%, var(--fill-accent-subtle));
-  border-color: color-mix(in srgb, var(--fill-accent) 24%, var(--border-default));
+  background: color-mix(in srgb, var(--bg-hover) 70%, var(--fill-accent-soft));
+  border-color: color-mix(in srgb, var(--fill-accent) 28%, var(--border-default));
   color: var(--text-primary);
+}
+
+.backBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--brand-focus-ring);
 }
 
 .meta {

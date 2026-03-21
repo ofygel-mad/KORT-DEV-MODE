@@ -154,6 +154,11 @@ export function CreateOrderModal({ tileId }: Props) {
   const canStep1 = clientName.trim().length > 0 && clientPhone.trim().length > 0;
   const itemErrors = items.map(i => i.unitPrice <= 0);
   const canStep2 = items.length > 0 && itemErrors.every(e => !e);
+  const footerHint = step === 1 && !canStep1
+    ? 'Для перехода дальше заполните имя и телефон клиента.'
+    : step === 2 && !canStep2
+      ? 'Для перехода дальше укажите цену для каждого изделия.'
+      : '';
 
   const handleSave = async () => {
     if (!canStep1 || !canStep2 || saving) return;
@@ -433,33 +438,44 @@ export function CreateOrderModal({ tileId }: Props) {
 
         {/* Footer */}
         <div className={s.footer}>
-          {step === 1 ? (
-            <button className={s.cancelBtn} onClick={handleClose}>Отмена</button>
-          ) : (
-            <button className={s.cancelBtn} onClick={() => setStep(prev => (prev - 1) as 1 | 2 | 3)}>
-              <ChevronLeft size={14} />
-              Назад
-            </button>
-          )}
+          <div className={s.footerHint} aria-live="polite">
+            {footerHint}
+          </div>
 
-          {step < 3 ? (
-            <button
-              className={s.saveBtn}
-              disabled={step === 1 ? !canStep1 : !canStep2}
-              onClick={() => setStep(prev => (prev + 1) as 1 | 2 | 3)}
-            >
-              Далее
-              <ChevronRight size={14} />
-            </button>
-          ) : (
-            <button
-              className={s.saveBtn}
-              disabled={!canStep1 || !canStep2 || saving}
-              onClick={handleSave}
-            >
-              {saving ? 'Создание...' : 'Создать заказ'}
-            </button>
-          )}
+          <div className={s.footerActions}>
+            {step === 1 ? (
+              <button className={s.cancelBtn} onClick={handleClose}>Отмена</button>
+            ) : (
+              <button className={s.cancelBtn} onClick={() => setStep(prev => (prev - 1) as 1 | 2 | 3)}>
+                <ChevronLeft size={14} />
+                Назад
+              </button>
+            )}
+
+            {step < 3 ? (
+              <button
+                className={s.saveBtn}
+                disabled={step === 1 ? !canStep1 : !canStep2}
+                title={step === 1 && !canStep1
+                  ? 'Заполните имя и телефон'
+                  : step === 2 && !canStep2
+                    ? 'Укажите цену для каждого изделия'
+                    : undefined}
+                onClick={() => setStep(prev => (prev + 1) as 1 | 2 | 3)}
+              >
+                Далее
+                <ChevronRight size={14} />
+              </button>
+            ) : (
+              <button
+                className={s.saveBtn}
+                disabled={!canStep1 || !canStep2 || saving}
+                onClick={handleSave}
+              >
+                {saving ? 'Создание...' : 'Создать заказ'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

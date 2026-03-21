@@ -396,10 +396,11 @@
 .footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
   padding: 14px 20px 18px;
   border-top: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
 }
 
 .cancelBtn {
@@ -409,16 +410,57 @@
 }
 
 .saveBtn {
-  border: 1px solid color-mix(in srgb, var(--fill-accent) 24%, transparent);
-  background: var(--fill-accent-soft);
-  color: var(--text-accent);
+  border: 1px solid color-mix(in srgb, var(--fill-accent) 30%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fill-accent) 72%, white 28%) 0%,
+    var(--fill-accent) 100%
+  );
+  color: var(--text-inverse);
+  box-shadow: 0 10px 24px -16px color-mix(in srgb, var(--fill-accent) 68%, transparent);
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fill-accent) 78%, white 22%) 0%,
+    color-mix(in srgb, var(--fill-accent) 92%, white 8%) 100%
+  );
+  border-color: color-mix(in srgb, var(--fill-accent) 38%, transparent);
+}
+
+.saveBtn:focus-visible,
+.cancelBtn:focus-visible,
+.addItemBtn:focus-visible,
+.removeBtn:focus-visible,
+.closeBtn:focus-visible,
+.calendarNavBtn:focus-visible,
+.calendarClearBtn:focus-visible,
+.calendarDay:focus-visible {
+  outline: none;
+  box-shadow: var(--brand-focus-ring);
 }
 
 .saveBtn:disabled {
-  opacity: 0.46;
+  opacity: 0.58;
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
+}
+
+.footerHint {
+  min-height: 20px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.footerActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
 }
 
 @media (max-width: 640px) {
@@ -427,6 +469,15 @@
   .footer {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .footerActions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .footerHint {
+    order: 2;
   }
 
   .stepper {

@@ -143,7 +143,8 @@
     transform var(--motion-fast) var(--motion-ease),
     background var(--motion-fast) var(--motion-ease),
     border-color var(--motion-fast) var(--motion-ease),
-    filter var(--motion-fast) var(--motion-ease);
+    filter var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
 .primaryBtn:hover,
@@ -152,16 +153,41 @@
 }
 
 .primaryBtn {
-  border-color: color-mix(in srgb, var(--fill-accent) 24%, var(--border-default));
-  background: var(--fill-accent-gradient);
+  border-color: color-mix(in srgb, var(--fill-accent) 30%, var(--border-default));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fill-accent) 72%, white 28%) 0%,
+    var(--fill-accent) 100%
+  );
   color: var(--text-inverse);
-  box-shadow: var(--shadow-accent);
+  box-shadow: 0 10px 24px -16px color-mix(in srgb, var(--fill-accent) 68%, transparent);
+}
+
+.primaryBtn:hover {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fill-accent) 78%, white 22%) 0%,
+    color-mix(in srgb, var(--fill-accent) 92%, white 8%) 100%
+  );
+  border-color: color-mix(in srgb, var(--fill-accent) 38%, var(--border-default));
+  box-shadow: 0 14px 28px -16px color-mix(in srgb, var(--fill-accent) 72%, transparent);
 }
 
 .secondaryBtn {
-  border-color: color-mix(in srgb, var(--fill-info) 22%, var(--border-default));
-  background: color-mix(in srgb, var(--fill-info-soft) 72%, var(--bg-surface));
-  color: var(--fill-info-text);
+  border-color: color-mix(in srgb, var(--fill-info) 26%, var(--border-default));
+  background: color-mix(in srgb, var(--bg-surface-elevated) 74%, var(--fill-info-soft));
+  color: var(--text-primary);
+}
+
+.secondaryBtn:hover {
+  background: color-mix(in srgb, var(--bg-hover) 72%, var(--fill-info-soft));
+  border-color: color-mix(in srgb, var(--fill-info) 32%, var(--border-default));
+}
+
+.primaryBtn:focus-visible,
+.secondaryBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--brand-focus-ring);
 }
 
 /* ── Responsive ── */

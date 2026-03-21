@@ -104,7 +104,8 @@
     transform var(--motion-fast) var(--motion-ease),
     background var(--motion-fast) var(--motion-ease),
     border-color var(--motion-fast) var(--motion-ease),
-    box-shadow var(--motion-fast) var(--motion-ease);
+    box-shadow var(--motion-fast) var(--motion-ease),
+    filter var(--motion-fast) var(--motion-ease);
 }
 
 .secondaryBtn:hover,
@@ -113,16 +114,44 @@
 }
 
 .secondaryBtn {
-  border-color: var(--border-default);
-  background: color-mix(in srgb, var(--bg-surface) 88%, var(--fill-accent-subtle));
-  color: var(--text-secondary);
+  border-color: color-mix(in srgb, var(--fill-accent) 18%, var(--border-default));
+  background: color-mix(in srgb, var(--bg-surface-elevated) 72%, var(--fill-accent-soft));
+  color: var(--text-primary);
 }
 
 .primaryBtn {
-  border-color: color-mix(in srgb, var(--fill-accent) 24%, var(--border-default));
-  background: var(--fill-accent-gradient);
+  border-color: color-mix(in srgb, var(--fill-accent) 30%, var(--border-default));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fill-accent) 72%, white 28%) 0%,
+    var(--fill-accent) 58%,
+    color-mix(in srgb, var(--fill-accent) 88%, black 12%) 100%
+  );
   color: var(--text-inverse);
-  box-shadow: var(--shadow-accent);
+  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--fill-accent) 62%, transparent);
+}
+
+.secondaryBtn:hover {
+  background: color-mix(in srgb, var(--bg-hover) 72%, var(--fill-accent-subtle));
+  border-color: color-mix(in srgb, var(--fill-accent) 28%, var(--border-default));
+  box-shadow: var(--shadow-sm);
+}
+
+.primaryBtn:hover {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fill-accent) 78%, white 22%) 0%,
+    color-mix(in srgb, var(--fill-accent) 92%, white 8%) 58%,
+    var(--fill-accent) 100%
+  );
+  box-shadow: 0 14px 28px -16px color-mix(in srgb, var(--fill-accent) 72%, transparent);
+}
+
+.secondaryBtn:focus-visible,
+.primaryBtn:focus-visible,
+.navItem:focus-visible {
+  outline: none;
+  box-shadow: var(--brand-focus-ring);
 }
 
 /* ── Nav tabs ── */
@@ -154,15 +183,16 @@
 
 .navItem:hover {
   transform: var(--feedback-raise-hover);
-  background: color-mix(in srgb, var(--bg-hover) 78%, var(--fill-accent-subtle));
+  background: color-mix(in srgb, var(--bg-hover) 70%, var(--fill-accent-soft));
   color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--fill-accent) 22%, var(--border-default));
 }
 
 .navItemActive {
-  background: color-mix(in srgb, var(--fill-accent-soft) 78%, var(--bg-surface));
+  background: color-mix(in srgb, var(--fill-accent-soft) 72%, var(--bg-surface-elevated));
   color: var(--text-accent);
-  border-color: color-mix(in srgb, var(--fill-accent) 24%, var(--border-default));
-  box-shadow: var(--shadow-sm);
+  border-color: color-mix(in srgb, var(--fill-accent) 28%, var(--border-default));
+  box-shadow: var(--shadow-sm), 0 0 0 1px color-mix(in srgb, var(--fill-accent) 8%, transparent);
 }
 
 .navBadge {
