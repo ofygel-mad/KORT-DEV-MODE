@@ -7,7 +7,7 @@ import { createStore, useStore } from 'zustand';
 import type { StoreApi } from 'zustand';
 import type { OrderStatus, OrderPriority, PaymentStatus, OrderSortBy, ViewMode } from '../api/types';
 
-export type ChapanSection = 'overview' | 'requests' | 'orders' | 'production' | 'settings';
+export type ChapanSection = 'requests' | 'orders' | 'production' | 'settings';
 
 export interface CreateOrderPrefill {
   sourceRequestId?: string;

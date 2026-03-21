@@ -1,9 +1,9 @@
 import { useEffect, useMemo } from 'react';
 import {
+  ArrowLeft,
   ExternalLink,
   Factory,
   Inbox,
-  LayoutDashboard,
   Plus,
   RefreshCw,
   Search,
@@ -20,7 +20,6 @@ import {
   PAYMENT_STATUS_LABEL,
   PRIORITY_LABEL,
 } from '../../../../chapan-spa/api/types';
-import { OverviewDashboard } from '../../../../chapan-spa/components/overview/OverviewDashboard';
 import { OrderList } from '../../../../chapan-spa/components/orders/OrderList';
 import { CreateOrderModal } from '../../../../chapan-spa/components/orders/CreateOrderModal';
 import { OrderDrawer } from '../../../../chapan-spa/components/drawer/OrderDrawer';
@@ -31,17 +30,18 @@ import s from './ChapanSPA.module.css';
 
 interface Props {
   tileId: string;
+  title: string;
+  onBack: () => void;
 }
 
-const SECTIONS: { id: ChapanSection; label: string; icon: typeof LayoutDashboard }[] = [
+const SECTIONS: { id: ChapanSection; label: string; icon: typeof Factory }[] = [
   { id: 'requests', label: 'Заявки', icon: Inbox },
   { id: 'orders', label: 'Заказы', icon: ShoppingBag },
   { id: 'production', label: 'Производство', icon: Factory },
-  { id: 'overview', label: 'Сводка', icon: LayoutDashboard },
   { id: 'settings', label: 'Настройки', icon: Settings },
 ];
 
-export function ChapanSPA({ tileId }: Props) {
+export function ChapanSPA({ tileId, title, onBack }: Props) {
   const { loading, load, orders, requests, profile } = useChapanStore();
   const ui = useTileChapanUI(tileId);
 
@@ -54,12 +54,8 @@ export function ChapanSPA({ tileId }: Props) {
     const productionTasks = activeOrders.flatMap((order) => order.productionTasks);
 
     return {
-      activeCount: activeOrders.length,
       readyCount: orders.filter((order) => order.status === 'ready').length,
       blockedCount: productionTasks.filter((task) => task.isBlocked).length,
-      inFlowCount: productionTasks.filter((task) => task.status !== 'pending' && task.status !== 'done').length,
-      taskCount: productionTasks.length,
-      newRequests: requests.filter((request) => request.status === 'new').length,
       activeRequests: requests.filter((request) => request.status === 'new' || request.status === 'reviewed').length,
     };
   }, [orders, requests]);
@@ -76,12 +72,12 @@ export function ChapanSPA({ tileId }: Props) {
   return (
     <div className={s.root} data-tile-id={tileId}>
       <div className={s.topBar}>
-        <div className={s.identity}>
-          <span className={s.iconWrap}><Factory size={16} /></span>
-          <h1 className={s.title}>{profile.displayName}</h1>
-          {stats.blockedCount > 0 && (
-            <span className={s.alertBadge}>{stats.blockedCount} блок.</span>
-          )}
+        <div className={s.headMain}>
+          <button className={s.backBtn} onClick={onBack}>
+            <ArrowLeft size={15} />
+            <span>К производствам</span>
+          </button>
+          <h1 className={s.title}>{title}</h1>
         </div>
 
         <div className={s.actionRow}>
@@ -124,7 +120,6 @@ export function ChapanSPA({ tileId }: Props) {
       </nav>
 
       <div className={s.content}>
-        {ui.section === 'overview' && <OverviewDashboard tileId={tileId} />}
         {ui.section === 'requests' && <RequestInbox tileId={tileId} />}
         {ui.section === 'orders' && (
           <>

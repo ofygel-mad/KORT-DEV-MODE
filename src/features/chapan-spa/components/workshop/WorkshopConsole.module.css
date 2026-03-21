@@ -2,7 +2,11 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, var(--fill-accent-subtle));
+  color: var(--text-primary);
+  overflow: auto;
 }
 
 .loading {
@@ -24,75 +28,60 @@
   }
 }
 
-.hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
-  gap: 14px;
-  padding: 18px;
-  border-radius: calc(var(--surface-radius) + 4px);
-  border: 1px solid var(--brand-panel-border);
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--fill-positive) 12%, transparent) 0%, transparent 34%),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--fill-info) 14%, transparent) 0%, transparent 34%),
-    var(--brand-surface-3);
-  box-shadow: var(--brand-panel-shadow);
-}
-
-.heroMain {
+.topBar {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.identity {
+.headMain {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
-.identityCopy {
-  display: grid;
-  gap: 4px;
-}
-
-.kicker {
+.backBtn {
   display: inline-flex;
   align-items: center;
-  min-height: 20px;
-  color: var(--text-tertiary);
-  font-size: 11px;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--journey-chip-border);
+  background: var(--journey-chip-bg);
+  color: var(--text-secondary);
+  font: inherit;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.iconWrap {
-  width: 42px;
-  height: 42px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--fill-accent-subtle) 80%, var(--bg-surface));
-  color: var(--text-accent);
-  border: 1px solid color-mix(in srgb, var(--fill-accent) 18%, var(--border-subtle));
+  cursor: pointer;
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
   flex-shrink: 0;
 }
 
-.title {
-  margin: 2px 0 0;
-  font-size: var(--text-size-xl);
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.016em;
+.backBtn:hover {
+  transform: var(--feedback-raise-hover);
+  background: color-mix(in srgb, var(--bg-hover) 70%, var(--fill-accent-soft));
+  border-color: color-mix(in srgb, var(--fill-accent) 28%, var(--border-default));
   color: var(--text-primary);
 }
 
-.description {
+.backBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--brand-focus-ring);
+}
+
+.title {
   margin: 0;
-  max-width: 620px;
-  color: var(--text-secondary);
-  font-size: var(--text-size-base);
-  line-height: 1.6;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-primary);
 }
 
 .pills {
@@ -115,43 +104,17 @@
   font-weight: 600;
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.statCard {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
-  min-height: 96px;
-  padding: 14px;
-  border-radius: var(--surface-radius);
-  background: color-mix(in srgb, var(--bg-surface) 88%, var(--fill-accent-subtle));
-  border: 1px solid color-mix(in srgb, var(--fill-accent) 12%, var(--border-subtle));
-}
-
-.statCard strong {
-  font-size: 24px;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--text-primary);
-}
-
-.statCard span {
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
 .boardShell {
   min-height: 0;
   flex: 1;
 }
 
 @media (max-width: 920px) {
-  .hero {
-    grid-template-columns: 1fr;
+  .root {
+    padding: 12px 14px 14px;
+  }
+
+  .headMain {
+    flex-wrap: wrap;
   }
 }

@@ -18,7 +18,7 @@ export function ProductionWorkspaceShell({
 }: Props) {
   return (
     <div className={s.root} data-tone={tone}>
-      {tone !== 'template' && (
+      {tone === 'locked' && (
         <header className={s.header}>
           <button className={s.backBtn} onClick={onBack}>
             <ArrowLeft size={15} />

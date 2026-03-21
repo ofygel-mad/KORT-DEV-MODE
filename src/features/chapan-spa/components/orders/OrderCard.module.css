@@ -158,36 +158,72 @@
 
 .actionBtn {
   flex: 1;
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--fill-accent) 24%, transparent);
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--fill-accent) 36%, var(--border-default));
   border-radius: 10px;
-  background: var(--fill-accent-soft);
-  color: var(--text-accent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--fill-accent) 30%, white 6%) 0%,
+      color-mix(in srgb, var(--fill-accent) 24%, var(--bg-surface-elevated)) 100%
+    );
+  color: color-mix(in srgb, white 88%, var(--fill-accent) 12%);
   font: inherit;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   transition:
     transform var(--motion-fast) var(--motion-ease),
-    box-shadow var(--motion-fast) var(--motion-ease);
+    box-shadow var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    filter var(--motion-fast) var(--motion-ease);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
+    0 12px 22px -18px color-mix(in srgb, var(--fill-accent) 90%, transparent);
 }
 
 .actionBtn:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  border-color: color-mix(in srgb, var(--fill-accent) 48%, var(--border-default));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
+    0 16px 28px -18px color-mix(in srgb, var(--fill-accent) 90%, transparent);
+  filter: brightness(1.04);
+}
+
+.actionBtn:active {
+  transform: translateY(0);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
+    0 8px 16px -18px color-mix(in srgb, var(--fill-accent) 70%, transparent);
+}
+
+.actionBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--brand-focus-ring);
 }
 
 .actionBtnPositive {
-  border-color: color-mix(in srgb, var(--fill-positive) 24%, transparent);
-  background: var(--fill-positive-soft);
-  color: var(--fill-positive-text);
+  border-color: color-mix(in srgb, var(--fill-positive) 34%, var(--border-default));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--fill-positive) 26%, white 5%) 0%,
+      color-mix(in srgb, var(--fill-positive) 18%, var(--bg-surface-elevated)) 100%
+    );
+  color: color-mix(in srgb, white 90%, var(--fill-positive) 10%);
 }
 
 .actionBtnWarning {
-  border-color: color-mix(in srgb, var(--fill-warning) 24%, transparent);
-  background: var(--fill-warning-soft);
-  color: var(--fill-warning-text);
+  border-color: color-mix(in srgb, var(--fill-warning) 34%, var(--border-default));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--fill-warning) 28%, white 4%) 0%,
+      color-mix(in srgb, var(--fill-warning) 18%, var(--bg-surface-elevated)) 100%
+    );
+  color: color-mix(in srgb, white 90%, var(--fill-warning) 10%);
 }
 
 .toneMuted {

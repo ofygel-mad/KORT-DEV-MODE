@@ -3,6 +3,8 @@ import {
   AlertCircle,
   AlertTriangle,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Lock,
   Package,
   Star,
@@ -10,6 +12,7 @@ import {
   User,
   X,
 } from 'lucide-react';
+import { IconButton } from '@/shared/ui/IconButton';
 import { useChapanStore } from '../../model/chapan.store';
 import type { Order, ProductionStatus, ProductionTask, UITone } from '../../api/types';
 import {
@@ -18,6 +21,7 @@ import {
   PRODUCTION_STATUS_ORDER,
   PRODUCTION_STATUS_TONE,
 } from '../../api/types';
+import { useHorizontalBoardNav } from '../shared/useHorizontalBoardNav';
 import s from './ProductionQueue.module.css';
 
 const PRIORITY_WEIGHT: Record<string, number> = { vip: 0, urgent: 1, normal: 2 };
@@ -109,6 +113,18 @@ export function ProductionQueue({ mode = 'manager' }: Props) {
     return cols;
   }, [allTasks, orderMap]);
 
+  const {
+    viewportRef,
+    canScrollLeft,
+    canScrollRight,
+    scrollLeft,
+    scrollRight,
+    handleViewportKeyDown,
+  } = useHorizontalBoardNav({
+    deps: [allTasks.length, blockedCount, unassignedCount],
+    step: 320,
+  });
+
   const handleBlockConfirm = async () => {
     if (!blockModal || !blockModal.reason.trim()) return;
     await flagTask(blockModal.taskId, blockModal.reason.trim());
@@ -129,7 +145,7 @@ export function ProductionQueue({ mode = 'manager' }: Props) {
     return (
       <div className={s.empty}>
         <Package size={32} className={s.emptyIcon} />
-        <div className={s.emptyTitle}>Нет заданий в производстве</div>
+        <div className={s.emptyTitle}>Нет задач в производстве</div>
         <div className={s.emptySub}>Подтвердите заказ, чтобы создать производственные задачи</div>
       </div>
     );
@@ -154,168 +170,202 @@ export function ProductionQueue({ mode = 'manager' }: Props) {
         </div>
       )}
 
-      <div className={s.board}>
-        {PRODUCTION_STATUS_ORDER.map((status) => {
-          const tasks = columns[status];
-          return (
-            <div key={status} className={s.column}>
-              <div className={s.colHeader}>
-                <span className={`${s.colDot} ${TONE_CLASS[PRODUCTION_STATUS_TONE[status]]}`} />
-                <span className={s.colTitle}>{PRODUCTION_STATUS_LABEL[status]}</span>
-                <span className={s.colCount}>{tasks.length}</span>
-              </div>
+      <div className={s.boardToolbar}>
+        <div className={s.boardToolbarText}>
+          <span className={s.boardToolbarTitle}>Лента этапов</span>
+          <span className={s.boardToolbarHint}>Прокрутка стрелками или клавишами ← →</span>
+        </div>
 
-              <div className={s.colBody}>
-                {tasks.map((task) => {
-                  const parentOrder = orderMap.get(task.orderId);
-                  const isOverdue = Boolean(
-                    parentOrder?.dueDate
-                      && new Date(parentOrder.dueDate) < new Date()
-                      && parentOrder.status !== 'completed',
-                  );
+        <div className={s.boardToolbarActions}>
+          <IconButton
+            icon={<ChevronLeft size={16} />}
+            label="Прокрутить производственный канбан влево"
+            variant="ghost"
+            disabled={!canScrollLeft}
+            onClick={scrollLeft}
+            className={s.scrollBtn}
+          />
+          <IconButton
+            icon={<ChevronRight size={16} />}
+            label="Прокрутить производственный канбан вправо"
+            variant="ghost"
+            disabled={!canScrollRight}
+            onClick={scrollRight}
+            className={s.scrollBtn}
+          />
+        </div>
+      </div>
 
-                  return (
-                    <div
-                      key={task.id}
-                      className={[
-                        s.card,
-                        isOverdue ? s.cardOverdue : '',
-                        parentOrder?.priority === 'vip' ? s.cardVip : '',
-                        task.isBlocked ? s.cardBlocked : '',
-                      ].filter(Boolean).join(' ')}
-                    >
-                      <div className={s.cardTop}>
-                        <span className={s.cardOrder}>{task.orderNumber}</span>
-                        {parentOrder && parentOrder.priority !== 'normal' && (
-                          <span className={`${s.cardPriority} ${TONE_CLASS[PRIORITY_TONE[parentOrder.priority]]}`}>
-                            {parentOrder.priority === 'vip' ? <Star size={10} /> : <AlertTriangle size={10} />}
-                          </span>
-                        )}
-                        {task.isBlocked && (
-                          <span className={`${s.blockedBadge} ${s.toneWarning}`}>
-                            <Lock size={9} />
-                            Блок
-                          </span>
-                        )}
-                      </div>
+      <div
+        ref={viewportRef}
+        className={s.boardViewport}
+        tabIndex={0}
+        onKeyDown={handleViewportKeyDown}
+        aria-label="Канбан производства"
+      >
+        <div className={s.board}>
+          {PRODUCTION_STATUS_ORDER.map((status) => {
+            const tasks = columns[status];
+            return (
+              <div key={status} className={s.column}>
+                <div className={s.colHeader}>
+                  <span className={`${s.colDot} ${TONE_CLASS[PRODUCTION_STATUS_TONE[status]]}`} />
+                  <span className={s.colTitle}>{PRODUCTION_STATUS_LABEL[status]}</span>
+                  <span className={s.colCount}>{tasks.length}</span>
+                </div>
 
-                      <div className={s.cardName}>{task.productName}</div>
-                      <div className={s.cardMeta}>
-                        {task.fabric} / {task.size} / ×{task.quantity}
-                      </div>
+                <div className={s.colBody}>
+                  {tasks.map((task) => {
+                    const parentOrder = orderMap.get(task.orderId);
+                    const isOverdue = Boolean(
+                      parentOrder?.dueDate
+                        && new Date(parentOrder.dueDate) < new Date()
+                        && parentOrder.status !== 'completed',
+                    );
 
-                      {task.isBlocked && task.blockReason && (
-                        <div className={s.blockReason}>
-                          <AlertCircle size={10} />
-                          {task.blockReason}
-                        </div>
-                      )}
-
-                      {task.defects && (
-                        <div className={s.defectNote}>
-                          <AlertTriangle size={10} />
-                          {task.defects}
-                        </div>
-                      )}
-
-                      <div className={s.cardWorkerRow}>
-                        {task.assignedTo && (
-                          <span className={s.cardWorker}>
-                            <User size={10} />
-                            {task.assignedTo}
-                          </span>
-                        )}
-                        {canAssign ? (
-                          <select
-                            className={s.assignSelect}
-                            value={task.assignedTo ?? ''}
-                            onChange={(event) => assignWorker(task.id, event.target.value)}
-                            title="Сменить исполнителя"
-                          >
-                            <option value="">{task.assignedTo ? 'Сменить...' : 'Назначить...'}</option>
-                            {workers.map((worker) => (
-                              <option key={worker} value={worker}>{worker}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          !task.assignedTo && <span className={s.cardWorker}>Исполнитель не назначен</span>
-                        )}
-                      </div>
-
-                      {task.status !== 'done' && (
-                        <div className={s.cardActions}>
-                          {!task.isBlocked && PRODUCTION_STATUS_ORDER
-                            .filter((nextStatus) => PRODUCTION_STATUS_ORDER.indexOf(nextStatus) === PRODUCTION_STATUS_ORDER.indexOf(task.status) + 1)
-                            .map((nextStatus) => (
-                              <button
-                                key={nextStatus}
-                                className={s.moveBtn}
-                                onClick={() => moveProductionStatus(task.id, nextStatus)}
-                              >
-                                Перевести: {PRODUCTION_STATUS_LABEL[nextStatus]}
-                              </button>
-                            ))}
-
-                          {task.isBlocked && canResolveBlock ? (
-                            <button className={s.unblockBtn} onClick={() => unflagTask(task.id)}>
-                              <Unlock size={10} />
-                              Снять блок
-                            </button>
-                          ) : !task.isBlocked ? (
-                            <button
-                              className={s.blockBtn}
-                              onClick={() => setBlockModal({ taskId: task.id, productName: task.productName, reason: '' })}
-                            >
-                              <Lock size={10} />
-                              {mode === 'worker' ? 'Нужна помощь' : 'Заблокировать'}
-                            </button>
-                          ) : null}
-                        </div>
-                      )}
-
-                      {task.status !== 'done' && (
-                        <div className={s.defectRow}>
-                          {defectInputs[task.id] !== undefined ? (
-                            <>
-                              <input
-                                className={s.defectInput}
-                                placeholder="Описание дефекта..."
-                                value={defectInputs[task.id]}
-                                onChange={(event) => setDefectInputs((prev) => ({ ...prev, [task.id]: event.target.value }))}
-                                autoFocus
-                              />
-                              <button className={s.defectSave} onClick={() => handleDefectSave(task.id)} aria-label="Сохранить дефект">
-                                <Check size={12} />
-                              </button>
-                              <button
-                                className={s.defectCancel}
-                                onClick={() => setDefectInputs((prev) => {
-                                  const next = { ...prev };
-                                  delete next[task.id];
-                                  return next;
-                                })}
-                                aria-label="Отменить редактирование дефекта"
-                              >
-                                <X size={12} />
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              className={s.defectToggle}
-                              onClick={() => setDefectInputs((prev) => ({ ...prev, [task.id]: task.defects ?? '' }))}
-                            >
-                              {task.defects ? 'Изменить дефект' : 'Добавить дефект'}
-                            </button>
+                    return (
+                      <div
+                        key={task.id}
+                        className={[
+                          s.card,
+                          isOverdue ? s.cardOverdue : '',
+                          parentOrder?.priority === 'vip' ? s.cardVip : '',
+                          task.isBlocked ? s.cardBlocked : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <div className={s.cardTop}>
+                          <span className={s.cardOrder}>{task.orderNumber}</span>
+                          {parentOrder && parentOrder.priority !== 'normal' && (
+                            <span className={`${s.cardPriority} ${TONE_CLASS[PRIORITY_TONE[parentOrder.priority]]}`}>
+                              {parentOrder.priority === 'vip' ? <Star size={10} /> : <AlertTriangle size={10} />}
+                            </span>
+                          )}
+                          {task.isBlocked && (
+                            <span className={`${s.blockedBadge} ${s.toneWarning}`}>
+                              <Lock size={9} />
+                              Блок
+                            </span>
                           )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        <div className={s.cardName}>{task.productName}</div>
+                        <div className={s.cardMeta}>
+                          {task.fabric} / {task.size} / ×{task.quantity}
+                        </div>
+
+                        {task.isBlocked && task.blockReason && (
+                          <div className={s.blockReason}>
+                            <AlertCircle size={10} />
+                            {task.blockReason}
+                          </div>
+                        )}
+
+                        {task.defects && (
+                          <div className={s.defectNote}>
+                            <AlertTriangle size={10} />
+                            {task.defects}
+                          </div>
+                        )}
+
+                        <div className={s.cardWorkerRow}>
+                          {task.assignedTo && (
+                            <span className={s.cardWorker}>
+                              <User size={10} />
+                              {task.assignedTo}
+                            </span>
+                          )}
+                          {canAssign ? (
+                            <select
+                              className={s.assignSelect}
+                              value={task.assignedTo ?? ''}
+                              onChange={(event) => assignWorker(task.id, event.target.value)}
+                              title="Сменить исполнителя"
+                            >
+                              <option value="">{task.assignedTo ? 'Сменить...' : 'Назначить...'}</option>
+                              {workers.map((worker) => (
+                                <option key={worker} value={worker}>{worker}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            !task.assignedTo && <span className={s.cardWorker}>Исполнитель не назначен</span>
+                          )}
+                        </div>
+
+                        {task.status !== 'done' && (
+                          <div className={s.cardActions}>
+                            {!task.isBlocked && PRODUCTION_STATUS_ORDER
+                              .filter((nextStatus) => PRODUCTION_STATUS_ORDER.indexOf(nextStatus) === PRODUCTION_STATUS_ORDER.indexOf(task.status) + 1)
+                              .map((nextStatus) => (
+                                <button
+                                  key={nextStatus}
+                                  className={s.moveBtn}
+                                  onClick={() => moveProductionStatus(task.id, nextStatus)}
+                                >
+                                  Перевести: {PRODUCTION_STATUS_LABEL[nextStatus]}
+                                </button>
+                              ))}
+
+                            {task.isBlocked && canResolveBlock ? (
+                              <button className={s.unblockBtn} onClick={() => unflagTask(task.id)}>
+                                <Unlock size={10} />
+                                Снять блок
+                              </button>
+                            ) : !task.isBlocked ? (
+                              <button
+                                className={s.blockBtn}
+                                onClick={() => setBlockModal({ taskId: task.id, productName: task.productName, reason: '' })}
+                              >
+                                <Lock size={10} />
+                                {mode === 'worker' ? 'Нужна помощь' : 'Заблокировать'}
+                              </button>
+                            ) : null}
+                          </div>
+                        )}
+
+                        {task.status !== 'done' && (
+                          <div className={s.defectRow}>
+                            {defectInputs[task.id] !== undefined ? (
+                              <>
+                                <input
+                                  className={s.defectInput}
+                                  placeholder="Описание дефекта..."
+                                  value={defectInputs[task.id]}
+                                  onChange={(event) => setDefectInputs((prev) => ({ ...prev, [task.id]: event.target.value }))}
+                                  autoFocus
+                                />
+                                <button className={s.defectSave} onClick={() => handleDefectSave(task.id)} aria-label="Сохранить дефект">
+                                  <Check size={12} />
+                                </button>
+                                <button
+                                  className={s.defectCancel}
+                                  onClick={() => setDefectInputs((prev) => {
+                                    const next = { ...prev };
+                                    delete next[task.id];
+                                    return next;
+                                  })}
+                                  aria-label="Отменить редактирование дефекта"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                className={s.defectToggle}
+                                onClick={() => setDefectInputs((prev) => ({ ...prev, [task.id]: task.defects ?? '' }))}
+                              >
+                                {task.defects ? 'Изменить дефект' : 'Добавить дефект'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {blockModal && (

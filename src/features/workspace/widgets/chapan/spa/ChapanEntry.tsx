@@ -36,8 +36,9 @@ export function ChapanEntry({ tileId }: { tileId: string }) {
       <ProductionWorkspaceShell
         title={profileName}
         onBack={goHome}
+        tone="live"
       >
-        <ChapanSPA tileId={tileId} />
+        <ChapanSPA tileId={tileId} title={profileName} onBack={goHome} />
       </ProductionWorkspaceShell>
     );
   }
@@ -47,8 +48,9 @@ export function ChapanEntry({ tileId }: { tileId: string }) {
       <ProductionWorkspaceShell
         title={profileName}
         onBack={goHome}
+        tone="live"
       >
-        <WorkshopConsole />
+        <WorkshopConsole title={profileName} onBack={goHome} />
       </ProductionWorkspaceShell>
     );
   }
@@ -57,6 +59,7 @@ export function ChapanEntry({ tileId }: { tileId: string }) {
     <ProductionWorkspaceShell
       title={profileName}
       onBack={goHome}
+      tone="locked"
     >
       <div className={s.denied}>
         <div className={s.iconWrap}>

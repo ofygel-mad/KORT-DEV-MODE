@@ -84,23 +84,6 @@ export function RequestInbox({ tileId }: { tileId: string }) {
 
   return (
     <div className={s.root}>
-      <section className={s.hero}>
-        <div className={s.heroCopy}>
-          <h2 className={s.heroTitle}>Заявки</h2>
-          <p className={s.heroText}>Новые обращения, проверка и перевод в заказ.</p>
-        </div>
-        <div className={s.heroStats}>
-          <div className={s.heroStat}>
-            <strong>{counts.active}</strong>
-            <span>ждут обработки</span>
-          </div>
-          <div className={s.heroStat}>
-            <strong>{counts.converted}</strong>
-            <span>переведено в заказ</span>
-          </div>
-        </div>
-      </section>
-
       <div className={s.filters}>
         {(Object.keys(FILTER_LABEL) as Filter[]).map((value) => (
           <button
@@ -113,6 +96,15 @@ export function RequestInbox({ tileId }: { tileId: string }) {
           </button>
         ))}
       </div>
+
+      {visible.length === 0 && (
+        <div className={s.filteredEmpty}>
+          <div className={s.filteredEmptyTitle}>В этом фильтре заявок нет</div>
+          <div className={s.filteredEmptyText}>
+            Переключите статус сверху или дождитесь новых обращений.
+          </div>
+        </div>
+      )}
 
       <div className={s.list}>
         {visible.map((request) => {
