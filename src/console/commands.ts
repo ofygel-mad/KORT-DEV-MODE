@@ -527,13 +527,6 @@ export async function executeConsoleCommand(input: string): Promise<ConsoleComma
     }
 
     case 'access': {
-      if (!canUseLocalConsoleAccess()) {
-        return {
-          level: 'error',
-          message: 'Service access unavailable — not a DEV build.',
-        };
-      }
-
       const password = parsed.args[0] ?? '';
       if (!password) {
         return {
@@ -577,7 +570,10 @@ export async function executeConsoleCommand(input: string): Promise<ConsoleComma
 
       // ── Шаг 2: пробуем локальный хэш (оба пути) ────────────
       // Это нужно и когда бэкенд недоступен, и когда пароль в .env другой
-      const accepted = await verifyConsolePassword(password);
+      const canUseLocalFallback = canUseLocalConsoleAccess();
+      const accepted = canUseLocalFallback
+        ? await verifyConsolePassword(password)
+        : false;
 
       if (accepted) {
         activateConsoleAccess();
@@ -599,17 +595,29 @@ export async function executeConsoleCommand(input: string): Promise<ConsoleComma
       const backendLine = backendResult.type === 'offline'
         ? '  Бэкенд:  недоступен (сервер выключен или порт 8000 закрыт)'
         : '  Бэкенд:  отклонил — пароль не совпадает с CONSOLE_SERVICE_PASSWORD';
+      const localLine = canUseLocalFallback
+        ? '  Локально: хэш не совпадает'
+        : '  Локально: fallback отключён вне DEV-сборки';
+      const tryLines = canUseLocalFallback
+        ? [
+            'Что попробовать:',
+            '  access "kortdev1234"   ← пароль из CONSOLE_SERVICE_PASSWORD',
+            '  access "1234"          ← дефолтный локальный пароль',
+          ]
+        : [
+            'Что попробовать:',
+            '  access "ваш-CONSOLE_SERVICE_PASSWORD"',
+            '  Проверь, что backend жив и переменная CONSOLE_SERVICE_PASSWORD задана в Railway.',
+          ];
 
       return {
         level: 'error',
         message: 'Неверный пароль.',
         details: [
           backendLine,
-          '  Локально: хэш не совпадает',
+          localLine,
           '',
-          'Что попробовать:',
-          '  access "kortdev1234"   ← пароль из server/.env',
-          '  access "1234"          ← дефолтный локальный пароль',
+          ...tryLines,
         ].join('\n'),
       };
     }

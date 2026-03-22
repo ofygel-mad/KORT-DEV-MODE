@@ -1,53 +1,99 @@
 # Deploy На Railway
 
-Под этот репозиторий Railway-деплой нужно делать не одним сервисом, а раздельно:
+Актуальная схема для этого проекта:
 
-1. `frontend` сервис из корня репозитория
-2. `backend` сервис из папки `server/`
-3. `postgres` сервис, если база тоже будет жить на Railway
+1. `frontend repo` = текущий репозиторий `KORT-DEV-MODE`
+2. `backend repo` = отдельный репозиторий `KORT-BACKEND`
+3. `postgres service` = база данных в Railway
 
-Важно: когда я раньше писал "нужно поднять 2 сервиса", я имел в виду 2 прикладных сервиса приложения: фронтенд и бэкенд. База данных обычно становится третьим сервисом внутри того же Railway Project.
+То есть теперь деплой делается не из монорепозитория, а из двух отдельных репозиториев.
 
 ## Что получится в итоге
 
-Пример итоговой схемы:
+В одном Railway Project будут жить 3 сервиса:
 
-- `frontend`:
-  - собирает Vite-приложение из корня репозитория
-  - открывается пользователю в браузере
-- `backend`:
-  - собирает Fastify API из `server/`
-  - отвечает на `https://.../api/v1/*`
-- `postgres`:
-  - хранит данные Prisma
-  - отдаёт `DATABASE_URL` для backend
+- `frontend`
+  - собирается из репозитория `KORT-DEV-MODE`
+  - отдаёт сайт пользователю
+- `backend`
+  - собирается из репозитория `KORT-BACKEND`
+  - отдаёт API на `/api/v1/*`
+- `postgres`
+  - хранит данные приложения
 
-## До начала
+## Почему эта схема проще
 
-Проверь локально, что проект уже зелёный:
+Потому что теперь:
 
-```bash
-npm run test
-npm run test:e2e
-npm run build
-cd server
-npm run build
+- один репозиторий = один сервис
+- не нужен `Root Directory`
+- не нужно разделять один GitHub repo на два Railway service
+- не нужно объяснять Railway, где фронт, а где бэк
+
+## Какие репозитории должны быть
+
+## 1. Frontend repo
+
+Это текущий репозиторий:
+
+- `KORT-DEV-MODE`
+
+Он должен содержать:
+
+- `src/`
+- `public/`
+- `package.json`
+- `railway.toml`
+- `vite.config.ts`
+- весь фронтенд-код
+
+## 2. Backend repo
+
+Это отдельный репозиторий:
+
+- `KORT-BACKEND`
+
+В корне этого репозитория должно лежать то, что раньше было внутри папки `server/`.
+
+То есть структура `KORT-BACKEND` должна быть такой:
+
+```text
+KORT-BACKEND/
+├─ src/
+├─ prisma/
+├─ scripts/
+├─ package.json
+├─ pnpm-lock.yaml
+├─ tsconfig.json
+├─ railway.toml
+├─ .env.example
+└─ ...
 ```
 
-## Какие файлы уже подготовлены
+Важно:
 
-В репозитории уже есть:
+- в `KORT-BACKEND` не должно быть дополнительного уровня `server/`
+- `package.json` backend должен лежать в корне backend repo
+- `railway.toml` backend должен лежать тоже в корне backend repo
 
-- frontend Railway config: [railway.toml](/c:/Users/user/Documents/KORT-DEV-MODE/railway.toml)
-- backend Railway config: [server/railway.toml](/c:/Users/user/Documents/KORT-DEV-MODE/server/railway.toml)
-- backend env schema: [server/src/config.ts](/c:/Users/user/Documents/KORT-DEV-MODE/server/src/config.ts)
-- healthcheck route: [server/src/app.ts](/c:/Users/user/Documents/KORT-DEV-MODE/server/src/app.ts#L121)
+## Что уже должно быть в backend repo
 
-## Какие переменные реально нужны
+У backend repo должны быть:
 
-### Frontend
+- `src/config.ts`
+- `src/app.ts`
+- `src/index.ts`
+- `prisma/schema.prisma`
+- `package.json`
+- `railway.toml`
 
-Обязательно:
+## Переменные окружения
+
+Ниже сначала объяснение, а потом будет блок "сделай как по шаблону", который можно просто повторить в Railway.
+
+## Frontend
+
+Во frontend service нужны:
 
 - `VITE_API_BASE_URL`
 
@@ -55,14 +101,23 @@ npm run build
 
 - `VITE_SENTRY_DSN`
 
-Не нужно ставить на Railway:
+Не нужны:
 
 - `VITE_MOCK_API=true`
 - `VITE_PROXY_TARGET`
 
-### Backend
+### Пример frontend env
 
-Обязательно:
+```env
+VITE_API_BASE_URL=https://<backend-domain>/api/v1
+VITE_SENTRY_DSN=
+```
+
+## Backend
+
+## Backend
+
+Во backend service нужны:
 
 - `DATABASE_URL`
 - `JWT_ACCESS_SECRET`
@@ -75,242 +130,518 @@ npm run build
 - `JWT_REFRESH_TTL`
 - `CONSOLE_SERVICE_PASSWORD`
 
-Обычно можно не трогать:
-
-- `PORT`
-- `HOST`
-
-`PORT` Railway прокидывает сам.  
-`HOST` у вас и так по умолчанию `0.0.0.0`.
-
-## Что означает каждая важная переменная
-
-### `VITE_API_BASE_URL`
-
-Это публичный адрес backend API, который будет использовать браузер.
-
-Пример:
+### Пример backend env
 
 ```env
-VITE_API_BASE_URL=https://kort-api-production.up.railway.app/api/v1
+DATABASE_URL=postgresql://postgres:***@postgres.railway.internal:5432/railway
+JWT_ACCESS_SECRET=replace_me_with_long_random_secret_1
+JWT_REFRESH_SECRET=replace_me_with_long_random_secret_2
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=7d
+CORS_ORIGIN=https://<frontend-domain>
+CONSOLE_SERVICE_PASSWORD=optional
 ```
 
-Важно:
+## Готовый шаблон Railway Variables
 
-- здесь нужен именно публичный HTTPS-домен backend
-- сюда нельзя ставить `railway.internal`
-- сюда нельзя ставить localhost
+Ниже инструкция в максимально прямом виде.
 
-Почему: браузер пользователя не может ходить во внутреннюю сеть Railway. Railway сам пишет, что private network недоступна клиентским запросам из браузера, для браузера нужен public domain: https://docs.railway.com/networking/domains/working-with-domains
+## 1. Что открыть в Railway
 
-### `DATABASE_URL`
+У тебя будет 3 сервиса:
 
-Это строка подключения Prisma/Fastify к PostgreSQL.
+- `Postgres`
+- `backend` из репозитория `KORT-BACKEND`
+- `frontend` из репозитория `KORT-DEV-MODE`
 
-Если используешь Railway PostgreSQL, Railway сам даст эту переменную. Её нужно передать в backend сервис.
+Переменные ставятся не в проект целиком, а в конкретный сервис.
 
-Пример вида:
+То есть:
+
+- backend variables ставишь в `backend service`
+- frontend variables ставишь в `frontend service`
+
+## 2. Что ставить в backend service
+
+Открой:
+
+`Railway -> твой project -> backend service -> Variables`
+
+Добавь там **ровно эти переменные**.
+
+### Backend: обязательно
 
 ```env
-DATABASE_URL=postgresql://postgres:password@postgres.railway.internal:5432/railway
+DATABASE_URL=<сюда вставить DATABASE_URL из Postgres service>
+JWT_ACCESS_SECRET=<сюда вставить длинный случайный секрет №1>
+JWT_REFRESH_SECRET=<сюда вставить длинный случайный секрет №2>
+CORS_ORIGIN=https://example.com
 ```
 
-Точное значение руками придумывать не надо. Его берут из сервиса базы.
+### Backend: очень желательно
 
-### `JWT_ACCESS_SECRET`
+```env
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=7d
+NODE_ENV=production
+HOST=0.0.0.0
+```
 
-Секрет для access token.
+### Backend: опционально
 
-Должен быть длинным случайным значением.
+```env
+CONSOLE_SERVICE_PASSWORD=kortdev1234
+```
 
-Пример генерации в PowerShell:
+Если хочешь входить на production сайте через консольную команду:
+
+```text
+access "твой-пароль"
+```
+
+то `CONSOLE_SERVICE_PASSWORD` для backend service фактически становится обязательной.
+
+### Что означает каждая backend variable
+
+`DATABASE_URL`
+
+- берёшь из `Postgres service`
+- не придумываешь руками
+- не ставишь localhost
+
+`JWT_ACCESS_SECRET`
+
+- любой длинный случайный текст
+- лучше 32+ символов
+
+`JWT_REFRESH_SECRET`
+
+- ещё один другой длинный случайный текст
+- не должен совпадать с `JWT_ACCESS_SECRET`
+
+`CORS_ORIGIN`
+
+- временно можешь поставить:
+
+```env
+CORS_ORIGIN=https://example.com
+```
+
+- потом, когда frontend получит свой реальный Railway domain, обязательно замени на него
+
+Например:
+
+```env
+CORS_ORIGIN=https://kort-frontend-production.up.railway.app
+```
+
+`CONSOLE_SERVICE_PASSWORD`
+
+- пароль для сервисного входа через консоль на production сайте
+- если эта переменная не задана в backend, команда `access "..."` не сможет авторизовать тебя через backend
+- если база на Railway пустая, первый успешный `access "..."` автоматически создаст demo owner + demo company
+- пример:
+
+```env
+CONSOLE_SERVICE_PASSWORD=kortdev1234
+```
+
+### Что это даёт на production
+
+Если в backend service задано:
+
+```env
+CONSOLE_SERVICE_PASSWORD=kortdev1234
+```
+
+то на production сайте ты можешь открыть встроенную консоль и выполнить:
+
+```text
+access "kortdev1234"
+```
+
+Если база пустая, backend сам создаст:
+
+- owner: `admin@kort.local`
+- пароль owner: `demo1234`
+- компанию: `Demo Company`
+- slug компании: `demo-company`
+
+То есть после первого сервисного входа у тебя будет сразу 2 способа зайти:
+
+- сервисный режим: `access "kortdev1234"`
+- обычная авторизация: `admin@kort.local` / `demo1234`
+
+## 3. Откуда взять `DATABASE_URL`
+
+Открой:
+
+`Railway -> твой project -> Postgres service -> Variables`
+
+Там найди:
+
+```env
+DATABASE_URL
+```
+
+Скопируй **значение** и вставь это значение в:
+
+`backend service -> Variables -> DATABASE_URL`
+
+## 4. Как сгенерировать JWT секреты
+
+Открой PowerShell и выполни:
 
 ```powershell
 [Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }))
 ```
 
-### `JWT_REFRESH_SECRET`
+Запусти команду 2 раза:
 
-Отдельный секрет для refresh token.
+- первый результат -> `JWT_ACCESS_SECRET`
+- второй результат -> `JWT_REFRESH_SECRET`
 
-Нельзя делать его таким же, как `JWT_ACCESS_SECRET`.
+## 5. Что ставить в frontend service
 
-Сгенерируй ещё одно отдельное случайное значение той же командой.
+Открой:
 
-### `CORS_ORIGIN`
+`Railway -> твой project -> frontend service -> Variables`
 
-Это домен фронтенда, которому backend разрешит обращаться к API.
-
-Пример:
-
-```env
-CORS_ORIGIN=https://kort-web-production.up.railway.app
-```
-
-Важно:
-
-- здесь указывается домен фронта
-- без `/api/v1`
-- без завершающего `/`
-- в текущем коде это одна строка, а не список доменов
-
-Если потом подключишь свой frontend custom domain, `CORS_ORIGIN` нужно поменять на него.
-
-## Пошаговый деплой
-
-## Шаг 1. Создай Railway Project
-
-1. Зайди в Railway.
-2. Нажми `New Project`.
-3. Выбери `Deploy from GitHub repo`.
-4. Подключи этот репозиторий.
-
-После этого у тебя будет один Railway Project, внутри которого ты создашь отдельные сервисы.
-
-## Шаг 2. Создай PostgreSQL сервис
-
-Если база будет на Railway:
-
-1. Внутри Project нажми `New`.
-2. Выбери `Database`.
-3. Выбери `PostgreSQL`.
-4. Дождись, пока сервис базы создастся.
-
-После этого у Railway появятся переменные базы. Именно из них потом нужно подать `DATABASE_URL` в backend.
-
-## Шаг 3. Создай backend сервис
-
-1. Нажми `New`.
-2. Выбери `GitHub Repo`.
-3. Укажи тот же репозиторий.
-4. Назови сервис, например `backend`.
-
-Дальше в настройках сервиса выстави:
-
-- `Root Directory` = `server`
-- `Config as Code` = `/server/railway.toml`
-
-Важно:
-
-- `Root Directory` говорит Railway, из какой папки собирать код
-- `Config as Code` лучше указывать явным путём к backend-конфигу
-
-### Переменные backend
-
-Открой backend service -> `Variables` и задай:
-
-```env
-DATABASE_URL=<из postgres сервиса или внешней БД>
-JWT_ACCESS_SECRET=<длинный случайный секрет>
-JWT_REFRESH_SECRET=<другой длинный случайный секрет>
-CORS_ORIGIN=<публичный домен фронтенда>
-JWT_ACCESS_TTL=15m
-JWT_REFRESH_TTL=7d
-CONSOLE_SERVICE_PASSWORD=<опционально>
-```
-
-### Откуда брать `DATABASE_URL`
-
-Есть 2 варианта.
-
-#### Вариант A. База на Railway
-
-Используй переменную, которую даёт Railway PostgreSQL сервис.
-
-Самый безопасный путь:
-
-1. Открой PostgreSQL service
-2. Перейди в `Variables`
-3. Скопируй `DATABASE_URL`
-4. Вставь её в backend service -> `Variables`
-
-Если хочешь, можно использовать и reference variable через Railway UI, но для первого деплоя проще и прозрачнее просто вставить готовое значение.
-
-#### Вариант B. Внешняя база
-
-Просто вставь внешний PostgreSQL URL от Supabase, Neon, Render, RDS или своего сервера.
-
-## Шаг 4. Создай frontend сервис
-
-1. Нажми `New`
-2. Выбери `GitHub Repo`
-3. Укажи тот же репозиторий
-4. Назови сервис, например `frontend`
-
-В настройках сервиса выстави:
-
-- `Root Directory` = `.`
-- `Config as Code` = `/railway.toml`
-
-### Переменные frontend
-
-Открой frontend service -> `Variables` и задай:
+Добавь там:
 
 ```env
 VITE_API_BASE_URL=https://<backend-domain>/api/v1
 VITE_SENTRY_DSN=
 ```
 
+### Что означает каждая frontend variable
+
+`VITE_API_BASE_URL`
+
+- это публичный URL backend
+- обязательно с `/api/v1`
+- не localhost
+- не railway internal
+
 Пример:
 
 ```env
-VITE_API_BASE_URL=https://kort-api-production.up.railway.app/api/v1
+VITE_API_BASE_URL=https://kort-backend-production.up.railway.app/api/v1
 ```
 
-Важно:
+`VITE_SENTRY_DSN`
 
-- фронт должен знать уже готовый backend public URL
-- если backend домен изменился, обнови `VITE_API_BASE_URL` и redeploy frontend
+- можно пока оставить пустым
+- нужна только если реально подключаешь Sentry
 
-## Шаг 5. Получи публичные Railway-домены
+## 6. Что ставить сначала, если frontend домена ещё нет
 
-Railway пишет, что сервису домен не назначается автоматически, его нужно сгенерировать в `Networking -> Public Networking -> Generate Domain`:
+Делай так:
 
-https://docs.railway.com/networking/domains/working-with-domains
+### Сначала backend
 
-Сделай так:
+В backend service поставь:
 
-### Для backend
-
-1. Зайди в backend service
-2. Открой `Settings`
-3. Найди `Networking`
-4. Нажми `Generate Domain`
-5. Получи что-то вроде:
-
-```text
-https://backend-production-xxxx.up.railway.app
+```env
+DATABASE_URL=<из Postgres service>
+JWT_ACCESS_SECRET=<секрет 1>
+JWT_REFRESH_SECRET=<секрет 2>
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=7d
+NODE_ENV=production
+HOST=0.0.0.0
+CORS_ORIGIN=https://example.com
+CONSOLE_SERVICE_PASSWORD=kortdev1234
 ```
 
-### Для frontend
+Потом задеплой backend.
 
-1. Зайди в frontend service
-2. Повтори те же действия
-3. Получи frontend domain
+### Потом frontend
 
-## Шаг 6. Обнови `CORS_ORIGIN` и `VITE_API_BASE_URL`
+Когда backend service уже получил public domain, поставь во frontend:
 
-Теперь, когда у тебя есть оба публичных домена:
+```env
+VITE_API_BASE_URL=https://<backend-domain>/api/v1
+VITE_SENTRY_DSN=
+```
 
-### На backend
+Потом задеплой frontend.
 
-Поставь:
+### Потом вернись в backend
+
+Когда frontend service получил public domain, обнови в backend:
 
 ```env
 CORS_ORIGIN=https://<frontend-domain>
 ```
 
-### На frontend
+И сделай redeploy backend.
 
-Поставь:
+## 7. Самый простой рабочий сценарий по шагам
+
+### Шаг A. Postgres
+
+В Postgres service ничего руками обычно не вводишь.  
+Просто копируешь оттуда `DATABASE_URL`.
+
+### Шаг B. Backend
+
+Вставь в backend service:
+
+```env
+DATABASE_URL=<скопировать из Postgres>
+JWT_ACCESS_SECRET=<секрет 1>
+JWT_REFRESH_SECRET=<секрет 2>
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=7d
+NODE_ENV=production
+HOST=0.0.0.0
+CORS_ORIGIN=https://example.com
+CONSOLE_SERVICE_PASSWORD=kortdev1234
+```
+
+Потом жми redeploy.
+
+### Шаг C. Проверка backend
+
+Сгенерируй backend domain и открой:
+
+```text
+https://<backend-domain>/api/v1/health
+```
+
+Если видишь JSON со `status: ok`, backend жив.
+
+### Шаг D. Frontend
+
+Вставь в frontend service:
 
 ```env
 VITE_API_BASE_URL=https://<backend-domain>/api/v1
+VITE_SENTRY_DSN=
 ```
 
-После изменения переменных Railway обычно сам инициирует redeploy. Если нет, сделай redeploy вручную.
+Потом жми redeploy.
 
-## Шаг 7. Проверь backend отдельно
+### Шаг E. Финальный CORS
+
+Когда frontend получил свой public domain, обнови backend:
+
+```env
+CORS_ORIGIN=https://<frontend-domain>
+```
+
+И снова redeploy backend.
+
+## 8. Что **не надо** ставить
+
+### Не ставь это во frontend
+
+```env
+DATABASE_URL
+JWT_ACCESS_SECRET
+JWT_REFRESH_SECRET
+CORS_ORIGIN
+```
+
+### Не ставь это в backend
+
+```env
+VITE_API_BASE_URL
+VITE_SENTRY_DSN
+```
+
+### Не ставь в production frontend
+
+```env
+VITE_MOCK_API=true
+VITE_PROXY_TARGET=http://localhost:8000
+```
+
+## 9. Готовый блок для копирования
+
+## Backend service -> Variables
+
+```env
+DATABASE_URL=<PASTE_FROM_POSTGRES_SERVICE>
+JWT_ACCESS_SECRET=<PASTE_RANDOM_SECRET_1>
+JWT_REFRESH_SECRET=<PASTE_RANDOM_SECRET_2>
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=7d
+NODE_ENV=production
+HOST=0.0.0.0
+CORS_ORIGIN=https://example.com
+CONSOLE_SERVICE_PASSWORD=kortdev1234
+```
+
+## Frontend service -> Variables
+
+```env
+VITE_API_BASE_URL=https://<BACKEND_PUBLIC_DOMAIN>/api/v1
+VITE_SENTRY_DSN=
+```
+
+## 10. После получения frontend домена
+
+Замени в backend service:
+
+```env
+CORS_ORIGIN=https://<FRONTEND_PUBLIC_DOMAIN>
+```
+
+## Что означает каждая важная переменная
+
+## `VITE_API_BASE_URL`
+
+Это адрес backend API, который использует frontend в браузере.
+
+Пример:
+
+```env
+VITE_API_BASE_URL=https://kort-backend-production.up.railway.app/api/v1
+```
+
+Важно:
+
+- здесь нужен публичный backend URL
+- не `localhost`
+- не `railway.internal`
+
+## `DATABASE_URL`
+
+Это строка подключения backend к PostgreSQL.
+
+Её ставят только в backend service.
+
+Если база на Railway, это значение берётся из PostgreSQL service.
+
+## `JWT_ACCESS_SECRET`
+
+Секрет для access token.
+
+Должен быть длинным и случайным.
+
+## `JWT_REFRESH_SECRET`
+
+Отдельный секрет для refresh token.
+
+Не должен совпадать с `JWT_ACCESS_SECRET`.
+
+## `CORS_ORIGIN`
+
+Это домен frontend-сайта, которому backend разрешает браузерные запросы.
+
+Пример:
+
+```env
+CORS_ORIGIN=https://kort-frontend-production.up.railway.app
+```
+
+Важно:
+
+- только origin
+- без `/api/v1`
+- без завершающего `/`
+
+## Порядок деплоя
+
+Правильный порядок:
+
+1. создать Railway Project
+2. создать PostgreSQL service
+3. создать backend service из `KORT-BACKEND`
+4. задать backend env
+5. дождаться backend deploy
+6. сгенерировать backend public domain
+7. создать frontend service из `KORT-DEV-MODE`
+8. задать frontend env
+9. дождаться frontend deploy
+10. сгенерировать frontend public domain
+11. обновить backend `CORS_ORIGIN` на frontend domain
+12. redeploy backend
+13. пройти smoke-проверку
+
+## Пошагово
+
+## Шаг 1. Создай Railway Project
+
+1. Зайди в Railway
+2. Нажми `New Project`
+3. Создай новый проект
+
+В этом проекте будут жить все три сервиса.
+
+## Шаг 2. Создай PostgreSQL service
+
+1. Нажми `Add`
+2. Выбери `Database`
+3. Выбери `PostgreSQL`
+
+Дождись, пока сервис базы создастся.
+
+## Шаг 3. Создай backend service
+
+1. Нажми `Add`
+2. Выбери `GitHub Repo`
+3. Выбери репозиторий `KORT-BACKEND`
+
+Так как backend теперь в отдельном репозитории, никаких `Root Directory` уже не нужно.
+
+### Что проверить у backend
+
+В backend service:
+
+- repository = `KORT-BACKEND`
+- config-as-code = `railway.toml` из корня backend repo
+
+Если Railway сам подхватил `railway.toml`, это нормально.
+
+## Шаг 4. Задай backend env
+
+Открой backend service -> `Variables` и добавь:
+
+```env
+DATABASE_URL=<из postgres service>
+JWT_ACCESS_SECRET=<длинный случайный секрет>
+JWT_REFRESH_SECRET=<другой длинный случайный секрет>
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=7d
+CORS_ORIGIN=https://temporary-frontend-domain-or-later-update
+CONSOLE_SERVICE_PASSWORD=<опционально>
+```
+
+### Как взять `DATABASE_URL`
+
+1. Открой PostgreSQL service
+2. Открой `Variables`
+3. Найди `DATABASE_URL`
+4. Скопируй значение
+5. Вставь в backend service -> `Variables`
+
+## Шаг 5. Дождись успешного backend deploy
+
+Backend должен:
+
+- собраться
+- пройти миграции
+- стартовать
+
+После этого проверь логи.
+
+## Шаг 6. Сгенерируй backend public domain
+
+1. Открой backend service
+2. Перейди в `Settings`
+3. Найди `Networking`
+4. Нажми `Generate Domain`
+
+Получишь что-то вроде:
+
+```text
+https://kort-backend-production.up.railway.app
+```
+
+## Шаг 7. Проверь backend health
 
 Открой:
 
@@ -327,177 +658,153 @@ https://<backend-domain>/api/v1/health
 }
 ```
 
-Если healthcheck не открывается:
+## Шаг 8. Создай frontend service
 
-- проверь, что backend service вообще стартовал
-- проверь логи deployment
-- проверь `DATABASE_URL`
-- проверь, что Prisma миграции не упали
+1. Нажми `Add`
+2. Выбери `GitHub Repo`
+3. Выбери репозиторий `KORT-DEV-MODE`
 
-## Шаг 8. Проверь frontend отдельно
+### Что проверить у frontend
 
-Открой frontend domain.
+В frontend service:
 
-Проверь:
+- repository = `KORT-DEV-MODE`
+- config-as-code = `railway.toml` из корня frontend repo
 
-1. страница загружается
-2. логин работает
-3. нет ошибок `CORS`
-4. нет ошибок `Failed to fetch`
-5. после логина идут реальные запросы в backend домен
+Так как фронт теперь сам по себе, `Root Directory` тоже не нужен.
 
-## Шаг 9. Проверь базовые пользовательские сценарии
+## Шаг 9. Задай frontend env
 
-Минимум:
-
-1. логин
-2. создание клиента
-3. открытие клиента
-4. редактирование клиента
-5. создание сделки
-6. открытие сделки
-7. редактирование сделки
-8. открытие настроек
-
-## Шаг 10. Если нужен свой домен
-
-Railway поддерживает custom domains. По официальной документации:
-
-- сначала добавляешь custom domain в сервис Railway
-- Railway выдаёт CNAME value
-- затем создаёшь DNS запись у регистратора
-- после верификации Railway сам выдаёт SSL
-
-Документация:
-
-https://docs.railway.com/networking/domains/working-with-domains
-
-### Если используешь Cloudflare
-
-Railway отдельно предупреждает:
-
-- при proxy через Cloudflare нужен `SSL/TLS = Full`
-- `Full (Strict)` может не подойти в их типовой схеме
-
-## Готовые примеры env
-
-## Backend
+Открой frontend service -> `Variables` и добавь:
 
 ```env
-DATABASE_URL=postgresql://postgres:***@postgres.railway.internal:5432/railway
-JWT_ACCESS_SECRET=replace_me_with_long_random_secret_1
-JWT_REFRESH_SECRET=replace_me_with_long_random_secret_2
-JWT_ACCESS_TTL=15m
-JWT_REFRESH_TTL=7d
-CORS_ORIGIN=https://kort-web-production.up.railway.app
-CONSOLE_SERVICE_PASSWORD=replace_if_needed
-```
-
-## Frontend
-
-```env
-VITE_API_BASE_URL=https://kort-api-production.up.railway.app/api/v1
+VITE_API_BASE_URL=https://<backend-domain>/api/v1
 VITE_SENTRY_DSN=
 ```
 
-## Как понять, куда какую переменную ставить
+Пример:
 
-Правило простое:
+```env
+VITE_API_BASE_URL=https://kort-backend-production.up.railway.app/api/v1
+```
 
-- всё, что начинается с `VITE_`, ставится только во frontend service
-- всё, что относится к Fastify, Prisma, JWT, CORS, ставится только в backend service
+## Шаг 10. Дождись frontend deploy
 
-То есть:
+Frontend должен:
 
-- `VITE_API_BASE_URL` -> frontend
-- `DATABASE_URL` -> backend
-- `JWT_ACCESS_SECRET` -> backend
-- `JWT_REFRESH_SECRET` -> backend
-- `CORS_ORIGIN` -> backend
+- собраться через Vite
+- подняться как web service
+
+## Шаг 11. Сгенерируй frontend public domain
+
+1. Открой frontend service
+2. Перейди в `Settings`
+3. Открой `Networking`
+4. Нажми `Generate Domain`
+
+Получишь что-то вроде:
+
+```text
+https://kort-frontend-production.up.railway.app
+```
+
+## Шаг 12. Вернись в backend и обнови `CORS_ORIGIN`
+
+Теперь backend уже знает настоящий frontend domain.
+
+Открой backend service -> `Variables` и поставь:
+
+```env
+CORS_ORIGIN=https://<frontend-domain>
+```
+
+После этого сделай redeploy backend.
+
+## Шаг 13. Финальная проверка
+
+Проверь:
+
+1. `https://<backend-domain>/api/v1/health`
+2. открывается frontend domain
+3. логин работает
+4. нет CORS ошибок
+5. создаётся клиент
+6. создаётся сделка
+7. редактируются карточки
+
+## Если хочешь кастомный домен
+
+Можно подключить свой домен отдельно:
+
+- к frontend service
+- при желании отдельно к backend service
+
+После подключения кастомного frontend домена не забудь поменять:
+
+```env
+CORS_ORIGIN=https://<your-frontend-domain>
+```
+
+После подключения кастомного backend домена не забудь поменять:
+
+```env
+VITE_API_BASE_URL=https://<your-backend-domain>/api/v1
+```
 
 ## Частые ошибки
 
-### Ошибка 1. Поставили `VITE_API_BASE_URL` на backend
+## Ошибка 1. Во frontend поставили `DATABASE_URL`
 
-Так не сработает. Это переменная фронта.
+Не нужно.  
+Фронтенд не работает с PostgreSQL напрямую.
 
-### Ошибка 2. Поставили `DATABASE_URL` только в сервис базы, но не в backend
+## Ошибка 2. В backend не поставили `DATABASE_URL`
 
-Backend сам её не "угадает". Ему нужно реально видеть переменную в своих `Variables`.
+Тогда Prisma не подключится к базе.
 
-### Ошибка 3. В `VITE_API_BASE_URL` поставили `http://backend.railway.internal`
+## Ошибка 3. В `VITE_API_BASE_URL` поставили `railway.internal`
 
-Браузер туда не достучится. Для фронта нужен публичный backend URL.
+Так нельзя. Браузер туда не достучится.
 
-### Ошибка 4. В `CORS_ORIGIN` указали backend домен вместо frontend домена
+Нужен public domain backend.
 
-Тогда браузерные запросы будут падать по CORS.
+## Ошибка 4. В `CORS_ORIGIN` указали backend домен
 
-### Ошибка 5. В `CORS_ORIGIN` добавили `/api/v1`
+Нужно указывать frontend domain.
 
-Так делать не надо. Нужен только origin:
+## Ошибка 5. В `CORS_ORIGIN` добавили `/api/v1`
+
+Нельзя.
+
+Нужно:
 
 ```text
 https://frontend-domain
 ```
 
-а не:
+Не нужно:
 
 ```text
 https://frontend-domain/api/v1
 ```
 
-### Ошибка 6. Сначала задеплоили frontend, а backend домен ещё не готов
+## Ошибка 6. Сначала задеплоили frontend без готового backend domain
 
-Тогда фронт соберётся с пустым или неверным `VITE_API_BASE_URL`.  
+Тогда фронт соберётся с неправильным `VITE_API_BASE_URL`.
+
 Правильный порядок:
 
-1. база
-2. backend
-3. backend public domain
-4. frontend env
-5. frontend deploy
-
-## Рекомендуемый порядок деплоя
-
-1. Создать Railway Project
-2. Создать PostgreSQL service
-3. Создать backend service
-4. Задать backend env
-5. Сгенерировать backend public domain
-6. Создать frontend service
-7. Задать frontend env с backend domain
-8. Сгенерировать frontend public domain
-9. Обновить backend `CORS_ORIGIN` на frontend domain
-10. Перезапустить оба сервиса
-11. Проверить `/api/v1/health`
-12. Пройти smoke руками
-
-## Что делать после смены домена
-
-Если потом подключишь кастомный домен:
-
-- новый frontend домен -> обновить `CORS_ORIGIN` на backend
-- новый backend домен -> обновить `VITE_API_BASE_URL` на frontend
-
-После этого сделать redeploy соответствующего сервиса.
+1. backend
+2. backend domain
+3. frontend
+4. frontend domain
+5. backend CORS update
 
 ## Короткая шпаргалка
 
-### Frontend service
+## Backend service
 
-- Root Directory: `.`
-- Config as Code: `/railway.toml`
-- Variables:
-
-```env
-VITE_API_BASE_URL=https://<backend-domain>/api/v1
-```
-
-### Backend service
-
-- Root Directory: `server`
-- Config as Code: `/server/railway.toml`
+- Repo: `KORT-BACKEND`
 - Variables:
 
 ```env
@@ -507,14 +814,22 @@ JWT_REFRESH_SECRET=...
 CORS_ORIGIN=https://<frontend-domain>
 ```
 
-### Database service
+## Frontend service
+
+- Repo: `KORT-DEV-MODE`
+- Variables:
+
+```env
+VITE_API_BASE_URL=https://<backend-domain>/api/v1
+```
+
+## Database service
 
 - PostgreSQL на Railway
 - источник `DATABASE_URL` для backend
 
-## Полезные ссылки
+## Ссылки
 
-- Railway Domains: https://docs.railway.com/networking/domains/working-with-domains
-- Railway public domain generation: https://docs.railway.com/networking/domains/working-with-domains#railway-provided-domains
-- Railway custom domains: https://docs.railway.com/networking/domains/working-with-domains#custom-domains
-- Railway private networking: https://docs.railway.com/networking/domains/working-with-domains#private-domains
+- Railway domains: https://docs.railway.com/networking/domains/working-with-domains
+- Railway config as code: https://docs.railway.com/config-as-code/reference
+- Railway projects/services: https://docs.railway.com/guides/projects
