@@ -45,18 +45,17 @@ export const accountingRoutes: FastifyPluginAsync = async (app) => {
       sourceId?: string; sourceLabel?: string; tags?: string[]; notes?: string;
     };
   }>('/entries', async (req, reply) => {
-    const user = req.user!;
     const entry = await svc.createEntry(req.orgId!, {
       ...req.body,
       type: req.body.type as any,
-      author: user.fullName,
+      author: req.userFullName,
     });
     return reply.status(201).send(entry);
   });
 
   // ── Reconcile ───────────────────────────────────────────────
   app.patch<{ Params: { id: string } }>('/entries/:id/reconcile', async (req) => {
-    return svc.reconcileEntry(req.orgId!, req.params.id, req.user!.fullName);
+    return svc.reconcileEntry(req.orgId!, req.params.id, req.userFullName);
   });
 
   // ── P&L ─────────────────────────────────────────────────────
@@ -93,7 +92,7 @@ export const accountingRoutes: FastifyPluginAsync = async (app) => {
     Params: { id: string };
     Body: { action: 'resolve' | 'ignore' };
   }>('/gaps/:id', async (req) => {
-    return svc.resolveGap(req.orgId!, req.params.id, req.body.action, req.user!.fullName);
+    return svc.resolveGap(req.orgId!, req.params.id, req.body.action, req.userFullName);
   });
 
   // ── Chain integrity ─────────────────────────────────────────

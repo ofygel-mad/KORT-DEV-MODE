@@ -230,7 +230,7 @@ export function detectDuplicatesInFile(
   const dupes: number[] = [];
 
   for (let i = 0; i < rows.length; i++) {
-    const val = rows[i][keyColIdx];
+    const val = rows[i]?.[keyColIdx];
     if (val === null) continue;
     const key = String(val).trim().toLowerCase();
     if (seen.has(key)) {

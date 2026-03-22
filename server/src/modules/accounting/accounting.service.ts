@@ -154,7 +154,14 @@ export async function listEntries(orgId: string, filter: EntryFilterDto) {
 export async function getSummary(orgId: string, period?: string) {
   const currentPeriod = period ?? periodFromDate(new Date());
   // Previous period
-  const [year, month] = currentPeriod.split('-').map(Number);
+  const [yearRaw, monthRaw] = currentPeriod.split('-').map(Number);
+  const today = new Date();
+  const year = typeof yearRaw === 'number' && Number.isFinite(yearRaw)
+    ? yearRaw
+    : today.getFullYear();
+  const month = typeof monthRaw === 'number' && Number.isFinite(monthRaw)
+    ? monthRaw
+    : today.getMonth() + 1;
   const prevDate = new Date(year, month - 2, 1);
   const prevPeriod = periodFromDate(prevDate);
 

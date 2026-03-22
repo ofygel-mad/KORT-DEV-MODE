@@ -9,7 +9,6 @@
  */
 
 import { createEntry } from './accounting.service.js';
-import { prisma } from '../../lib/prisma.js';
 
 // ─────────────────────────────────────────────────────────────
 //  Event bus (in-process, lightweight)

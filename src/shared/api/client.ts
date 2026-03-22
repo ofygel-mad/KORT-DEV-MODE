@@ -5,6 +5,7 @@ import { emitConsoleEvent } from '../../console/events';
 import { redirectTo } from '../lib/browser';
 import { useAuthStore } from '../stores/auth';
 import { readApiErrorMessage } from './errors';
+import { installMockAdapter } from './mock-adapter';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
@@ -70,9 +71,7 @@ function shouldSuppressPermissionToast(status: number) {
 }
 
 if (IS_MOCK) {
-  import('./mock-adapter').then(({ installMockAdapter }) => {
-    installMockAdapter(apiClient);
-  });
+  installMockAdapter(apiClient);
 }
 
 apiClient.interceptors.request.use((config) => {

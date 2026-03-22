@@ -33,6 +33,7 @@ const VALID_WIDGET_KINDS = new Set<WorkspaceWidgetKind>([
   'imports',
   'chapan',
   'requests',
+  'warehouse',
   'accounting',
 ]);
 
@@ -49,6 +50,7 @@ const DEFAULT_TILE_SIZE: Record<WorkspaceWidgetKind, { width: number; height: nu
   imports:   { width: 240, height: 155 },
   chapan:    { width: 260, height: 170 },
   requests:  { width: 270, height: 170 },
+  warehouse: { width: 300, height: 190 },
   accounting: { width: 300, height: 190 },
 };
 
@@ -60,6 +62,7 @@ const TITLES: Record<WorkspaceWidgetKind, string> = {
   imports:   'Импорт',
   chapan:    'Производство',
   requests:  'Заявки',
+  warehouse: 'Склад',
   accounting: 'Учёт и Аудит',
 };
 

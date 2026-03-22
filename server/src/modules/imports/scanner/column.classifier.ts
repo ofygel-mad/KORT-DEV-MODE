@@ -93,5 +93,5 @@ export function classifyColumn(sample: (string | number | Date | null | undefine
 /** Return the dominant type label from scores */
 export function dominantType(scores: ColumnTypeScores): string {
   const sorted = Object.entries(scores).sort(([, a], [, b]) => b - a);
-  return sorted[0][0].replace('Score', '');
+  return (sorted[0]?.[0] ?? 'textScore').replace('Score', '');
 }

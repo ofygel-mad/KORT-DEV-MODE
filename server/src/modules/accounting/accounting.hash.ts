@@ -28,6 +28,9 @@ export function verifyChain(entries: Array<{ seq: number; amount: number; type: 
 } {
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i];
+    if (!e) {
+      continue;
+    }
     const expected = computeEntryHash({
       seq: e.seq,
       amount: e.amount,

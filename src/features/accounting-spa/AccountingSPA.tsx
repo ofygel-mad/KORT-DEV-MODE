@@ -10,6 +10,7 @@ import {
   BookOpen, TrendingUp, BarChart2, Package,
   Users, AlertTriangle, ArrowLeft,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useAccountingStore, type AccountingView } from './model/store';
 import { accountingApi } from './api/client';
 import { SummaryBar } from './ui/SummaryBar/SummaryBar';
@@ -28,7 +29,7 @@ import s from './AccountingSPA.module.css';
 interface TabDef {
   id: AccountingView;
   label: string;
-  Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  Icon: LucideIcon;
 }
 
 const TABS: TabDef[] = [

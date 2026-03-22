@@ -94,10 +94,10 @@ export function CreateDealDrawer() {
       ...DEFAULT_VALUES,
       title: request.payload?.title ?? '',
       customer_id: request.payload?.customerId ?? '',
-      stage_id: stages[0]?.id ?? '',
+      stage_id: '',
     });
     setTimeout(() => setFocus('title'), 40);
-  }, [request.nonce, request.payload, reset, setFocus, stages]);
+  }, [request.nonce, request.payload, reset, setFocus]);
 
   useEffect(() => {
     if (stages.length > 0 && !watch('stage_id')) {

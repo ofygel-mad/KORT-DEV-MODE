@@ -505,6 +505,9 @@ export const WORKSPACE_WIDGET_ACCENTS: Record<WorkspaceWidgetKind, WidgetVisualA
   reports: { accent: '#8de8c0', screen: '#10261e' },
   imports: { accent: '#ffb09d', screen: '#311712' },
   chapan: { accent: '#ffe38f', screen: '#2e2612' },
+  requests: { accent: '#9fe6ff', screen: '#102431' },
+  warehouse: { accent: '#b7ff9b', screen: '#152713' },
+  accounting: { accent: '#ffd38a', screen: '#2b2111' },
 };
 
 export const WORKSPACE_WIDGET_SHELL_PROFILES: Record<WorkspaceWidgetKind, WorkspaceWidgetShellProfile> = {
@@ -514,6 +517,9 @@ export const WORKSPACE_WIDGET_SHELL_PROFILES: Record<WorkspaceWidgetKind, Worksp
   reports: { depthFactor: 0.098, screenInset: 0.84, hoverLift: 0.98, introLift: 9.7 },
   imports: { depthFactor: 0.106, screenInset: 0.848, hoverLift: 1.01, introLift: 10.6 },
   chapan: { depthFactor: 0.11, screenInset: 0.852, hoverLift: 1.06, introLift: 11.4 },
+  requests: { depthFactor: 0.108, screenInset: 0.85, hoverLift: 1.03, introLift: 10.9 },
+  warehouse: { depthFactor: 0.109, screenInset: 0.846, hoverLift: 1.05, introLift: 11.1 },
+  accounting: { depthFactor: 0.111, screenInset: 0.848, hoverLift: 1.04, introLift: 11.3 },
 };
 
 export function getThemeByTime(): WorkspaceSceneTheme {

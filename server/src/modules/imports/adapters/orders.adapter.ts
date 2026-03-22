@@ -52,7 +52,7 @@ function mapStatus(raw?: string): string {
   if (!raw) return 'new';
   const s = raw.toLowerCase();
   if (s.includes('да') || s.includes('yes') || s.includes('готов') || s.includes('выполн')) return 'completed';
-  if (s.includes('нет') || s.includes('в работ') || s.includes('произв')) return 'in_progress';
+  if (s.includes('нет') || s.includes('в работ') || s.includes('произв')) return 'in_production';
   if (s.includes('отмен') || s.includes('cancel')) return 'cancelled';
   return 'new';
 }
@@ -91,6 +91,10 @@ export async function importOrders(
       }
 
       const firstRow = items[0];
+      if (!firstRow) {
+        result.skipped++;
+        continue;
+      }
       const customerName = firstRow.customer_name?.trim() ?? 'Неизвестный';
       const phone = firstRow.phone?.trim() ?? '';
 

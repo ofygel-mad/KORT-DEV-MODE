@@ -1,253 +1,129 @@
-## Что уже готово
+# SETUP
 
-- Бэкенд в `server/` — Fastify + Prisma + PostgreSQL + JWT
-- Фронтенд переключён с моков на реальные API-вызовы (`VITE_MOCK_API=false`)
-- `docker-compose.yml` — PostgreSQL в контейнере
-- `server/.env` — настроен на Docker-базу
+## Требования
 
-## Что нужно
+- Node.js 18+
+- `pnpm` для backend
+- Docker Desktop для локальной PostgreSQL
 
-- **Docker Desktop** (уже установлен)
-- **Node.js** 18+ (для бэкенда и фронтенда)
-- Терминал (Git Bash, PowerShell или встроенный в VS Code)
+## Быстрый локальный старт
 
-> Ниже команды даны через `pnpm`. В проекте нет `pnpm workspace`: корень и `server/` — это два отдельных пакета, поэтому зависимости нужно ставить отдельно в обоих местах. `npm` тоже сработает, но лучше не смешивать менеджеры.
+### Вариант A. Только фронтенд, mock-режим
 
----
+```bash
+npm install
+npm run dev
+```
 
-## Шаг 1 — Запустить PostgreSQL через Docker Desktop
+### Вариант B. Полный стек
 
-Открой терминал в корне проекта (`Kort-example(Codex)`) и выполни:
+1. Поднять БД:
 
 ```bash
 docker compose up -d
 ```
 
-Это поднимет PostgreSQL-контейнер `kort-postgres` на порту `5432`.
-
-**Проверить**, что контейнер работает:
+2. Установить зависимости:
 
 ```bash
-docker compose ps
-```
-
-Должен быть `kort-postgres` со статусом `running`.
-
-> В Docker Desktop также будет виден контейнер `kort-postgres` во вкладке **Containers**.
-
----
-
-## Шаг 2 — Установить зависимости фронтенда
-
-```bash
-pnpm install
-```
-
----
-
-## Шаг 3 — Установить зависимости бэкенда
-
-```bash
+npm install
 cd server
 pnpm install
 ```
 
----
-
-## Шаг 4 — Создать таблицы в базе данных
+3. Применить миграции и сиды:
 
 ```bash
+cd server
 pnpm run db:migrate -- --name init
-```
-
-Prisma создаст все 30+ таблиц в базе `kort_db`. Если папки `server/prisma/migrations/` ещё нет, она появится после первой миграции.
-
----
-
-## Шаг 5 — Заполнить базу демо-данными
-
-```bash
 pnpm run db:seed
 ```
 
-Будут созданы:
-- 5 пользователей (пароль: `demo1234`)
-- 1 организация
-- 8 заказов Чапан с позициями, задачами, оплатами, активностью
-- 2 заявки
-- 6 клиентов Чапан + каталоги (товары, ткани, размеры, мастера)
-- 8 лидов CRM
-- 5 сделок CRM
-- 6 задач CRM с подзадачами
-- 3 клиента CRM
-
-**Аккаунты для входа:**
-
-| Роль | Email | Пароль |
-|------|-------|--------|
-| Owner | `admin@kort.local` | `demo1234` |
-| Admin | `manager@kort.local` | `demo1234` |
-| Manager (lead) | `lead@kort.local` | `demo1234` |
-| Manager (worker) | `worker@kort.local` | `demo1234` |
-| Viewer | `viewer@kort.local` | `demo1234` |
-
----
-
-## Шаг 6 — Запустить бэкенд
+4. Запустить backend:
 
 ```bash
+cd server
 pnpm run dev
 ```
 
-Бэкенд будет доступен на `http://localhost:8000`. В консоли появится строка вида:
-
-```
-Server running at http://0.0.0.0:8000
-```
-
-> Не закрывай этот терминал — бэкенд должен работать.
-
----
-
-## Шаг 7 — Запустить фронтенд
-
-Открой **второй** терминал в корне проекта:
+5. Запустить frontend:
 
 ```bash
-pnpm run dev
+npm run dev
 ```
-
-Фронтенд запустится на `http://localhost:5173`. Vite автоматически проксирует `/api` на `localhost:8000`.
-
----
-
-## Шаг 8 — Войти в систему
-
-Открой `http://localhost:5173` в браузере.
-
-Залогинься:
-- **Email**: `admin@kort.local`
-- **Пароль**: `demo1234`
-
-После входа выбери организацию и попадёшь в рабочее пространство.
-
----
-
-## Просмотр базы данных
-
-### Вариант 1: Prisma Studio (рекомендуется)
-
-В терминале `server/`:
-
-```bash
-pnpm run db:studio
-```
-
-Откроется `http://localhost:5555` — визуальный интерфейс для просмотра и редактирования всех таблиц. Можно:
-- Просматривать записи
-- Фильтровать и сортировать
-- Создавать/редактировать/удалять записи
-- Видеть связи между таблицами
-
-> Это тот самый "HTTP-адрес, по которому появляются таблицы бэкенда".
-
-### Вариант 2: Beekeeper Studio
-
-1. Открой Beekeeper Studio
-2. Создай новое подключение:
-   - **Тип**: PostgreSQL
-   - **Хост**: `localhost`
-   - **Порт**: `5432`
-   - **Пользователь**: `kort`
-   - **Пароль**: `kort_secret`
-   - **База данных**: `kort_db`
-3. Подключайся — увидишь все таблицы
-
-### Вариант 3: Postman
-
-Для тестирования API-эндпоинтов:
-
-1. Залогинься: `POST http://localhost:8000/api/v1/auth/login`
-   ```json
-   { "email": "admin@kort.local", "password": "demo1234" }
-   ```
-2. Скопируй `access` токен из ответа
-3. Для запросов добавляй заголовок: `Authorization: Bearer <токен>`
-4. Пример: `GET http://localhost:8000/api/v1/chapan/orders`
-
----
-
-## Остановка
-
-```bash
-# Остановить бэкенд — Ctrl+C в терминале
-# Остановить PostgreSQL:
-docker compose down
-
-# Если хочешь удалить данные полностью:
-docker compose down -v
-```
-
----
 
 ## Полезные команды
 
-| Команда | Что делает |
-|---------|-----------|
-| docker compose up -d | Запустить PostgreSQL |
-| docker compose down | Остановить PostgreSQL |
-| `docker compose down -v` | Остановить + удалить данные |
-| `pnpm install` (корень) | Установить зависимости фронтенда |
-| `cd server && pnpm install` | Установить зависимости бэкенда |
-| `cd server && pnpm run dev` | Запустить бэкенд |
-| `cd server && pnpm run db:studio` | Открыть Prisma Studio |
-| `cd server && pnpm run db:migrate -- --name init` | Применить миграции |
-| `cd server && pnpm run db:seed` | Перезаполнить демо-данные |
-| `pnpm run dev` (корень) | Запустить фронтенд |
+### Frontend
 
----
+```bash
+npm run dev
+npm run test
+npm run test:e2e
+npm run build
+```
 
-## Архитектура API
+### Backend
 
-Полная документация по эндпоинтам: [`server/ARCHITECTURE.md`](server/ARCHITECTURE.md)
-
-**Кратко**: все эндпоинты на `/api/v1/*`:
-- `/auth/*` — авторизация, регистрация, токены
-- `/users/*` — профиль, команда, роли
-- `/leads/*` — воронка лидов (квалификация + закрытие)
-- `/deals/*` — сделки, активность
-- `/tasks/*` — задачи с подзадачами и активностью
-- `/customers/*` — клиенты CRM
-- `/chapan/*` — заказы, производство, заявки, настройки мастерской
-
-
-1. Установка зависимостей
-Сначала нужно установить все необходимые пакеты для обеих частей приложения.
-
-pnpm install (выполняется в корне проекта для фронтенда)
-
-cd server && pnpm install (для бэкенда)
-
-2. Запуск базы данных
-Перед тем как создавать таблицы и применять миграции, сама база (PostgreSQL) должна быть включена.
-
-docker compose up -d (выполняется в папке, где лежит файл docker-compose.yml, обычно в корне)
-
-3. Настройка базы данных
-Теперь нужно создать структуру таблиц в базе и заполнить её стартовыми данными.
-
-cd server && pnpm run db:migrate -- --name init (создает таблицы)
-
-cd server && pnpm run db:seed (добавляет демо-данные)
-
-4. Запуск серверов
-Для одновременной работы приложения вам понадобятся два открытых окна терминала:
-
-Терминал 1 (Бэкенд): cd server && pnpm run dev
-
-Терминал 2 (Фронтенд): pnpm run dev (находясь в корне проекта)
-
-__________________________________
-
+```bash
 cd server
+pnpm run dev
+pnpm run build
+pnpm run db:studio
+pnpm run db:seed
 pnpm run db:report
+```
+
+## Railway deployment
+
+Нужно создать два сервиса.
+
+### Backend service
+
+- Source Repo: текущий репозиторий
+- Root Directory: `server`
+- Config As Code: [`server/railway.toml`](/c:/Users/user/Documents/KORT-DEV-MODE/server/railway.toml)
+
+Переменные:
+
+```env
+DATABASE_URL=postgresql://...
+JWT_ACCESS_SECRET=replace-with-long-secret
+JWT_REFRESH_SECRET=replace-with-long-secret
+JWT_ACCESS_TTL=15m
+JWT_REFRESH_TTL=7d
+CORS_ORIGIN=https://<frontend-domain>
+CONSOLE_SERVICE_PASSWORD=optional
+```
+
+### Frontend service
+
+- Source Repo: тот же репозиторий
+- Root Directory: `.`
+- Config As Code: [`railway.toml`](/c:/Users/user/Documents/KORT-DEV-MODE/railway.toml)
+
+Переменные:
+
+```env
+VITE_API_BASE_URL=https://<backend-domain>/api/v1
+VITE_SENTRY_DSN=
+```
+
+## Проверка перед выдачей тестерам
+
+Минимальный чек-лист:
+
+1. `npm run test`
+2. `npm run test:e2e`
+3. `npm run build`
+4. `cd server && npm run build`
+5. Проверить backend healthcheck
+6. Проверить логин, создание клиента, создание сделки, редактирование карточек
+
+## Что уже исправлено в текущем состоянии
+
+- фронтенд и backend снова собираются без TS-ошибок
+- e2e обновлены под текущий auth/UI
+- mock API больше не ломает deal detail
+- quick create deal больше не сбрасывает введённый title при догрузке этапов
+- плавающий AI-trigger больше не должен перекрывать drawer-кнопки сохранения

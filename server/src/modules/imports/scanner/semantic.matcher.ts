@@ -150,12 +150,22 @@ export function suggestMapping(
   target: ImportTarget,
 ): MappingSuggestion[] {
   const fields = FIELD_DEFS[target] ?? [];
+  const emptyScores: ColumnTypeScores = {
+    dateScore: 0,
+    moneyScore: 0,
+    phoneScore: 0,
+    enumScore: 0,
+    idScore: 0,
+    nameScore: 0,
+    quantityScore: 0,
+    textScore: 0,
+  };
 
   // For each source column, find best matching field
   const usedFields = new Set<string>();
 
   return headers.map((header, idx) => {
-    const scores = columnScores[idx];
+    const scores = columnScores[idx] ?? emptyScores;
     let bestField: FieldDef | null = null;
     let bestScore = 0;
 
@@ -215,7 +225,10 @@ export function detectTarget(headers: string[]): { target: ImportTarget; confide
 
   signals.sort((a, b) => b.weight - a.weight);
   const best = signals[0];
-  const maxWeight = signals[0].keywords.length;
+  if (!best) {
+    return { target: 'customers', confidence: 0 };
+  }
+  const maxWeight = best.keywords.length;
 
   return {
     target: best.weight > 0 ? best.target : 'customers',

@@ -362,6 +362,80 @@ function searchResults(query: string) {
   return { count: results.length, results };
 }
 
+function toPipelineStage(stage: typeof mockPipeline.stages[number]) {
+  return {
+    id: stage.id,
+    name: stage.name,
+    position: stage.position,
+    type: stage.stage_type,
+    color: stage.color,
+  };
+}
+
+function buildCustomerDetail(customerId: string) {
+  const customer = mockCustomers.find((item) => item.id === customerId) ?? mockCustomers[0];
+  if (!customer) {
+    return null;
+  }
+
+  return {
+    id: customer.id,
+    full_name: customer.full_name,
+    company_name: customer.company_name,
+    phone: customer.phone,
+    email: customer.email,
+    source: customer.source ?? 'Ручное добавление',
+    status: customer.status ?? 'new',
+    owner: null,
+    tags: [],
+    notes: '',
+    created_at: customer.created_at ?? new Date().toISOString(),
+    updated_at: customer.created_at ?? new Date().toISOString(),
+    last_contact_at: null,
+    follow_up_due_at: null,
+    response_state: null,
+    next_action_note: null,
+  };
+}
+
+function buildDealDetail(dealId: string) {
+  const deal = mockDeals.find((item) => item.id === dealId) ?? mockDeals[0];
+  if (!deal) {
+    return null;
+  }
+
+  const stage = mockPipeline.stages.find((item) => item.id === deal.stage_id) ?? mockPipeline.stages[0];
+  const customer = mockCustomers.find((item) => item.id === deal.customer_id)
+    ?? (deal.customer?.id ? mockCustomers.find((item) => item.id === deal.customer.id) : null)
+    ?? null;
+  const owner = sessions[0]?.user ?? null;
+
+  return {
+    id: deal.id,
+    title: deal.title,
+    amount: deal.amount ?? null,
+    currency: deal.currency ?? 'KZT',
+    status: deal.status ?? 'open',
+    created_at: deal.created_at ?? new Date().toISOString(),
+    expected_close_date: null,
+    next_step: '',
+    customer: customer ? {
+      id: customer.id,
+      full_name: customer.full_name,
+      company_name: customer.company_name,
+      phone: customer.phone,
+      email: customer.email,
+    } : null,
+    owner: owner ? { id: owner.id, full_name: owner.full_name } : null,
+    stage: stage ? toPipelineStage(stage) : null,
+    pipeline: {
+      id: mockPipeline.id,
+      name: mockPipeline.name,
+      stages: mockPipeline.stages.map(toPipelineStage),
+    },
+  };
+}
+
 export function installMockAdapter(client: AxiosInstance) {
   client.interceptors.request.use(async (config) => {
     await delay();
@@ -704,7 +778,7 @@ export function installMockAdapter(client: AxiosInstance) {
       if (method === 'patch' || method === 'put') {
         mockCustomers = mockCustomers.map((customer) => customer.id === id ? { ...customer, ...body } : customer);
       }
-      return withResponse(config, clone(mockCustomers.find((customer) => customer.id === id) ?? mockCustomers[0]));
+      return withResponse(config, clone(buildCustomerDetail(id)));
     }
 
     if (url === '/deals/board' && method === 'get') {
@@ -721,12 +795,25 @@ export function installMockAdapter(client: AxiosInstance) {
     }
 
     if (url === '/deals' && method === 'post') {
+      const stage = mockPipeline.stages.find((item) => item.id === body.stage_id) ?? mockPipeline.stages[0];
+      const customer = mockCustomers.find((item) => item.id === body.customer_id) ?? null;
       const created = {
         id: `d-${Date.now()}`,
-        ...body,
+        title: String(body.title ?? '').trim(),
+        amount: body.amount == null || body.amount === '' ? 0 : Number(body.amount),
+        currency: String(body.currency ?? 'KZT'),
+        customer_id: String(body.customer_id ?? ''),
+        customer_name: customer?.full_name ?? 'Без клиента',
+        customer: customer
+          ? { id: customer.id, full_name: customer.full_name }
+          : { id: 'c-unknown', full_name: 'Без клиента' },
+        pipeline_id: mockPipeline.id,
+        stage_id: stage?.id ?? '',
+        stage: stage?.name ?? 'Новый этап',
         status: 'open',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        days_silent: 0,
       };
       mockDeals = [created, ...mockDeals];
       return withResponse(config, created);
@@ -735,9 +822,25 @@ export function installMockAdapter(client: AxiosInstance) {
     if (/^\/deals\/[^/]+$/.test(url)) {
       const id = url.split('/')[2];
       if (method === 'patch' || method === 'put') {
-        mockDeals = mockDeals.map((deal) => deal.id === id ? { ...deal, ...body, updated_at: new Date().toISOString() } : deal);
+        mockDeals = mockDeals.map((deal) => {
+          if (deal.id !== id) {
+            return deal;
+          }
+
+          const nextStage = body.stage_id
+            ? mockPipeline.stages.find((item) => item.id === body.stage_id) ?? null
+            : null;
+
+          return {
+            ...deal,
+            ...body,
+            stage_id: nextStage?.id ?? deal.stage_id,
+            stage: nextStage?.name ?? deal.stage,
+            updated_at: new Date().toISOString(),
+          };
+        });
       }
-      return withResponse(config, clone(mockDeals.find((deal) => deal.id === id) ?? mockDeals[0]));
+      return withResponse(config, clone(buildDealDetail(id)));
     }
 
     if (url.startsWith('/pipelines') && method === 'get') {

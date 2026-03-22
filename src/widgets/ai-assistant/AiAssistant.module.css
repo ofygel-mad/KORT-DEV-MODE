@@ -11,7 +11,7 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  z-index: 199;
+  z-index: 120;
   background: linear-gradient(135deg, color-mix(in srgb, var(--fill-info) 36%, var(--fill-accent) 64%) 0%, var(--brand-accent-strong) 100%);
   border: 1px solid color-mix(in srgb, white 16%, transparent);
   cursor: pointer;
