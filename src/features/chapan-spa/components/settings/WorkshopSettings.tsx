@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Copy,
@@ -106,25 +106,12 @@ export function WorkshopSettings() {
     setProfileDraft(profile);
   }, [profile]);
 
-  const metrics = useMemo(() => ({
-    activeOrders: orders.filter((order) => order.status !== 'cancelled' && order.status !== 'completed').length,
-    completedOrders: orders.filter((order) => order.status === 'completed').length,
-    activeRequests: requests.filter((request) => request.status === 'new' || request.status === 'reviewed').length,
-    blockedTasks: orders.flatMap((order) => order.productionTasks).filter((task) => task.isBlocked).length,
-  }), [orders, requests]);
-
   const publicLink = `${window.location.origin}/workzone/request`;
 
   return (
     <div className={s.root}>
       <section className={s.pageHead}>
         <h2 className={s.pageTitle}>Настройки</h2>
-        <div className={s.metricStrip}>
-          <div className={s.metricCard}><strong>{metrics.activeOrders}</strong><span>активных заказов</span></div>
-          <div className={s.metricCard}><strong>{metrics.completedOrders}</strong><span>закрыто</span></div>
-          <div className={s.metricCard}><strong>{metrics.activeRequests}</strong><span>заявок</span></div>
-          <div className={s.metricCard}><strong>{metrics.blockedTasks}</strong><span>блокировок</span></div>
-        </div>
       </section>
 
       <div className={s.grid}>

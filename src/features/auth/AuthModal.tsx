@@ -216,13 +216,22 @@ function PinStep({
   const user = useAuthStore((state) => state.user);
   const [digits, setDigits] = useState('');
   const [error, setError] = useState('');
+  const [shake, setShake] = useState(false);
   const pinLength = storedPin?.length ?? 4;
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const shakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setDigits('');
     setError('');
   }, [storedPin]);
+
+  useEffect(() => {
+    return () => {
+      if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
+    };
+  }, []);
 
   const submit = (value: string) => {
     if (value === storedPin) {
@@ -232,6 +241,9 @@ function PinStep({
 
     setDigits('');
     setError('Неверный PIN-код.');
+    setShake(true);
+    if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
+    shakeTimerRef.current = setTimeout(() => setShake(false), 500);
   };
 
   return (
@@ -245,12 +257,12 @@ function PinStep({
         </p>
       </div>
 
-      <div className={styles.pinArea} onClick={() => inputRef.current?.focus()} role="presentation">
+      <div className={`${styles.pinArea} ${shake ? styles.pinAreaShake : ''}`} onClick={() => inputRef.current?.focus()} role="presentation">
         <div className={styles.pinDots}>
           {Array.from({ length: pinLength }, (_, index) => (
             <div
               key={index}
-              className={`${styles.pinDot} ${digits.length > index ? styles.pinDotFilled : ''}`}
+              className={`${styles.pinDot} ${digits.length > index ? styles.pinDotFilled : ''} ${error ? styles.pinDotError : ''}`}
             />
           ))}
         </div>
@@ -631,17 +643,20 @@ export function AuthModal({
                   </button>
 
                   {pin && isTrustedDevice && user && (
-                    <button
-                      type="button"
-                      className={styles.pinButton}
-                      onClick={() => {
-                        setError('');
-                        setStep('pin');
-                      }}
-                    >
-                      <KeyRound size={15} />
-                      Быстрый вход по PIN
-                    </button>
+                    <>
+                      <div className={styles.orDivider}><span>или</span></div>
+                      <button
+                        type="button"
+                        className={styles.pinButton}
+                        onClick={() => {
+                          setError('');
+                          setStep('pin');
+                        }}
+                      >
+                        <KeyRound size={15} />
+                        Быстрый вход по PIN-коду
+                      </button>
+                    </>
                   )}
 
                   <div className={styles.footerRow}>

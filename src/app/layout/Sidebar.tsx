@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   BarChart2,
   ChevronLeft,
-  Crown,
   LayoutDashboard,
   LayoutGrid,
   LogOut,
@@ -81,7 +80,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     canScrollDown: false,
   });
 
-  const { can, isAdmin } = useCapabilities();
+  const { can } = useCapabilities();
   const { sidebarCollapsed, toggleSidebar, openWorkspaceAddMenu } = useUIStore();
   const user = useAuthStore((state) => state.user);
   const clearAuth = useAuthStore((state) => state.clearAuth);
@@ -93,8 +92,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const collapsed = sidebarCollapsed;
 
   const secondaryVisible = useMemo(
-    () => NAV_SECONDARY.filter((item) => item.cap && can(item.cap) && (!item.adminOnly || isAdmin)),
-    [can, isAdmin],
+    () => NAV_SECONDARY.filter((item) => item.cap && can(item.cap)),
+    [can],
   );
   const scrollContentKey = useMemo(
     () => [
@@ -365,22 +364,6 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             {label('Завершить сессию', collapsed)}
           </button>
         </Tooltip>
-
-        {isAdmin && (
-          <Tooltip content="Управление" disabled={!collapsed} side="right">
-            <NavLink
-              to="/admin"
-              onClick={onNavigate}
-              aria-label="Управление"
-              className={navItemClass}
-            >
-              <span className={styles.navIcon}>
-                <Crown size={17} strokeWidth={1.75} />
-              </span>
-              {label('Управление', collapsed)}
-            </NavLink>
-          </Tooltip>
-        )}
 
         <Tooltip content="Настройки" disabled={!collapsed} side="right">
           <NavLink

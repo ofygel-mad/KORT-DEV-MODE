@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Archive, CalendarDays, MessageCircle, Package2, Phone, Sparkles } from 'lucide-react';
+import { ArrowRight, Archive, CalendarDays, ChevronDown, MessageCircle, Package2, Phone, Sparkles } from 'lucide-react';
 import { useChapanStore } from '../../model/chapan.store';
 import { useTileChapanUI } from '../../model/tile-ui.store';
 import type { ClientRequest, ClientRequestStatus } from '../../api/types';
@@ -14,13 +14,13 @@ const STATUS_LABEL: Record<ClientRequestStatus, string> = {
   archived: 'Архив',
 };
 
-const FILTER_LABEL: Record<Filter, string> = {
-  active: 'Активные',
-  new: 'Новые',
-  reviewed: 'В работе',
-  converted: 'Конверт.',
-  archived: 'Архив',
-};
+const FILTER_OPTIONS: Array<{ value: Filter; label: string }> = [
+  { value: 'active', label: 'Активные' },
+  { value: 'new', label: 'Новые' },
+  { value: 'reviewed', label: 'В работе' },
+  { value: 'converted', label: 'Конвертированные' },
+  { value: 'archived', label: 'Архив' },
+];
 
 function preferredContactLabel(value: ClientRequest['preferredContact']) {
   if (value === 'whatsapp') return 'предпочитает WhatsApp';
@@ -84,17 +84,26 @@ export function RequestInbox({ tileId }: { tileId: string }) {
 
   return (
     <div className={s.root}>
-      <div className={s.filters}>
-        {(Object.keys(FILTER_LABEL) as Filter[]).map((value) => (
-          <button
-            key={value}
-            className={`${s.filterBtn} ${filter === value ? s.filterBtnActive : ''}`}
-            onClick={() => setFilter(value)}
+      <div className={s.inboxHeader}>
+        <div className={s.inboxMeta}>
+          <span className={s.inboxCount}>{visible.length}</span>
+          <span className={s.inboxCountLabel}>заявок</span>
+        </div>
+        <div className={s.filterSelect}>
+          <select
+            className={s.filterSelectEl}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as Filter)}
+            aria-label="Фильтр по статусу"
           >
-            <span>{FILTER_LABEL[value]}</span>
-            <strong>{counts[value]}</strong>
-          </button>
-        ))}
+            {FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label} ({counts[opt.value]})
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={13} className={s.filterSelectIcon} />
+        </div>
       </div>
 
       {visible.length === 0 && (

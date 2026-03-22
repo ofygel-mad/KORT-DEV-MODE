@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   Copy,
-  GitBranch,
   Globe,
   Key,
   MessageSquare,
@@ -46,16 +45,22 @@ import s from './Settings.module.css';
 interface OrgData {
   id: string;
   name: string;
-  industry: string;
-  timezone: string;
+  legal_name?: string;
+  bin?: string;
+  iin?: string;
+  legal_form?: string;
+  director?: string;
+  accountant?: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  bank_name?: string;
+  bank_bik?: string;
+  bank_account?: string;
   currency: string;
-}
-
-interface Pipeline {
-  id: string;
-  name: string;
-  is_default: boolean;
-  stages: Array<{ id: string; name: string; position: number; stage_type: string; color: string }>;
+  industry: string;
 }
 
 type SectionKey =
@@ -63,7 +68,6 @@ type SectionKey =
   | 'company-access'
   | 'appearance'
   | 'security'
-  | 'pipelines'
   | 'team'
   | 'integrations'
   | 'webhooks'
@@ -83,7 +87,6 @@ const SECTIONS: Array<{ key: SectionKey; label: string; icon: JSX.Element }> = [
   { key: 'company-access', label: 'Компания и доступ', icon: <Users size={15} /> },
   { key: 'appearance', label: 'Оформление', icon: <MonitorCog size={15} /> },
   { key: 'security', label: 'Безопасность', icon: <ShieldCheck size={15} /> },
-  { key: 'pipelines', label: 'Воронки', icon: <GitBranch size={15} /> },
   { key: 'team', label: 'Команда', icon: <Users size={15} /> },
   { key: 'integrations', label: 'Интеграции', icon: <Globe size={15} /> },
   { key: 'webhooks', label: 'Webhooks', icon: <Zap size={15} /> },
@@ -97,6 +100,17 @@ const THEME_PACKS: Array<{ value: ThemePack; title: string; subtitle: string }> 
   { value: 'sand', title: 'Sand', subtitle: 'Тёплый спокойный рабочий стиль' },
   { value: 'obsidian', title: 'Obsidian', subtitle: 'Контрастная ночная палитра' },
   { value: 'enterprise', title: 'Enterprise Hybrid', subtitle: 'Собранный business-режим для команд' },
+];
+
+const KZ_LEGAL_FORMS = [
+  { value: '', label: 'Выберите форму' },
+  { value: 'ТОО', label: 'ТОО — Товарищество с ограниченной ответственностью' },
+  { value: 'АО', label: 'АО — Акционерное общество' },
+  { value: 'ИП', label: 'ИП — Индивидуальный предприниматель' },
+  { value: 'КФ', label: 'КФ — Крестьянское (фермерское) хозяйство' },
+  { value: 'ГКП', label: 'ГКП — Государственное казённое предприятие' },
+  { value: 'РГП', label: 'РГП — Республиканское государственное предприятие' },
+  { value: 'НКО', label: 'НКО — Некоммерческая организация' },
 ];
 
 function extractInviteToken(value: string) {
@@ -122,7 +136,7 @@ function OrgSection() {
   const mutation = useMutation({
     mutationFn: (payload: Partial<OrgData>) => api.patch<OrgData>('/organization/', payload),
     onSuccess: (updated) => {
-      if (updated) setOrg(updated);
+      if (updated) setOrg(updated as any);
       queryClient.invalidateQueries({ queryKey: ['organization'] });
       toast.success('Организация обновлена');
     },
@@ -133,31 +147,126 @@ function OrgSection() {
       <div className={s.sectionHeader}>
         <div>
           <div className={s.sectionTitle}>Данные организации</div>
-          <div className={s.sectionSubtitle}>Базовые параметры компании и рабочей среды</div>
+          <div className={s.sectionSubtitle}>Реквизиты используются при формировании счётов, накладных и документов</div>
         </div>
         <Button size="sm" loading={mutation.isPending} onClick={handleSubmit((payload) => mutation.mutate(payload))}>
           Сохранить
         </Button>
       </div>
       <div className={s.sectionBody}>
-        <div className={s.fieldGrid}>
-          <div className={s.field}>
-            <label className={s.fieldLabel}>Название</label>
-            <input {...register('name')} defaultValue={org?.name ?? ''} className="kort-input" />
-          </div>
-          <div className={s.field}>
-            <label className={s.fieldLabel}>Отрасль</label>
-            <input {...register('industry')} defaultValue={org?.industry ?? ''} className="kort-input" />
-          </div>
-          <div className={s.field}>
-            <label className={s.fieldLabel}>Часовой пояс</label>
-            <input {...register('timezone')} defaultValue={org?.timezone ?? 'Asia/Qyzylorda'} className="kort-input" />
-          </div>
-          <div className={s.field}>
-            <label className={s.fieldLabel}>Валюта</label>
-            <input {...register('currency')} defaultValue={org?.currency ?? 'KZT'} className="kort-input" />
+
+        {/* — Блок 1: Основные данные — */}
+        <div className={s.orgGroup}>
+          <div className={s.orgGroupLabel}>Основное</div>
+          <div className={s.fieldGrid}>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Название компании <span className={s.fieldRequired}>*</span></label>
+              <input {...register('name')} defaultValue={org?.name ?? ''} className="kort-input" placeholder="ТОО «Моя Компания»" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Юридическое наименование</label>
+              <input {...register('legal_name')} defaultValue={org?.legal_name ?? ''} className="kort-input" placeholder="Полное официальное наименование" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Организационно-правовая форма</label>
+              <select {...register('legal_form')} defaultValue={org?.legal_form ?? ''} className={`kort-input ${s.selectInput}`}>
+                {KZ_LEGAL_FORMS.map((f) => (
+                  <option key={f.value} value={f.value}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Отрасль</label>
+              <input {...register('industry')} defaultValue={org?.industry ?? ''} className="kort-input" placeholder="Производство / Торговля / Услуги" />
+            </div>
           </div>
         </div>
+
+        {/* — Блок 2: Регистрационные данные — */}
+        <div className={s.orgGroup}>
+          <div className={s.orgGroupLabel}>Регистрация и налоги</div>
+          <div className={s.fieldGrid}>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>БИН <span className={s.fieldHint}>(12 цифр, для юр. лиц)</span></label>
+              <input {...register('bin')} defaultValue={org?.bin ?? ''} className="kort-input" placeholder="000000000000" maxLength={12} inputMode="numeric" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>ИИН <span className={s.fieldHint}>(12 цифр, для ИП)</span></label>
+              <input {...register('iin')} defaultValue={org?.iin ?? ''} className="kort-input" placeholder="000000000000" maxLength={12} inputMode="numeric" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Валюта расчётов</label>
+              <select {...register('currency')} defaultValue={org?.currency ?? 'KZT'} className={`kort-input ${s.selectInput}`}>
+                <option value="KZT">KZT — Казахстанский тенге ₸</option>
+                <option value="USD">USD — Доллар США $</option>
+                <option value="RUB">RUB — Российский рубль ₽</option>
+                <option value="EUR">EUR — Евро €</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* — Блок 3: Руководство — */}
+        <div className={s.orgGroup}>
+          <div className={s.orgGroupLabel}>Руководство</div>
+          <div className={s.fieldGrid}>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Директор / Руководитель</label>
+              <input {...register('director')} defaultValue={org?.director ?? ''} className="kort-input" placeholder="ФИО полностью" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Главный бухгалтер</label>
+              <input {...register('accountant')} defaultValue={org?.accountant ?? ''} className="kort-input" placeholder="ФИО или «Без бухгалтера»" />
+            </div>
+          </div>
+        </div>
+
+        {/* — Блок 4: Контакты и адрес — */}
+        <div className={s.orgGroup}>
+          <div className={s.orgGroupLabel}>Контакты и адрес</div>
+          <div className={s.fieldGrid}>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Город</label>
+              <input {...register('city')} defaultValue={org?.city ?? ''} className="kort-input" placeholder="Алматы" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Юридический адрес</label>
+              <input {...register('address')} defaultValue={org?.address ?? ''} className="kort-input" placeholder="ул. Абая, 1, офис 100" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Телефон</label>
+              <input {...register('phone')} defaultValue={org?.phone ?? ''} className="kort-input" placeholder="+7 (___) ___-__-__" inputMode="tel" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Электронная почта</label>
+              <input {...register('email')} defaultValue={org?.email ?? ''} className="kort-input" placeholder="info@company.kz" inputMode="email" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Веб-сайт</label>
+              <input {...register('website')} defaultValue={org?.website ?? ''} className="kort-input" placeholder="https://company.kz" />
+            </div>
+          </div>
+        </div>
+
+        {/* — Блок 5: Банковские реквизиты — */}
+        <div className={s.orgGroup}>
+          <div className={s.orgGroupLabel}>Банковские реквизиты</div>
+          <div className={s.fieldGrid}>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>Банк</label>
+              <input {...register('bank_name')} defaultValue={org?.bank_name ?? ''} className="kort-input" placeholder="Казкоммерцбанк / Халык Банк" />
+            </div>
+            <div className={s.field}>
+              <label className={s.fieldLabel}>БИК банка</label>
+              <input {...register('bank_bik')} defaultValue={org?.bank_bik ?? ''} className="kort-input" placeholder="HSBKKZKX" maxLength={11} />
+            </div>
+            <div className={`${s.field} ${s.fieldWide}`}>
+              <label className={s.fieldLabel}>Расчётный счёт (ИИК)</label>
+              <input {...register('bank_account')} defaultValue={org?.bank_account ?? ''} className="kort-input" placeholder="KZ00 0000 0000 0000 0000" maxLength={24} />
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
@@ -431,43 +540,6 @@ function TeamSection() {
   );
 }
 
-function PipelinesSection() {
-  const { data: pipelines, isLoading } = useQuery<Pipeline[]>({
-    queryKey: ['pipelines'],
-    queryFn: () => api.get('/pipelines/'),
-    select: (data: any) => data.results ?? data,
-  });
-  const pipeline = pipelines?.[0] ?? null;
-
-  return (
-    <div className={s.section}>
-      <div className={s.sectionHeader}>
-        <div>
-          <div className={s.sectionTitle}>Воронки продаж</div>
-          <div className={s.sectionSubtitle}>Структура этапов уже подготовлена под backend</div>
-        </div>
-      </div>
-      <div className={s.sectionBody}>
-        {isLoading && <Skeleton height={120} />}
-        {!isLoading && !pipeline && (
-          <EmptyState
-            icon={<GitBranch size={18} />}
-            title="Воронка не найдена"
-            description="Подключите backend или добавьте структуру позже."
-          />
-        )}
-        {pipeline?.stages?.map((stage) => (
-          <div key={stage.id} className={s.stageRow}>
-            <div className={s.stageDot} style={{ '--stage-color': stage.color } as CSSProperties} />
-            <span className={s.stageName}>{stage.name}</span>
-            <span className={s.roleText}>{stage.stage_type}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function AppearanceSection() {
   const themePack = useUIStore((state) => state.themePack);
   const setThemePack = useUIStore((state) => state.setThemePack);
@@ -663,7 +735,6 @@ export default function SettingsPage() {
         return true;
       case 'organization':
         return access.isAdmin && access.hasCompanyAccess;
-      case 'pipelines':
       case 'templates':
         return access.hasCompanyAccess;
       case 'team':
@@ -727,7 +798,6 @@ export default function SettingsPage() {
           {section === 'company-access' && <CompanyAccessSection />}
           {section === 'appearance' && <AppearanceSection />}
           {section === 'security' && <SecuritySection />}
-          {section === 'pipelines' && <PipelinesSection />}
           {section === 'team' && <TeamSection />}
           {section === 'api' && <ApiSection />}
           {section === 'integrations' && <StubSection title="Интеграции" subtitle="Каталог внешних подключений и ключей" />}

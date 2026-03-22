@@ -1062,6 +1062,19 @@
   position: relative;
 }
 
+.pinAreaShake {
+  animation: pin-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0); }
+  10%       { transform: translateX(-8px); }
+  30%       { transform: translateX(8px); }
+  50%       { transform: translateX(-6px); }
+  70%       { transform: translateX(6px); }
+  90%       { transform: translateX(-3px); }
+}
+
 .pinDots {
   display: flex;
   gap: 14px;
@@ -1106,6 +1119,17 @@
   transform: scale(1);
 }
 
+.pinDotError {
+  border-color: color-mix(in srgb, var(--fill-negative) 40%, var(--border-default)) !important;
+  background: color-mix(in srgb, var(--fill-negative-soft) 60%, var(--bg-surface)) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fill-negative) 16%, transparent) !important;
+}
+
+.pinDotError::after {
+  background: var(--fill-negative) !important;
+  transform: scale(1) !important;
+}
+
 .pinHiddenInput {
   position: absolute;
   opacity: 0;
@@ -1114,6 +1138,24 @@
   pointer-events: none;
   border: none;
   outline: none;
+}
+
+.orDivider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 500;
+  width: 100%;
+}
+
+.orDivider::before,
+.orDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
 }
 
 @keyframes brand-marquee {

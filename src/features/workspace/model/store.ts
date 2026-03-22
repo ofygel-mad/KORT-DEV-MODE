@@ -32,6 +32,7 @@ const VALID_WIDGET_KINDS = new Set<WorkspaceWidgetKind>([
   'reports',
   'imports',
   'chapan',
+  'requests',
 ]);
 
 const VALID_MODAL_SIZES = new Set<WorkspaceModalSize>(['compact', 'default', 'wide']);
@@ -46,6 +47,7 @@ const DEFAULT_TILE_SIZE: Record<WorkspaceWidgetKind, { width: number; height: nu
   reports:   { width: 240, height: 155 },
   imports:   { width: 240, height: 155 },
   chapan:    { width: 260, height: 170 },
+  requests:  { width: 270, height: 170 },
 };
 
 const TITLES: Record<WorkspaceWidgetKind, string> = {
@@ -55,6 +57,7 @@ const TITLES: Record<WorkspaceWidgetKind, string> = {
   reports:   'Сводка',
   imports:   'Импорт',
   chapan:    'Производство',
+  requests:  'Заявки',
 };
 
 interface ContextMenuState {

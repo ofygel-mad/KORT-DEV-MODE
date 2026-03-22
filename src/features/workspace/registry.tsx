@@ -1,22 +1,24 @@
 import type { LucideIcon } from 'lucide-react';
-import { Briefcase, CheckSquare, DatabaseZap, FolderInput, Users, Factory } from 'lucide-react';
+import { Briefcase, CheckSquare, DatabaseZap, FolderInput, Inbox, Users, Factory } from 'lucide-react';
 import type { WorkspaceSnapshot, WorkspaceWidgetKind } from './model/types';
 
 // Tile previews
-import { LeadsTilePreview }  from './widgets/customers/LeadsTilePreview';
-import { DealsTilePreview }   from './widgets/deals/DealsTilePreview';
-import { TasksTilePreview }   from './widgets/tasks/TasksTilePreview';
-import { ReportsTilePreview } from './widgets/reports/ReportsTilePreview';
-import { ImportsTilePreview } from './widgets/imports/ImportsTilePreview';
-import { ChapanTilePreview }  from './widgets/chapan/ChapanTilePreview';
+import { LeadsTilePreview }    from './widgets/customers/LeadsTilePreview';
+import { DealsTilePreview }    from './widgets/deals/DealsTilePreview';
+import { TasksTilePreview }    from './widgets/tasks/TasksTilePreview';
+import { ReportsTilePreview }  from './widgets/reports/ReportsTilePreview';
+import { ImportsTilePreview }  from './widgets/imports/ImportsTilePreview';
+import { ChapanTilePreview }   from './widgets/chapan/ChapanTilePreview';
+import { RequestsTilePreview } from './widgets/requests/RequestsTilePreview';
 
 // Full SPA environments
-import { LeadsSPA }   from '../leads-spa';
-import { DealsSPA }   from '../deals-spa';
-import { TasksSPA }   from './widgets/tasks/spa/TasksSPA';
-import { ReportsSPA } from './widgets/reports/spa/ReportsSPA';
-import { ImportsSPA } from './widgets/imports/spa/ImportsSPA';
-import { ChapanEntry } from './widgets/chapan/spa/ChapanEntry';
+import { LeadsSPA }     from '../leads-spa';
+import { DealsSPA }     from '../deals-spa';
+import { TasksSPA }     from './widgets/tasks/spa/TasksSPA';
+import { ReportsSPA }   from './widgets/reports/spa/ReportsSPA';
+import { ImportsSPA }   from './widgets/imports/spa/ImportsSPA';
+import { ChapanEntry }  from './widgets/chapan/spa/ChapanEntry';
+import { RequestsSPA }  from './widgets/requests/spa/RequestsSPA';
 
 export interface WorkspaceWidgetDefinition {
   kind: WorkspaceWidgetKind;
@@ -75,9 +77,18 @@ export const WORKSPACE_WIDGETS: WorkspaceWidgetDefinition[] = [
     renderSPA:     (_s, v, tid) => <ImportsSPA key={v} tileId={tid ?? 'default'} />,
   },
   {
+    kind: 'requests',
+    title: 'Заявки',
+    description: 'Менеджерский центр: входящие заявки, оформление заказов, оплата и настройки мастерской.',
+    requiresCompanyAccess: true,
+    icon: Inbox,
+    renderPreview: (_s, v, tid) => <RequestsTilePreview key={v} tileId={tid ?? 'default'} />,
+    renderSPA:     (_s, v, tid) => <RequestsSPA key={v} tileId={tid ?? 'default'} />,
+  },
+  {
     kind: 'chapan',
     title: 'Производство',
-    description: 'Каталог производств, шаблоны и запуск отдельных пространств.',
+    description: 'Цеховой канбан: производственные задания, распределение по исполнителям, контроль блокировок.',
     requiresCompanyAccess: true,
     icon: Factory,
     renderPreview: (_s, v, tid) => <ChapanTilePreview key={v} tileId={tid ?? 'default'} />,

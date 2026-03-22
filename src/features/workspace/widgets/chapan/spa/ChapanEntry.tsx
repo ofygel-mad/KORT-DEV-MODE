@@ -1,8 +1,25 @@
+/**
+ * ChapanEntry — entry point for the «Производство» tile.
+ *
+ * Flow:
+ *   hub  →  [ Чапан / Новый шаблон ]
+ *              ↓                ↓
+ *           ChapanSPA     ProductionTemplateSPA
+ *           (production   (template editor)
+ *            kanban)
+ *
+ * Manager-side sections (Заявки, Заказы, Настройки) have been
+ * moved to the separate «Заявки» tile (RequestsSPA).
+ * All authenticated roles see the production kanban here.
+ */
 import { Lock } from 'lucide-react';
 import { ChapanSPA } from './ChapanSPA';
 import { WorkshopConsole } from '../../../../chapan-spa/components/workshop/WorkshopConsole';
 import { useChapanStore } from '../../../../chapan-spa/model/chapan.store';
-import { canSeeManagerConsole, canSeeWorkshopConsole, useResolvedChapanRole } from '../../../../chapan-spa/model/rbac.store';
+import {
+  canSeeWorkshopConsole,
+  useResolvedChapanRole,
+} from '../../../../chapan-spa/model/rbac.store';
 import { ProductionHub } from './ProductionHub';
 import { ProductionTemplateSPA } from './ProductionTemplateSPA';
 import { ProductionWorkspaceShell } from './ProductionWorkspaceShell';
@@ -15,10 +32,12 @@ export function ChapanEntry({ tileId }: { tileId: string }) {
   const profileName = useChapanStore((state) => state.profile.displayName);
   const templateTitle = templateName.trim() || 'Новое производство';
 
+  /* ── Hub (card grid: Чапан + Шаблон) ─────────────────── */
   if (activeWorkspace === 'hub') {
     return <ProductionHub tileId={tileId} />;
   }
 
+  /* ── Template workspace ───────────────────────────────── */
   if (activeWorkspace === 'template') {
     return (
       <ProductionWorkspaceShell
@@ -31,18 +50,8 @@ export function ChapanEntry({ tileId }: { tileId: string }) {
     );
   }
 
-  if (canSeeManagerConsole(role)) {
-    return (
-      <ProductionWorkspaceShell
-        title={profileName}
-        onBack={goHome}
-        tone="live"
-      >
-        <ChapanSPA tileId={tileId} title={profileName} onBack={goHome} />
-      </ProductionWorkspaceShell>
-    );
-  }
-
+  /* ── Chapan production workspace ─────────────────────── */
+  // workshop_lead / worker → personalised WorkshopConsole
   if (canSeeWorkshopConsole(role)) {
     return (
       <ProductionWorkspaceShell
@@ -55,6 +64,21 @@ export function ChapanEntry({ tileId }: { tileId: string }) {
     );
   }
 
+  // manager / any other role → production kanban (ChapanSPA, production-only)
+  // Managers use the «Заявки» tile for order management.
+  if (role !== 'viewer') {
+    return (
+      <ProductionWorkspaceShell
+        title={profileName}
+        onBack={goHome}
+        tone="live"
+      >
+        <ChapanSPA tileId={tileId} title={profileName} onBack={goHome} />
+      </ProductionWorkspaceShell>
+    );
+  }
+
+  /* ── Access denied ────────────────────────────────────── */
   return (
     <ProductionWorkspaceShell
       title={profileName}

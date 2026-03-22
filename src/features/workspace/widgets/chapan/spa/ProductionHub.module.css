@@ -3,13 +3,14 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 14px;
-  padding: 20px;
+  gap: 20px;
+  padding: 28px 24px;
   background: color-mix(in srgb, var(--bg-surface) 92%, var(--fill-accent-subtle));
   color: var(--text-primary);
   overflow: auto;
 }
 
+/* ── Loading ─────────────────────────────────────────────── */
 .loading {
   height: 100%;
   display: flex;
@@ -17,181 +18,170 @@
   justify-content: center;
   gap: 10px;
   color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .spin {
   animation: spin 1s linear infinite;
+  flex-shrink: 0;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-/* ── Card grid ─────────────────────────────────────────────── */
-.cardGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+/* ── Header ──────────────────────────────────────────────── */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.workspaceCard {
-  display: grid;
-  gap: 16px;
-  padding: 20px;
-  border-radius: calc(var(--surface-radius) + 2px);
-  border: 1px solid var(--brand-panel-border);
-  background: var(--brand-surface-3);
-  box-shadow: var(--brand-panel-shadow);
-}
-
-.workspaceCard[data-tone='live'] {
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--fill-positive) 18%, transparent) 0%, transparent 42%),
-    var(--brand-surface-3);
-}
-
-.workspaceCard[data-tone='template'] {
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--fill-info) 16%, transparent) 0%, transparent 42%),
-    var(--brand-surface-3);
-}
-
-.cardHead {
-  display: grid;
-  gap: 8px;
-}
-
-.cardBadge {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  min-height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface-inset);
-  color: var(--text-secondary);
+.eyebrow {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
-.workspaceCard[data-tone='live'] .cardBadge {
-  border-color: color-mix(in srgb, var(--fill-positive) 22%, var(--border-subtle));
-  background: color-mix(in srgb, var(--fill-positive-soft) 72%, var(--bg-surface));
-  color: var(--fill-positive-text);
+/* ── Entry list ──────────────────────────────────────────── */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.workspaceCard[data-tone='template'] .cardBadge {
-  border-color: color-mix(in srgb, var(--fill-info) 22%, var(--border-subtle));
-  background: color-mix(in srgb, var(--fill-info-soft) 72%, var(--bg-surface));
-  color: var(--fill-info-text);
-}
-
-.cardTitle {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 22px;
-  line-height: 1.15;
-}
-
-/* ── Metric rows ───────────────────────────────────────────── */
-.metricList {
-  display: grid;
-  gap: 8px;
-}
-
-.metricRow {
+.entry {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 14px;
-  border-radius: 14px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface-inset);
-}
-
-.metricRow span {
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.metricRow strong {
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-/* ── Buttons ──────────────────────────────────────────────── */
-.primaryBtn,
-.secondaryBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 16px;
-  border-radius: 16px;
-  border: 1px solid transparent;
-  font: inherit;
-  font-weight: 700;
+  gap: 16px;
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: calc(var(--surface-radius) + 2px);
+  border: 1px solid var(--brand-panel-border);
+  background: var(--brand-surface-3);
+  box-shadow: var(--brand-panel-shadow);
   cursor: pointer;
+  text-align: left;
   transition:
-    transform var(--motion-fast) var(--motion-ease),
-    background var(--motion-fast) var(--motion-ease),
-    border-color var(--motion-fast) var(--motion-ease),
-    filter var(--motion-fast) var(--motion-ease),
-    box-shadow var(--motion-fast) var(--motion-ease);
+    transform 140ms var(--motion-ease),
+    border-color 140ms var(--motion-ease),
+    background 140ms var(--motion-ease),
+    box-shadow 140ms var(--motion-ease);
 }
 
-.primaryBtn:hover,
-.secondaryBtn:hover {
-  transform: var(--feedback-raise-hover);
+.entry:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--fill-accent) 28%, var(--border-default));
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--fill-accent) 20%, transparent),
+              var(--brand-panel-shadow);
 }
 
-.primaryBtn {
-  border-color: color-mix(in srgb, var(--fill-accent) 30%, var(--border-default));
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--fill-accent) 72%, white 28%) 0%,
-    var(--fill-accent) 100%
-  );
-  color: var(--text-inverse);
-  box-shadow: 0 10px 24px -16px color-mix(in srgb, var(--fill-accent) 68%, transparent);
+.entry:active {
+  transform: translateY(0);
 }
 
-.primaryBtn:hover {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--fill-accent) 78%, white 22%) 0%,
-    color-mix(in srgb, var(--fill-accent) 92%, white 8%) 100%
-  );
-  border-color: color-mix(in srgb, var(--fill-accent) 38%, var(--border-default));
-  box-shadow: 0 14px 28px -16px color-mix(in srgb, var(--fill-accent) 72%, transparent);
-}
-
-.secondaryBtn {
-  border-color: color-mix(in srgb, var(--fill-info) 26%, var(--border-default));
-  background: color-mix(in srgb, var(--bg-surface-elevated) 74%, var(--fill-info-soft));
-  color: var(--text-primary);
-}
-
-.secondaryBtn:hover {
-  background: color-mix(in srgb, var(--bg-hover) 72%, var(--fill-info-soft));
-  border-color: color-mix(in srgb, var(--fill-info) 32%, var(--border-default));
-}
-
-.primaryBtn:focus-visible,
-.secondaryBtn:focus-visible {
+.entry:focus-visible {
   outline: none;
   box-shadow: var(--brand-focus-ring);
 }
 
-/* ── Responsive ───────────────────────────────────────────── */
-@media (max-width: 980px) {
-  .root { padding: 14px; }
-  .cardGrid { grid-template-columns: 1fr; }
+/* Live tone */
+.entry[data-tone='live'] {
+  background:
+    radial-gradient(ellipse at top left, color-mix(in srgb, var(--fill-positive) 12%, transparent) 0%, transparent 60%),
+    var(--brand-surface-3);
+}
+
+.entry[data-tone='live']:hover {
+  border-color: color-mix(in srgb, var(--fill-positive) 32%, var(--border-default));
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--fill-positive) 22%, transparent),
+              var(--brand-panel-shadow);
+}
+
+/* Template tone */
+.entry[data-tone='template'] {
+  background:
+    radial-gradient(ellipse at top left, color-mix(in srgb, var(--fill-info) 10%, transparent) 0%, transparent 60%),
+    var(--brand-surface-3);
+}
+
+.entry[data-tone='template']:hover {
+  border-color: color-mix(in srgb, var(--fill-info) 28%, var(--border-default));
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--fill-info) 18%, transparent),
+              var(--brand-panel-shadow);
+}
+
+/* Icon wrapper */
+.entryIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-surface-inset) 80%, transparent);
+  color: var(--text-secondary);
+  transition: color 140ms var(--motion-ease), background 140ms var(--motion-ease);
+}
+
+.entry[data-tone='live'] .entryIcon {
+  color: var(--fill-positive-text);
+  border-color: color-mix(in srgb, var(--fill-positive) 20%, var(--border-subtle));
+  background: color-mix(in srgb, var(--fill-positive-soft) 60%, var(--bg-surface));
+}
+
+.entry[data-tone='template'] .entryIcon {
+  color: var(--fill-info-text);
+  border-color: color-mix(in srgb, var(--fill-info) 20%, var(--border-subtle));
+  background: color-mix(in srgb, var(--fill-info-soft) 60%, var(--bg-surface));
+}
+
+/* Body */
+.entryBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.entryLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.entryTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Arrow */
+.entryArrow {
+  display: flex;
+  align-items: center;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: transform 140ms var(--motion-ease), color 140ms var(--motion-ease);
+}
+
+.entry:hover .entryArrow {
+  transform: translateX(4px);
+  color: var(--text-secondary);
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 720px) {
+  .root { padding: 20px 16px; }
 }
