@@ -6,7 +6,7 @@ import {
   refreshSchema,
 } from './auth.schemas.js';
 import * as authService from './auth.service.js';
-import { UnauthorizedError } from '../../lib/errors.js';
+import { UnauthorizedError, ValidationError } from '../../lib/errors.js';
 import { verifyFirstLoginToken } from '../../lib/jwt.js';
 
 export async function authRoutes(app: FastifyInstance) {

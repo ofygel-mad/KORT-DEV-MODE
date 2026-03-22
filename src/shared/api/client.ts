@@ -5,13 +5,10 @@ import { emitConsoleEvent } from '../../console/events';
 import { redirectTo } from '../lib/browser';
 import { useAuthStore } from '../stores/auth';
 import { readApiErrorMessage } from './errors';
-import { installMockAdapter } from './mock-adapter';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
-// Mock-режим: работает и в DEV, и в production (если VITE_MOCK_API=true задан в Railway).
-// Это позволяет деплоить фронт без бэкенда, пока Django не поднят отдельно.
-const IS_MOCK = import.meta.env.VITE_MOCK_API === 'true';
+const IS_MOCK = import.meta.env.DEV && import.meta.env.VITE_MOCK_API === 'true';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -73,7 +70,9 @@ function shouldSuppressPermissionToast(status: number) {
 }
 
 if (IS_MOCK) {
-  installMockAdapter(apiClient);
+  import('./mock-adapter').then(({ installMockAdapter }) => {
+    installMockAdapter(apiClient);
+  });
 }
 
 apiClient.interceptors.request.use((config) => {

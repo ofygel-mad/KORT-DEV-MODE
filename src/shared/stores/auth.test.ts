@@ -111,7 +111,7 @@ describe('resolvePostAuthPath', () => {
     })).toBe('/onboarding');
   });
 
-  it('keeps active users on the dashboard and redirects users without company access to settings', () => {
+  it('keeps everyone else on the dashboard path', () => {
     expect(resolvePostAuthPath({
       org: { ...MOCK_ORG, onboarding_completed: true },
       membership: buildActiveMembership('owner'),
@@ -125,6 +125,6 @@ describe('resolvePostAuthPath', () => {
         role: 'viewer',
         source: 'request',
       },
-    })).toBe('/settings/company-access');
+    })).toBe('/');
   });
 });

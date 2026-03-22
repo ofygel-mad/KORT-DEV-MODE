@@ -1,6 +1,5 @@
 import { readStorage, removeStorage, writeStorage } from '../shared/lib/browser';
 import type { AuthSessionResponse } from '../shared/api/contracts';
-import { API_BASE_URL } from '../shared/api/client';
 import { useAuthStore } from '../shared/stores/auth';
 import { buildConsoleAuthSession, isConsoleAccessToken } from './devSession';
 import type { AuthSnapshot } from './store';
@@ -171,21 +170,6 @@ export function canUseLocalConsoleAccess() {
   return import.meta.env.DEV;
 }
 
-function buildApiEndpoint(path: string) {
-  const normalizedBase = API_BASE_URL.replace(/\/+$/, '');
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-
-  if (/^https?:\/\//i.test(normalizedBase)) {
-    return `${normalizedBase}${normalizedPath}`;
-  }
-
-  if (normalizedBase.startsWith('/')) {
-    return `${normalizedBase}${normalizedPath}`;
-  }
-
-  return `/${normalizedBase.replace(/^\/+/, '')}${normalizedPath}`;
-}
-
 // ── Backend service session ────────────────────────────────────────────────
 
 export type ServiceAccessResult =
@@ -195,7 +179,7 @@ export type ServiceAccessResult =
 
 export async function requestBackendServiceSession(password: string): Promise<ServiceAccessResult> {
   try {
-    const response = await fetch(buildApiEndpoint('/service/access'), {
+    const response = await fetch('/api/v1/service/access', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
@@ -210,48 +194,6 @@ export async function requestBackendServiceSession(password: string): Promise<Se
     return { type: 'denied' };
   } catch {
     // Network error = backend offline
-    return { type: 'offline' };
-  }
-}
-
-export type ServicePasswordChangeResult =
-  | { type: 'ok'; updatedAt: string | null }
-  | { type: 'denied' }
-  | { type: 'offline' };
-
-export async function requestBackendServicePasswordChange(
-  currentPassword: string,
-  nextPassword: string,
-): Promise<ServicePasswordChangeResult> {
-  const token = useAuthStore.getState().token;
-  if (!token) {
-    return { type: 'denied' };
-  }
-
-  try {
-    const response = await fetch(buildApiEndpoint('/service/password'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        current_password: currentPassword,
-        new_password: nextPassword,
-      }),
-    });
-
-    if (response.ok) {
-      const payload = await response.json() as { updated_at?: string };
-      return { type: 'ok', updatedAt: payload.updated_at ?? null };
-    }
-
-    if (response.status === 400 || response.status === 401 || response.status === 403) {
-      return { type: 'denied' };
-    }
-
-    return { type: 'offline' };
-  } catch {
     return { type: 'offline' };
   }
 }

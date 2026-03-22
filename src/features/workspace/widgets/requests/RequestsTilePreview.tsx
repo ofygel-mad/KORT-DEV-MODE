@@ -9,7 +9,7 @@ export function RequestsTilePreview({ tileId: _tileId }: { tileId: string }) {
   );
   const newRequests = requests.filter((r) => r.status === 'new');
   const inWorkRequests = requests.filter((r) => r.status === 'reviewed');
-  const unpaidOrders = activeOrders.filter((o) => o.paymentStatus === 'not_paid').length;
+  const unpaidOrders = activeOrders.filter((o) => o.paymentStatus === 'unpaid').length;
   const readyOrders = orders.filter((o) => o.status === 'ready').length;
 
   return (

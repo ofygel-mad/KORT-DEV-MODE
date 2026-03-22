@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '../stores/auth';
 
-const IS_MOCK = import.meta.env.VITE_MOCK_API === 'true';
+const IS_MOCK = import.meta.env.DEV && import.meta.env.VITE_MOCK_API === 'true';
 
 type SSEOptions = {
   onNotification?: (data: Record<string, any>) => void;

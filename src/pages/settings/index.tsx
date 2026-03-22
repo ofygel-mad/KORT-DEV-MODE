@@ -335,7 +335,7 @@ function CompanyAccessSection() {
     </>
   );
 }
-
+}
 
 function TeamSection() {
   const queryClient = useQueryClient();

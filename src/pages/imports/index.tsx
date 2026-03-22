@@ -12,7 +12,6 @@ import { Button } from '../../shared/ui/Button';
 import { PageHeader } from '../../shared/ui/PageHeader';
 import { Skeleton } from '../../shared/ui/Skeleton';
 import s from './Imports.module.css';
-import { SmartImportPanel } from '../../features/imports/SmartImportPanel';
 
 const KORT_FIELDS = [
   { value: '', label: 'Не импортировать' },
@@ -41,19 +40,6 @@ interface ImportJob {
   };
   created_at: string;
 }
-
-
-// ─── Multi-target module definitions ────────────────────────
-const IMPORT_TARGETS = [
-  { value: 'customers',       label: 'Клиенты',           desc: 'Имена, телефоны, компании' },
-  { value: 'leads',           label: 'Лиды',              desc: 'Входящие лиды в CRM' },
-  { value: 'orders',          label: 'Заказы',            desc: 'Производственные заказы' },
-  { value: 'catalog',         label: 'Каталог',           desc: 'Продукция, ткани, размеры' },
-  { value: 'warehouse_items', label: 'Склад (позиции)',    desc: 'Позиции и остатки склада' },
-  { value: 'accounting',      label: 'Проводки',          desc: 'Финансовые операции' },
-] as const;
-
-type ImportTarget = typeof IMPORT_TARGETS[number]['value'];
 
 const STEPS = ['Загрузка', 'Маппинг', 'Импорт'];
 
@@ -99,9 +85,6 @@ export default function ImportsPage() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [wizardStep, setWizardStep] = useState(0);
-  const [selectedTarget, setSelectedTarget] = useState<ImportTarget>('customers');
-  const [smartBuildMode, setSmartBuildMode] = useState(false);
-  const [smartTargets, setSmartTargets] = useState<Set<ImportTarget>>(new Set(['customers']));
 
   const { data: jobs, isLoading } = useQuery<{ results: ImportJob[] }>({
     queryKey: ['import-jobs'],

@@ -19,7 +19,6 @@ import {
   captureAuthSnapshot,
   deactivateConsoleAccess,
   getConsolePasswordChangedAt,
-  requestBackendServicePasswordChange,
   requestBackendServiceSession,
   updateConsolePassword,
   verifyConsolePassword,
@@ -528,6 +527,13 @@ export async function executeConsoleCommand(input: string): Promise<ConsoleComma
     }
 
     case 'access': {
+      if (!canUseLocalConsoleAccess()) {
+        return {
+          level: 'error',
+          message: 'Service access unavailable — not a DEV build.',
+        };
+      }
+
       const password = parsed.args[0] ?? '';
       if (!password) {
         return {
@@ -560,7 +566,6 @@ export async function executeConsoleCommand(input: string): Promise<ConsoleComma
           active: true,
           activatedAt: new Date().toISOString(),
           snapshot,
-          password,
         });
         await appRouter.navigate('/');
         return {
@@ -572,10 +577,7 @@ export async function executeConsoleCommand(input: string): Promise<ConsoleComma
 
       // ── Шаг 2: пробуем локальный хэш (оба пути) ────────────
       // Это нужно и когда бэкенд недоступен, и когда пароль в .env другой
-      const canUseLocalFallback = canUseLocalConsoleAccess();
-      const accepted = canUseLocalFallback
-        ? await verifyConsolePassword(password)
-        : false;
+      const accepted = await verifyConsolePassword(password);
 
       if (accepted) {
         activateConsoleAccess();
@@ -583,7 +585,6 @@ export async function executeConsoleCommand(input: string): Promise<ConsoleComma
           active: true,
           activatedAt: new Date().toISOString(),
           snapshot,
-          password,
         });
         await appRouter.navigate('/');
         return {
@@ -598,95 +599,22 @@ export async function executeConsoleCommand(input: string): Promise<ConsoleComma
       const backendLine = backendResult.type === 'offline'
         ? '  Бэкенд:  недоступен (сервер выключен или порт 8000 закрыт)'
         : '  Бэкенд:  отклонил — пароль не совпадает с CONSOLE_SERVICE_PASSWORD';
-      const localLine = canUseLocalFallback
-        ? '  Локально: хэш не совпадает'
-        : '  Локально: fallback отключён вне DEV-сборки';
-      const tryLines = canUseLocalFallback
-        ? [
-            'Что попробовать:',
-            '  access "kortdev1234"   ← пароль из CONSOLE_SERVICE_PASSWORD',
-            '  access "1234"          ← дефолтный локальный пароль',
-          ]
-        : [
-            'Что попробовать:',
-            '  access "ваш-CONSOLE_SERVICE_PASSWORD"',
-            '  Проверь, что backend жив и переменная CONSOLE_SERVICE_PASSWORD задана в Railway.',
-          ];
 
       return {
         level: 'error',
         message: 'Неверный пароль.',
         details: [
           backendLine,
-          localLine,
+          '  Локально: хэш не совпадает',
           '',
-          ...tryLines,
+          'Что попробовать:',
+          '  access "kortdev1234"   ← пароль из server/.env',
+          '  access "1234"          ← дефолтный локальный пароль',
         ].join('\n'),
       };
     }
 
     case 'change': {
-      const [firstArg = '', secondArg = ''] = parsed.args;
-      const currentPasswordOverride = secondArg ? firstArg : '';
-      const requestedPassword = secondArg || firstArg;
-      const currentServiceSession = useConsoleStore.getState().serviceSession;
-
-      if (currentServiceSession.active) {
-        if (!requestedPassword) {
-          return {
-            level: 'error',
-            message: 'Usage: change "new-password" or change "current-password" "new-password"',
-            details: 'Production rotates the backend service password. DEV also refreshes the local fallback password.',
-          };
-        }
-
-        if (requestedPassword.length < 8) {
-          return {
-            level: 'error',
-            message: 'Password must contain at least 8 characters.',
-          };
-        }
-
-        const currentPassword = currentPasswordOverride || currentServiceSession.password || '';
-
-        if (currentPassword) {
-          const backendResult = await requestBackendServicePasswordChange(currentPassword, requestedPassword);
-
-          if (backendResult.type === 'ok') {
-            if (canUseLocalConsoleAccess()) {
-              await updateConsolePassword(requestedPassword);
-            }
-
-            useConsoleStore.getState().setServiceSession({ password: requestedPassword });
-            return {
-              level: 'success',
-              message: 'Service password updated.',
-              details: backendResult.updatedAt
-                ? `updated_at: ${backendResult.updatedAt}`
-                : 'Backend credential rotated successfully.',
-            };
-          }
-
-          if (backendResult.type === 'denied') {
-            return {
-              level: 'error',
-              message: 'Unable to rotate the service password.',
-              details: 'The current password is invalid or the current session does not have owner access.',
-            };
-          }
-        }
-
-        if (!canUseLocalConsoleAccess()) {
-          return {
-            level: 'error',
-            message: 'Backend service password change unavailable.',
-            details: currentPassword
-              ? 'Check VITE_API_BASE_URL, CORS and the /service/password backend route.'
-              : 'Repeat access with the current password or use: change "current-password" "new-password".',
-          };
-        }
-      }
-
       if (!canUseLocalConsoleAccess()) {
         return {
           level: 'error',

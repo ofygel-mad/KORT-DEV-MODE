@@ -7,7 +7,6 @@ import {
   signRefreshToken,
   signFirstLoginToken,
   verifyFirstLoginToken,
-  verifyRefreshToken,
 } from '../../lib/jwt.js';
 import {
   ConflictError,
@@ -499,9 +498,6 @@ export async function registerCompany(data: {
     } catch (error) {
       if (isUniqueConstraint(error, 'email')) {
         throw new ConflictError(DUPLICATE_EMAIL_MESSAGE);
-      }
-      if (isUniqueConstraint(error, 'phone')) {
-        throw new ConflictError(DUPLICATE_PHONE_MESSAGE);
       }
       if (isUniqueConstraint(error, 'slug') && attempt < 3) continue;
       throw error;

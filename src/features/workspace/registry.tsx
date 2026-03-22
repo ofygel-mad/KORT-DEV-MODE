@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Archive, Briefcase, CheckSquare, DatabaseZap, FolderInput, Inbox, Users, Factory, BookOpen } from 'lucide-react';
+import { Archive, Briefcase, CheckSquare, DatabaseZap, FolderInput, Inbox, Users, Factory } from 'lucide-react';
 import type { WorkspaceSnapshot, WorkspaceWidgetKind } from './model/types';
 
 // Tile previews
@@ -11,7 +11,6 @@ import { ImportsTilePreview }    from './widgets/imports/ImportsTilePreview';
 import { ChapanTilePreview }     from './widgets/chapan/ChapanTilePreview';
 import { RequestsTilePreview }   from './widgets/requests/RequestsTilePreview';
 import { WarehouseTilePreview }  from './widgets/warehouse/WarehouseTilePreview';
-import { AccountingTilePreview } from './widgets/accounting/AccountingTilePreview';
 
 // Full SPA environments
 import { LeadsSPA }      from '../leads-spa';
@@ -22,7 +21,6 @@ import { ImportsSPA }    from './widgets/imports/spa/ImportsSPA';
 import { ChapanEntry }   from './widgets/chapan/spa/ChapanEntry';
 import { RequestsSPA }   from './widgets/requests/spa/RequestsSPA';
 import { WarehouseSPA }  from '../warehouse-spa';
-import { AccountingSPA } from '../accounting-spa/AccountingSPA';
 
 export interface WorkspaceWidgetDefinition {
   kind: WorkspaceWidgetKind;
@@ -106,15 +104,6 @@ export const WORKSPACE_WIDGETS: WorkspaceWidgetDefinition[] = [
     icon: Archive,
     renderPreview: (_s, v, tid) => <WarehouseTilePreview key={v} tileId={tid ?? 'default'} />,
     renderSPA:     (_s, v, tid) => <WarehouseSPA key={v} tileId={tid ?? 'default'} />,
-  },
-  {
-    kind: 'accounting',
-    title: 'Учёт и Аудит',
-    description: 'Финансовый хаб: журнал проводок с иммутабельной цепочкой, P&L, движение ДС, дебиторка, детектор разрывов между модулями.',
-    requiresCompanyAccess: true,
-    icon: BookOpen,
-    renderPreview: (_s, v, tid) => <AccountingTilePreview key={v} tileId={tid ?? 'default'} />,
-    renderSPA:     (_s, v, tid) => <AccountingSPA key={v} tileId={tid ?? 'default'} />,
   },
 ];
 

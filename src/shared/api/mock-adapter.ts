@@ -1,4 +1,4 @@
-import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import {
   buildConsoleMockSession,
   LOCAL_CONSOLE_ACCESS_TOKEN,
@@ -32,6 +32,7 @@ import {
   MOCK_MEMBERSHIP_REQUESTS,
   MOCK_PIPELINE,
   MOCK_TASKS,
+  resolveMockAuthSessionByEmail,
   type MockAuthSession,
 } from './mock-data';
 
@@ -67,29 +68,13 @@ function parseBody(config: InternalAxiosRequestConfig<any>) {
 }
 
 function withResponse(config: InternalAxiosRequestConfig<any>, data: unknown, status = 200) {
-  config.adapter = async () => {
-    const response = {
-      data,
-      status,
-      statusText: status >= 400 ? 'ERROR' : 'OK',
-      headers: {},
-      config,
-    };
-
-    if (status >= 400) {
-      throw new AxiosError(
-        typeof data === 'object' && data && 'message' in (data as AnyRecord)
-          ? String((data as AnyRecord).message)
-          : `Mock request failed with status ${status}`,
-        undefined,
-        config,
-        undefined,
-        response,
-      );
-    }
-
-    return response;
-  };
+  config.adapter = async () => ({
+    data,
+    status,
+    statusText: 'OK',
+    headers: {},
+    config,
+  });
   return config;
 }
 
@@ -377,80 +362,6 @@ function searchResults(query: string) {
   return { count: results.length, results };
 }
 
-function toPipelineStage(stage: typeof mockPipeline.stages[number]) {
-  return {
-    id: stage.id,
-    name: stage.name,
-    position: stage.position,
-    type: stage.stage_type,
-    color: stage.color,
-  };
-}
-
-function buildCustomerDetail(customerId: string) {
-  const customer = mockCustomers.find((item) => item.id === customerId) ?? mockCustomers[0];
-  if (!customer) {
-    return null;
-  }
-
-  return {
-    id: customer.id,
-    full_name: customer.full_name,
-    company_name: customer.company_name,
-    phone: customer.phone,
-    email: customer.email,
-    source: customer.source ?? 'Ручное добавление',
-    status: customer.status ?? 'new',
-    owner: null,
-    tags: [],
-    notes: '',
-    created_at: customer.created_at ?? new Date().toISOString(),
-    updated_at: customer.created_at ?? new Date().toISOString(),
-    last_contact_at: null,
-    follow_up_due_at: null,
-    response_state: null,
-    next_action_note: null,
-  };
-}
-
-function buildDealDetail(dealId: string) {
-  const deal = mockDeals.find((item) => item.id === dealId) ?? mockDeals[0];
-  if (!deal) {
-    return null;
-  }
-
-  const stage = mockPipeline.stages.find((item) => item.id === deal.stage_id) ?? mockPipeline.stages[0];
-  const customer = mockCustomers.find((item) => item.id === deal.customer_id)
-    ?? (deal.customer?.id ? mockCustomers.find((item) => item.id === deal.customer.id) : null)
-    ?? null;
-  const owner = sessions[0]?.user ?? null;
-
-  return {
-    id: deal.id,
-    title: deal.title,
-    amount: deal.amount ?? null,
-    currency: deal.currency ?? 'KZT',
-    status: deal.status ?? 'open',
-    created_at: deal.created_at ?? new Date().toISOString(),
-    expected_close_date: null,
-    next_step: '',
-    customer: customer ? {
-      id: customer.id,
-      full_name: customer.full_name,
-      company_name: customer.company_name,
-      phone: customer.phone,
-      email: customer.email,
-    } : null,
-    owner: owner ? { id: owner.id, full_name: owner.full_name } : null,
-    stage: stage ? toPipelineStage(stage) : null,
-    pipeline: {
-      id: mockPipeline.id,
-      name: mockPipeline.name,
-      stages: mockPipeline.stages.map(toPipelineStage),
-    },
-  };
-}
-
 export function installMockAdapter(client: AxiosInstance) {
   client.interceptors.request.use(async (config) => {
     await delay();
@@ -463,25 +374,9 @@ export function installMockAdapter(client: AxiosInstance) {
 
     if (url === '/auth/login' && method === 'post') {
       const email = String(body.email ?? '').trim().toLowerCase();
-      const phone = String(body.phone ?? '').trim();
-      const password = String(body.password ?? '');
-      const found = email
-        ? sessions.find((item) => item.user.email.toLowerCase() === email) ?? null
-        : null;
-      const byPhone = !found && phone
-        ? sessions.find((item) => item.user.phone === phone) ?? null
-        : null;
-      const matched = found ?? byPhone;
-      if (!matched) return withResponse(config, null);
-      if (matched.password !== password) {
-        return withResponse(config, {
-          code: 'UNAUTHORIZED',
-          error: 'UNAUTHORIZED',
-          message: 'Неверный пароль.',
-          detail: 'Неверный пароль.',
-        }, 401);
-      }
-      const nextSession = cloneSession(matched);
+      const found = resolveMockAuthSessionByEmail(email);
+      if (!found) return withResponse(config, null);
+      const nextSession = cloneSession(found);
       updateSession(nextSession);
       const orgs = getMockUserOrgs(nextSession);
       return withResponse(config, { ...toAuthSession(nextSession), orgs });
@@ -505,25 +400,6 @@ export function installMockAdapter(client: AxiosInstance) {
         phone: String(body.phone ?? '').trim() || undefined,
         company_name: String(body.company_name ?? '').trim() || 'Новая компания',
       });
-      return withResponse(config, { ...toAuthSession(nextSession), orgs: getMockUserOrgs(nextSession) });
-    }
-
-    // ── First-login: set password ──────────────────────────────────────────────
-    // Called by SetPasswordStep with a temp_token — returns full AuthSessionResponse.
-    if ((url === '/auth/set-password' || url === '/auth/set-password/') && method === 'post') {
-      const token = extractBearerToken(config);
-      // In mock mode the temp_token equals the session access token,
-      // so we can resolve the user from it.
-      const found = token ? sessions.find(
-        (s) => s.access === token || s.user.id === token,
-      ) ?? sessions[0] : sessions[0];
-      const nextSession = cloneSession(found);
-      // Update the stored password so subsequent logins work.
-      const password = String(body.new_password ?? '').trim();
-      if (password) {
-        const target = sessions.find((s) => s.user.id === found.user.id);
-        if (target) target.password = password;
-      }
       return withResponse(config, { ...toAuthSession(nextSession), orgs: getMockUserOrgs(nextSession) });
     }
 
@@ -731,7 +607,7 @@ export function installMockAdapter(client: AxiosInstance) {
 
       const workspace = {
         id: `ws-${Date.now()}`,
-        name: String(body.name ?? '').trim() || 'Новое производство',
+        name: String(body.name ?? '').trim() || 'РќРѕРІРѕРµ РїСЂРѕРёР·РІРѕРґСЃС‚РІРѕ',
         description: String(body.description ?? '').trim(),
         prefix: String(body.prefix ?? '').trim().toUpperCase(),
         status: 'created',
@@ -828,7 +704,7 @@ export function installMockAdapter(client: AxiosInstance) {
       if (method === 'patch' || method === 'put') {
         mockCustomers = mockCustomers.map((customer) => customer.id === id ? { ...customer, ...body } : customer);
       }
-      return withResponse(config, clone(buildCustomerDetail(id)));
+      return withResponse(config, clone(mockCustomers.find((customer) => customer.id === id) ?? mockCustomers[0]));
     }
 
     if (url === '/deals/board' && method === 'get') {
@@ -845,25 +721,12 @@ export function installMockAdapter(client: AxiosInstance) {
     }
 
     if (url === '/deals' && method === 'post') {
-      const stage = mockPipeline.stages.find((item) => item.id === body.stage_id) ?? mockPipeline.stages[0];
-      const customer = mockCustomers.find((item) => item.id === body.customer_id) ?? null;
       const created = {
         id: `d-${Date.now()}`,
-        title: String(body.title ?? '').trim(),
-        amount: body.amount == null || body.amount === '' ? 0 : Number(body.amount),
-        currency: String(body.currency ?? 'KZT'),
-        customer_id: String(body.customer_id ?? ''),
-        customer_name: customer?.full_name ?? 'Без клиента',
-        customer: customer
-          ? { id: customer.id, full_name: customer.full_name }
-          : { id: 'c-unknown', full_name: 'Без клиента' },
-        pipeline_id: mockPipeline.id,
-        stage_id: stage?.id ?? '',
-        stage: stage?.name ?? 'Новый этап',
+        ...body,
         status: 'open',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        days_silent: 0,
       };
       mockDeals = [created, ...mockDeals];
       return withResponse(config, created);
@@ -872,25 +735,9 @@ export function installMockAdapter(client: AxiosInstance) {
     if (/^\/deals\/[^/]+$/.test(url)) {
       const id = url.split('/')[2];
       if (method === 'patch' || method === 'put') {
-        mockDeals = mockDeals.map((deal) => {
-          if (deal.id !== id) {
-            return deal;
-          }
-
-          const nextStage = body.stage_id
-            ? mockPipeline.stages.find((item) => item.id === body.stage_id) ?? null
-            : null;
-
-          return {
-            ...deal,
-            ...body,
-            stage_id: nextStage?.id ?? deal.stage_id,
-            stage: nextStage?.name ?? deal.stage,
-            updated_at: new Date().toISOString(),
-          };
-        });
+        mockDeals = mockDeals.map((deal) => deal.id === id ? { ...deal, ...body, updated_at: new Date().toISOString() } : deal);
       }
-      return withResponse(config, clone(buildDealDetail(id)));
+      return withResponse(config, clone(mockDeals.find((deal) => deal.id === id) ?? mockDeals[0]));
     }
 
     if (url.startsWith('/pipelines') && method === 'get') {
@@ -958,299 +805,6 @@ export function installMockAdapter(client: AxiosInstance) {
 
     if (url.startsWith('/audit')) {
       return withResponse(config, { count: 0, results: [] });
-    }
-
-    // ── Leads SPA ─────────────────────────────────────────────────────────────
-
-    const MOCK_LEADS = [
-      { id:'l1', fullName:'Айгерим Сейткали', phone:'+77001112233', source:'instagram', stage:'new', pipeline:'qualifier', createdAt:new Date(Date.now()-3600000).toISOString(), updatedAt:new Date(Date.now()-3600000).toISOString(), history:[] },
-      { id:'l2', fullName:'Данияр Аубаков', phone:'+77012223344', source:'site', stage:'in_progress', pipeline:'qualifier', assignedName:'Акбар А.', createdAt:new Date(Date.now()-7200000).toISOString(), updatedAt:new Date(Date.now()-1800000).toISOString(), history:[] },
-      { id:'l3', fullName:'Мадина Нурланова', phone:'+77023334455', source:'ad', stage:'thinking', pipeline:'qualifier', callbackAt:new Date(Date.now()+86400000).toISOString(), budget:500000, createdAt:new Date(Date.now()-172800000).toISOString(), updatedAt:new Date(Date.now()-90000000).toISOString(), history:[] },
-      { id:'l4', fullName:'Ерлан Жумабеков', phone:'+77034445566', source:'referral', stage:'no_answer', pipeline:'qualifier', createdAt:new Date(Date.now()-86400000).toISOString(), updatedAt:new Date(Date.now()-86400000).toISOString(), history:[] },
-      { id:'l5', fullName:'Нурлан Касымов', phone:'+77056667788', source:'instagram', stage:'awaiting_meeting', pipeline:'closer', assignedName:'Сауле М.', meetingAt:new Date(Date.now()+86400000).toISOString(), budget:800000, createdAt:new Date(Date.now()-172800000).toISOString(), updatedAt:new Date(Date.now()-3600000).toISOString(), history:[] },
-      { id:'l6', fullName:'Гульнара Бекова', phone:'+77067778899', source:'ad', stage:'contract', pipeline:'closer', assignedName:'Сауле М.', budget:1200000, createdAt:new Date(Date.now()-604800000).toISOString(), updatedAt:new Date(Date.now()-7200000).toISOString(), history:[] },
-    ];
-
-    if (url === '/leads' && method === 'get') {
-      return withResponse(config, { count: MOCK_LEADS.length, results: clone(MOCK_LEADS) });
-    }
-
-    if (/^\/leads\/[^/]+$/.test(url)) {
-      const leadId = url.split('/')[2];
-      if (method === 'patch' || method === 'put') {
-        return withResponse(config, clone({ ...MOCK_LEADS.find(l => l.id === leadId) ?? MOCK_LEADS[0], ...body, updatedAt: new Date().toISOString() }));
-      }
-      return withResponse(config, clone(MOCK_LEADS.find(l => l.id === leadId) ?? null));
-    }
-
-    if (/^\/leads\/[^/]+\/history$/.test(url) && method === 'post') {
-      return withResponse(config, { id: `h-${Date.now()}`, ...body, createdAt: new Date().toISOString() });
-    }
-
-    if (/^\/leads\/[^/]+\/checklist$/.test(url) && method === 'patch') {
-      return withResponse(config, { ok: true });
-    }
-
-    if (url === '/leads' && method === 'post') {
-      const created = { id: `l-${Date.now()}`, stage: 'new', pipeline: 'qualifier', history: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), ...body };
-      return withResponse(config, created);
-    }
-
-    // ── Employees (Settings → Команда) ────────────────────────────────────────
-
-    const MOCK_EMPLOYEES = [
-      { id:'emp-1', full_name:'Алибек Сейткали', phone:'+77001112233', department:'Продажи', permissions:['sales'], account_status:'active', added_by_id:'u-001', added_by_name:'Владелец', created_at:new Date(Date.now()-2592000000).toISOString() },
-      { id:'emp-2', full_name:'Айгерим Касымова', phone:'+77012223344', department:'Бухгалтерия', permissions:['financial_report'], account_status:'active', added_by_id:'u-001', added_by_name:'Владелец', created_at:new Date(Date.now()-1296000000).toISOString() },
-      { id:'emp-3', full_name:'Ержан Тулеубаев', phone:'+77023334455', department:'Производство', permissions:['production'], account_status:'pending_first_login', added_by_id:'u-001', added_by_name:'Владелец', created_at:new Date(Date.now()-86400000).toISOString() },
-    ];
-
-    if (url === '/company/employees' || url === '/company/employees/') {
-      if (method === 'get') {
-        return withResponse(config, clone(MOCK_EMPLOYEES));
-      }
-      if (method === 'post') {
-        const emp = { id: `emp-${Date.now()}`, account_status: 'pending_first_login', added_by_id: session?.user?.id ?? 'u-001', added_by_name: session?.user?.full_name ?? 'Администратор', created_at: new Date().toISOString(), ...body };
-        return withResponse(config, emp);
-      }
-    }
-
-    if (/^\/company\/employees\/[^/]+(\/)?$/.test(url) && !url.includes('/reset-password') && !url.includes('/dismiss')) {
-      const empId = url.replace(/\//g, ' ').trim().split(' ')[2];
-      if (method === 'patch' || method === 'put') {
-        const emp = MOCK_EMPLOYEES.find(e => e.id === empId) ?? MOCK_EMPLOYEES[0];
-        return withResponse(config, clone({ ...emp, ...body }));
-      }
-      return withResponse(config, clone(MOCK_EMPLOYEES.find(e => e.id === empId) ?? null));
-    }
-
-    if (/^\/company\/employees\/[^/]+\/reset-password(\/)?$/.test(url) && method === 'post') {
-      return withResponse(config, { ok: true });
-    }
-
-    if (/^\/company\/employees\/[^/]+\/dismiss(\/)?$/.test(url) && method === 'post') {
-      return withResponse(config, { ok: true });
-    }
-
-    // ── Exchange Rates ────────────────────────────────────────────────────────
-
-    if (url.startsWith('/exchange-rates')) {
-      return withResponse(config, {
-        base: 'KZT',
-        date: new Date().toISOString().slice(0, 10),
-        rates: { KZT: 1, USD: 0.00221, EUR: 0.00204, RUB: 0.2, CNY: 0.016 },
-      });
-    }
-
-    // ── Team Presence ─────────────────────────────────────────────────────────
-
-    if (url.startsWith('/team/presence')) {
-      const users = session ? [
-        { id: session.user.id, full_name: session.user.full_name, presence_state: 'online', last_seen: new Date().toISOString() },
-      ] : [];
-      return withResponse(config, users);
-    }
-
-    // ── Reports / Dashboard extras ────────────────────────────────────────────
-
-    if (url === '/reports/daily-focus' || url === '/reports/daily-focus/') {
-      return withResponse(config, {
-        start_day: { overdue_tasks: 3, tasks_due_today: 7, deals_without_touch: 2 },
-        generated_at: new Date().toISOString(),
-      });
-    }
-
-    if (url.startsWith('/reports/summary')) {
-      return withResponse(config, {
-        period: 'month',
-        revenue: 12400000, revenue_delta: 8.4,
-        deals_won: 5, deals_won_delta: 2,
-        new_leads: 18, new_leads_delta: -3,
-        tasks_done: 24, tasks_done_delta: 6,
-      });
-    }
-
-    // ── Accounting SPA ────────────────────────────────────────────────────────
-
-    if (url === '/accounting/summary') {
-      return withResponse(config, {
-        period: params.period ?? 'month',
-        income: 8400000, expense: 3200000, net: 5200000,
-        income_delta: 12.4, expense_delta: -3.1, net_delta: 22.6,
-        accounts: [
-          { id:'acc-1', name:'Основной счёт', balance: 14200000, currency:'KZT' },
-          { id:'acc-2', name:'Касса', balance: 850000, currency:'KZT' },
-        ],
-      });
-    }
-
-    if (url === '/accounting/entries' || url === '/accounting/entries/') {
-      if (method === 'get') {
-        const entries = Array.from({ length: 8 }, (_, i) => ({
-          id: `e-${i+1}`, seq: i+1,
-          type: i % 3 === 0 ? 'income' : i % 3 === 1 ? 'expense' : 'transfer',
-          amount: (i + 1) * 150000, currency: 'KZT',
-          category: i % 2 === 0 ? 'Продажи' : 'Закупки',
-          account: 'Основной счёт', counterparty: `ТОО Контрагент ${i+1}`,
-          period: new Date(Date.now() - i * 86400000).toISOString().slice(0, 7),
-          author: 'Владелец', hash: `hash-${i+1}`, isReconciled: i < 4,
-          tags: [], createdAt: new Date(Date.now() - i * 86400000).toISOString(),
-        }));
-        return withResponse(config, { results: entries, total: entries.length, page: 1, limit: 20 });
-      }
-      if (method === 'post') {
-        return withResponse(config, { id: `e-${Date.now()}`, seq: 100, hash: `hash-new`, isReconciled: false, tags: [], createdAt: new Date().toISOString(), ...body });
-      }
-    }
-
-    if (/^\/accounting\/entries\/[^/]+\/reconcile$/.test(url) && method === 'patch') {
-      return withResponse(config, { ok: true });
-    }
-
-    if (url === '/accounting/pnl') {
-      return withResponse(config, {
-        period: params.period ?? 'month',
-        rows: [
-          { category:'Выручка от продаж', amount: 8400000, pct: 100 },
-          { category:'Себестоимость', amount: -3100000, pct: -36.9 },
-          { category:'Валовая прибыль', amount: 5300000, pct: 63.1 },
-          { category:'Операционные расходы', amount: -1200000, pct: -14.3 },
-          { category:'Чистая прибыль', amount: 4100000, pct: 48.8 },
-        ],
-        totals: { revenue: 8400000, gross: 5300000, net: 4100000 },
-      });
-    }
-
-    if (url === '/accounting/cashflow') {
-      const days = Array.from({ length: 30 }, (_, i) => {
-        const d = new Date(Date.now() - (29 - i) * 86400000);
-        return { date: d.toISOString().slice(0, 10), income: Math.round(Math.random() * 800000), expense: Math.round(Math.random() * 400000), net: 0 };
-      }).map(d => ({ ...d, net: d.income - d.expense }));
-      return withResponse(config, days);
-    }
-
-    if (url === '/accounting/inventory-value') {
-      return withResponse(config, {
-        rows: [
-          { sku:'MAT-001', name:'Ткань шёлк', qty: 120, unit:'м', unitCost: 4500, totalCost: 540000 },
-          { sku:'MAT-002', name:'Подкладка', qty: 80, unit:'м', unitCost: 1800, totalCost: 144000 },
-          { sku:'PROD-001', name:'Платье', qty: 15, unit:'шт', unitCost: 12000, totalCost: 180000 },
-        ],
-        grandTotal: 864000, itemCount: 3,
-      });
-    }
-
-    if (url === '/accounting/debts') {
-      return withResponse(config, {
-        receivable: [{ id:'d1', counterparty:'ТОО Алем', amount:250000, currency:'KZT', dueAt: new Date(Date.now()+604800000).toISOString(), overdue:false }],
-        payable: [{ id:'d2', counterparty:'ИП Аманов', amount:120000, currency:'KZT', dueAt: new Date(Date.now()-86400000).toISOString(), overdue:true }],
-        totalReceivable: 250000, totalPayable: 120000,
-      });
-    }
-
-    if (url === '/accounting/gaps') {
-      return withResponse(config, []);
-    }
-
-    if (/^\/accounting\/gaps\/[^/]+$/.test(url) && method === 'patch') {
-      return withResponse(config, { ok: true });
-    }
-
-    if (url === '/accounting/integrity') {
-      return withResponse(config, { valid: true });
-    }
-
-    // ── Chapan SPA (швейный цех) ──────────────────────────────────────────────
-
-    if (url === '/chapan/settings/profile' || url === '/chapan/settings/profile/') {
-      if (method === 'get') {
-        return withResponse(config, {
-          id: 'ws-1', name: 'Швейный цех №1', orderPrefix: 'ЧП',
-          phone: '+7 701 000 00 00', address: 'г. Алматы, ул. Абая 10',
-          workers: ['Айгуль', 'Мадина', 'Зарина', 'Бахыт'],
-          catalogItems: [], fabricItems: [], sizeOptions: ['XS','S','M','L','XL'],
-        });
-      }
-      return withResponse(config, { ok: true, ...body });
-    }
-
-    if (url.startsWith('/chapan/settings/')) {
-      if (method === 'get') return withResponse(config, { items: [], count: 0 });
-      return withResponse(config, { ok: true });
-    }
-
-    if (url === '/chapan/requests' || url === '/chapan/requests/') {
-      if (method === 'get') return withResponse(config, { count: 0, results: [] });
-      return withResponse(config, { id: `rq-${Date.now()}`, status: 'pending', createdAt: new Date().toISOString(), ...body });
-    }
-
-    if (/^\/chapan\/requests\/[^/]+(\/status)?(\/)?$/.test(url) && method === 'patch') {
-      return withResponse(config, { ok: true });
-    }
-
-    if (url === '/chapan/orders' || url === '/chapan/orders/') {
-      if (method === 'get') return withResponse(config, { count: 0, results: [] });
-      return withResponse(config, { id: `ord-${Date.now()}`, status: 'new', activities: [], createdAt: new Date().toISOString(), ...body });
-    }
-
-    if (/^\/chapan\/orders\/[^/]+(\/)?$/.test(url) && !url.includes('/confirm') && !url.includes('/status') && !url.includes('/payment') && !url.includes('/transfer') && !url.includes('/activities')) {
-      return withResponse(config, { id: url.split('/')[3], status: 'new', activities: [], ...body });
-    }
-
-    if (url.includes('/chapan/') && (method === 'post' || method === 'patch')) {
-      return withResponse(config, { ok: true });
-    }
-
-    // ── Production / Workshops ────────────────────────────────────────────────
-
-    if (url === '/workshops' || url === '/workshops/') {
-      if (method === 'get') return withResponse(config, { count: 0, results: [] });
-      return withResponse(config, { id: `ws-${Date.now()}`, orders: [], workers: [], equipment: [], stages: [], ...body });
-    }
-
-    if (url.startsWith('/workshops/')) {
-      return withResponse(config, { count: 0, results: [], ok: true });
-    }
-
-    if (url.startsWith('/chapan/production/')) {
-      return withResponse(config, { ok: true });
-    }
-
-    // ── Warehouse SPA ─────────────────────────────────────────────────────────
-
-    if (url === '/warehouse/summary') {
-      return withResponse(config, {
-        totalItems: 0, totalValue: 0, currency: 'KZT',
-        lowStockCount: 0, categoriesCount: 0, locationsCount: 0,
-      });
-    }
-
-    if (url.startsWith('/warehouse/')) {
-      if (method === 'get') return withResponse(config, { count: 0, results: [], items: [], rows: [] });
-      return withResponse(config, { id: `wh-${Date.now()}`, ...body, createdAt: new Date().toISOString() });
-    }
-
-    // ── AI Assistant ──────────────────────────────────────────────────────────
-
-    if (url === '/ai/chat' || url === '/ai/chat/') {
-      return withResponse(config, {
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: 'Я ваш AI-ассистент KORT. В данный момент работаю в демо-режиме без подключения к бэкенду.',
-        createdAt: new Date().toISOString(),
-      });
-    }
-
-    // ── Imports ───────────────────────────────────────────────────────────────
-
-    if (url.startsWith('/imports')) {
-      if (method === 'get') return withResponse(config, { count: 0, results: [] });
-      return withResponse(config, { id: `imp-${Date.now()}`, status: 'queued', ...body });
-    }
-
-    // ── Reports / Summary catch-all ───────────────────────────────────────────
-
-    if (url.startsWith('/reports/')) {
-      return withResponse(config, { count: 0, results: [], data: [] });
     }
 
     return withResponse(config, { count: 0, results: [] });
