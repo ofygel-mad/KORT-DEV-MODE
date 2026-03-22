@@ -6,6 +6,7 @@ import { WorkspaceSpotlight } from '../../features/workspace/components/Workspac
 import { useWorkspaceStore } from '../../features/workspace/model/store';
 import { WorkspaceLock } from '../../features/auth/WorkspaceLock';
 import { resolvePostAuthPath } from '../../features/auth/navigation';
+import { DEV_RUNTIME_BLOCKERS_DISABLED } from '../../shared/config/devAccess';
 import { useAuthStore } from '../../shared/stores/auth';
 import { useUIStore } from '../../shared/stores/ui';
 import styles from './Dashboard.module.css';
@@ -17,11 +18,13 @@ export default function DashboardPage() {
   const isUnlocked = useAuthStore((state) => state.isUnlocked);
   const hasCompanyAccess = useAuthStore((state) => state.membership.status === 'active');
   const snapshotScope = useAuthStore((state) => state.membership.companyId);
+  const effectiveUnlocked = DEV_RUNTIME_BLOCKERS_DISABLED || isUnlocked;
+  const effectiveCompanyAccess = DEV_RUNTIME_BLOCKERS_DISABLED || hasCompanyAccess;
   const workspaceAddMenuOpen = useUIStore((s) => s.workspaceAddMenuOpen);
   const closeWorkspaceAddMenu = useUIStore((s) => s.closeWorkspaceAddMenu);
 
   useEffect(() => {
-    if (!isUnlocked) return;
+    if (!effectiveUnlocked) return;
 
     const handler = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
@@ -32,16 +35,16 @@ export default function DashboardPage() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isUnlocked]);
+  }, [effectiveUnlocked]);
 
   return (
     <div className={styles.dashRoot}>
       {/* ⚠️  WorkspaceCanvas contains the 3D scene — it is React.memo-wrapped and
            must stay at the top, always rendered, with NO conditional wrappers or
            key changes that could cause a re-mount and destroy the WebGL context. */}
-      <WorkspaceCanvas enableSnapshot={hasCompanyAccess} snapshotScope={snapshotScope} />
+      <WorkspaceCanvas enableSnapshot={effectiveCompanyAccess} snapshotScope={snapshotScope} />
 
-      {!isUnlocked && (
+      {!effectiveUnlocked && (
         <WorkspaceLock
           onUnlocked={() => {
             const state = useAuthStore.getState();
@@ -53,7 +56,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {isUnlocked && (
+      {effectiveUnlocked && (
         <>
           <WorkspaceAddMenu
             open={workspaceAddMenuOpen}

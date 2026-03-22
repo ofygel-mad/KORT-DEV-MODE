@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AuthModal } from '../../../features/auth/AuthModal';
 import { AuthRouteLayout } from '../../../features/auth/AuthRouteLayout';
 import { resolvePostAuthPath } from '../../../features/auth/navigation';
+import { DEV_RUNTIME_BLOCKERS_DISABLED } from '../../../shared/config/devAccess';
 import { useAuthStore } from '../../../shared/stores/auth';
 
 export default function RegisterPage() {
@@ -14,6 +15,10 @@ export default function RegisterPage() {
   const isUnlocked = useAuthStore((state) => state.isUnlocked);
 
   useEffect(() => {
+    if (DEV_RUNTIME_BLOCKERS_DISABLED) {
+      navigate('/', { replace: true });
+      return;
+    }
     if (!user || !isUnlocked) return;
     navigate(resolvePostAuthPath({ org, membership }), { replace: true });
   }, [isUnlocked, membership, navigate, org, user]);

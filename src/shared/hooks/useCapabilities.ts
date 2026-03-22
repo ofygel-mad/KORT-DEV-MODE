@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { DEV_RUNTIME_BLOCKERS_DISABLED } from '../config/devAccess';
 import { useAuthStore, type MembershipRole, type MembershipStatus } from '../stores/auth';
 
 type ProductMode = 'basic' | 'advanced' | 'industrial';
@@ -41,6 +42,45 @@ export function useCapabilities() {
 
   const role = resolveEffectiveRole(membershipStatus, membershipRole, fallbackRole);
   const mode = (orgMode ?? 'basic') as ProductMode;
+
+  if (DEV_RUNTIME_BLOCKERS_DISABLED) {
+    const capabilities = Array.from(new Set([
+      ...(rawCapabilities ?? []),
+      ...IMPLIED_BY_ROLE.owner,
+      'customers:read',
+      'customers:write',
+      'deals:read',
+      'deals:write',
+      'tasks:read',
+      'tasks:write',
+      'reports.basic',
+      'customers.import',
+    ]));
+    const can = (cap: string) => capabilities.includes(cap);
+
+    return {
+      can,
+      capabilities,
+      role: 'owner' as Role,
+      mode,
+      membershipStatus: 'active' as MembershipStatus,
+      companyName: membershipCompanyName ?? 'Demo Company',
+      hasCompanyAccess: true,
+      hasActiveAccess: true,
+      isPendingApproval: false,
+      needsCompanySelection: false,
+      wasRejected: false,
+      isAdmin: true,
+      isBasic: mode === 'basic',
+      isAdvanced: mode === 'advanced',
+      isIndustrial: mode === 'industrial',
+      canManageBilling: true,
+      canManageIntegrations: true,
+      canViewAudit: true,
+      canManageTeam: true,
+      canRunAutomations: true,
+    };
+  }
 
   const capabilities = useMemo(() => {
     if (membershipStatus !== 'active') return [];

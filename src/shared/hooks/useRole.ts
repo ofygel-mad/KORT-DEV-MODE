@@ -1,8 +1,13 @@
+import { DEV_RUNTIME_BLOCKERS_DISABLED } from '../config/devAccess';
 import { useAuthStore, type MembershipRole } from '../stores/auth';
 
 type Role = MembershipRole;
 
 export function useRole() {
+  if (DEV_RUNTIME_BLOCKERS_DISABLED) {
+    return { role: 'owner' as Role, isOwner: true, isAdmin: true, isManager: true, isViewer: false };
+  }
+
   const membershipStatus = useAuthStore((state) => state.membership.status);
   const membershipRole = useAuthStore((state) => state.membership.role);
   const fallbackRole = useAuthStore((state) => state.role) as Role;

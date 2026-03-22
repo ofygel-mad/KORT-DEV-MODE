@@ -16,6 +16,7 @@ import { ShortcutsModal } from '../../shared/ui/ShortcutsModal';
 import { FocusMode } from '../../widgets/focus-mode/FocusMode';
 import { SmartSuggestions } from '../../widgets/smart-suggestions/SmartSuggestions';
 import { useIsMobile } from '../../shared/hooks/useIsMobile';
+import { DEV_RUNTIME_BLOCKERS_DISABLED } from '../../shared/config/devAccess';
 import { useAuthStore } from '../../shared/stores/auth';
 import { MobileFab } from '../../shared/ui/MobileFab';
 import { AiAssistant } from '../../widgets/ai-assistant/AiAssistant';
@@ -68,26 +69,28 @@ export function AppShell() {
   const location = useLocation();
   const { isUnlocked } = useAuthStore();
   const hasCompanyAccess = useAuthStore((state) => state.membership.status === 'active');
+  const effectiveUnlocked = DEV_RUNTIME_BLOCKERS_DISABLED || isUnlocked;
+  const effectiveCompanyAccess = DEV_RUNTIME_BLOCKERS_DISABLED || hasCompanyAccess;
 
 
   const keyboardShortcuts = useMemo(
-    () => (isUnlocked
+    () => (effectiveUnlocked
       ? {
           ...(can('customers:write') ? { n: () => openCreateCustomer() } : {}),
           ...(can('deals:write') ? { d: () => openCreateDeal() } : {}),
           ...(can('tasks:write') ? { t: () => openCreateTask() } : {}),
-          ...(hasCompanyAccess ? { f: () => toggleFocusMode() } : {}),
+          ...(effectiveCompanyAccess ? { f: () => toggleFocusMode() } : {}),
           '/': () => toggle(),
           '?': () => setShortcutsOpen(true),
         }
       : {}),
-    [can, hasCompanyAccess, isUnlocked, openCreateCustomer, openCreateDeal, openCreateTask, toggle, toggleFocusMode],
+    [can, effectiveCompanyAccess, effectiveUnlocked, openCreateCustomer, openCreateDeal, openCreateTask, toggle, toggleFocusMode],
   );
 
   useKeyboardShortcuts(keyboardShortcuts);
 
   useEffect(() => {
-    if (!isUnlocked) return;
+    if (!effectiveUnlocked) return;
 
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -96,9 +99,9 @@ export function AppShell() {
       }
     };
     return addDocumentListener('keydown', onKey);
-  }, [isUnlocked, toggle]);
+  }, [effectiveUnlocked, toggle]);
 
-  const sidebarRailWidth = isMobile ? 0 : isUnlocked ? 90 : 84;
+  const sidebarRailWidth = isMobile ? 0 : effectiveUnlocked ? 90 : 84;
 
   return (
     <div className={styles.root}>
@@ -108,12 +111,12 @@ export function AppShell() {
       <OfflineBanner />
       {!isMobile && (
         <motion.div className={styles.sidebarRail} animate={{ width: sidebarRailWidth }} transition={{ type: 'spring', stiffness: 320, damping: 32 }}>
-          {isUnlocked ? <Sidebar /> : <LockedSidebar />}
+          {effectiveUnlocked ? <Sidebar /> : <LockedSidebar />}
         </motion.div>
       )}
 
       <div className={styles.content}>
-        {isUnlocked ? <Topbar /> : <LockedTopbar />}
+        {effectiveUnlocked ? <Topbar /> : <LockedTopbar />}
         <main className={styles.main}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div key={location.pathname} initial={pageTransition.initial} animate={pageTransition.animate} exit={pageTransition.exit} transition={pageTransition.transition} className={styles.routeViewport}>
@@ -123,15 +126,15 @@ export function AppShell() {
         </main>
       </div>
 
-      {isUnlocked && isMobile && <MobileNav />}
-      {isUnlocked && isMobile && <MobileFab />}
-      {isUnlocked && hasCompanyAccess && <CreateCustomerDrawer />}
-      {isUnlocked && hasCompanyAccess && <CreateDealDrawer />}
-      {isUnlocked && hasCompanyAccess && <FocusMode />}
-      {isUnlocked && <SmartSuggestions />}
-      {isUnlocked && hasCompanyAccess && <AiAssistant />}
-      {isUnlocked && isOpen && <CommandPalette />}
-      {isUnlocked && <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />}
+      {effectiveUnlocked && isMobile && <MobileNav />}
+      {effectiveUnlocked && isMobile && <MobileFab />}
+      {effectiveUnlocked && effectiveCompanyAccess && <CreateCustomerDrawer />}
+      {effectiveUnlocked && effectiveCompanyAccess && <CreateDealDrawer />}
+      {effectiveUnlocked && effectiveCompanyAccess && <FocusMode />}
+      {effectiveUnlocked && <SmartSuggestions />}
+      {effectiveUnlocked && effectiveCompanyAccess && <AiAssistant />}
+      {effectiveUnlocked && isOpen && <CommandPalette />}
+      {effectiveUnlocked && <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />}
     </div>
   );
 }

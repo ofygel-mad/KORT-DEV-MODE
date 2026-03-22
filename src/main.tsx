@@ -9,6 +9,7 @@ import { Launch } from './pages/launch/Launch';
 import { api } from './shared/api/client';
 import type { AuthSessionResponse } from './shared/api/contracts';
 import { readApiErrorMessage } from './shared/api/errors';
+import { ensureDevAuthBypass } from './shared/config/devAccess';
 import './shared/design/globals.css';
 import { getNavigator, getWindow, isBrowser } from './shared/lib/browser';
 import { useAuthStore } from './shared/stores/auth';
@@ -135,6 +136,8 @@ function App() {
     </QueryClientProvider>
   );
 }
+
+ensureDevAuthBypass();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<App />);
 

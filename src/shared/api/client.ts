@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import { nanoid } from 'nanoid';
 import { toast } from 'sonner';
 import { emitConsoleEvent } from '../../console/events';
+import { DEV_AUTH_BYPASS_ENABLED } from '../config/devAccess';
 import { redirectTo } from '../lib/browser';
 import { useAuthStore } from '../stores/auth';
 import { readApiErrorMessage } from './errors';
@@ -142,8 +143,10 @@ apiClient.interceptors.response.use(
       const refreshToken = useAuthStore.getState().refreshToken;
 
       if (!refreshToken) {
-        useAuthStore.getState().clearAuth();
-        redirectTo('/');
+        if (!DEV_AUTH_BYPASS_ENABLED) {
+          useAuthStore.getState().clearAuth();
+          redirectTo('/');
+        }
         return Promise.reject(error);
       }
 
@@ -173,8 +176,10 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest!);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        useAuthStore.getState().clearAuth();
-        redirectTo('/');
+        if (!DEV_AUTH_BYPASS_ENABLED) {
+          useAuthStore.getState().clearAuth();
+          redirectTo('/');
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -186,8 +191,10 @@ apiClient.interceptors.response.use(
       && !isSessionEstablishingRequest(requestUrl)
       && (useAuthStore.getState().token || useAuthStore.getState().refreshToken)
     ) {
-      useAuthStore.getState().clearAuth();
-      redirectTo('/');
+      if (!DEV_AUTH_BYPASS_ENABLED) {
+        useAuthStore.getState().clearAuth();
+        redirectTo('/');
+      }
     }
 
     if (error.response?.status === 403 && !shouldSuppressPermissionToast(403)) {

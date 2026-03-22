@@ -1,3 +1,4 @@
+import { DEV_RUNTIME_BLOCKERS_DISABLED } from '../config/devAccess';
 import { useAuthStore } from '../stores/auth';
 import { useRole } from './useRole';
 
@@ -8,6 +9,33 @@ export function useCompanyAccess() {
   const membership = useAuthStore((s) => s.membership);
   const inviteContext = useAuthStore((s) => s.inviteContext);
   const { isAdmin, isOwner, isManager, role } = useRole();
+
+  if (DEV_RUNTIME_BLOCKERS_DISABLED) {
+    const companyName = membership.companyName ?? inviteContext?.companyName ?? 'Demo Company';
+    return {
+      state: 'active' as CompanyAccessState,
+      role,
+      companyName,
+      membership: {
+        ...membership,
+        companyId: membership.companyId ?? 'org-001',
+        companyName,
+        companySlug: membership.companySlug ?? 'demo-company',
+        status: 'active' as const,
+        role: membership.role ?? role,
+        source: membership.source ?? 'manual',
+      },
+      inviteContext,
+      isOwner,
+      isAdmin,
+      isManager,
+      isAuthenticated: true,
+      hasCompanyAccess: true,
+      needsApproval: false,
+      hasNoCompany: false,
+      wasRejected: false,
+    };
+  }
 
   const state: CompanyAccessState = !user
     ? 'anonymous'

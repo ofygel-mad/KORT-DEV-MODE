@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate, RouterProvider, useNavigate } from 'reac
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { AppShell } from '../layout/AppShell';
 import { PageLoader } from '../../shared/ui/PageLoader';
+import { DEV_RUNTIME_BLOCKERS_DISABLED } from '../../shared/config/devAccess';
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
 import { CompanyAccessGate } from '../../shared/ui/CompanyAccessGate';
 import { useAuthStore } from '../../shared/stores/auth';
@@ -41,6 +42,10 @@ const OnboardingPage = makePage(() => import('../../pages/onboarding'));
 const WorkzoneRequestPage = makePage(() => import('../../pages/workzone-request'));
 
 function RequireUnlockedSession({ children }: { children: ReactNode }) {
+  if (DEV_RUNTIME_BLOCKERS_DISABLED) {
+    return <>{children}</>;
+  }
+
   const user = useAuthStore((state) => state.user);
   const isUnlocked = useAuthStore((state) => state.isUnlocked);
 
@@ -56,6 +61,10 @@ function RequireUnlockedSession({ children }: { children: ReactNode }) {
 }
 
 function RequireCompanyAccess({ children }: { children: ReactNode }) {
+  if (DEV_RUNTIME_BLOCKERS_DISABLED) {
+    return <>{children}</>;
+  }
+
   const navigate = useNavigate();
   const access = useCompanyAccess();
 
@@ -74,6 +83,10 @@ function RequireCompanyAccess({ children }: { children: ReactNode }) {
 }
 
 function RequireAdminAccess({ children }: { children: ReactNode }) {
+  if (DEV_RUNTIME_BLOCKERS_DISABLED) {
+    return <>{children}</>;
+  }
+
   const navigate = useNavigate();
   const access = useCompanyAccess();
   const { isAdmin } = useRole();

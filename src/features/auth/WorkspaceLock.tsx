@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
 import { AuthModal } from './AuthModal';
+import { DEV_RUNTIME_BLOCKERS_DISABLED } from '../../shared/config/devAccess';
 import { useAuthStore } from '../../shared/stores/auth';
 import styles from './WorkspaceLock.module.css';
 
@@ -10,6 +11,10 @@ interface WorkspaceLockProps {
 }
 
 export function WorkspaceLock({ onUnlocked }: WorkspaceLockProps) {
+  if (DEV_RUNTIME_BLOCKERS_DISABLED) {
+    return null;
+  }
+
   const unlock = useAuthStore((state) => state.unlock);
   const [releasing, setReleasing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
