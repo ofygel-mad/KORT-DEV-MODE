@@ -1,82 +1,8 @@
-node_modules
-# IDE / Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# System Files
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Dependencies
 node_modules/
-jspm_packages/
-
-# Build outputs
 dist/
-build/
-out/
-.next/
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-logs/
-*.log
-
-# TypeScript
-*.tsbuildinfo
-
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Environments
-.venv/
-venv/
-env/
-ENV/
-bin/
-lib/
-include/
-!src/shared/lib/
-!src/shared/lib/**
-
-# Distribution / packaging
-develop-eggs/
-downloads/
-eggs/
-.eggs/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-
-# Pytest / Coverage
-.pytest_cache/
-.coverage
-htmlcov/
+.env
+*.db
+*.db-journal
 
 # DB reports — contain raw data including password hashes and tokens, NEVER commit
-_database-report/
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.env
-
-# Databases (если используете локальные файлы)
-*.sqlite3
-*.db
-
-# Certs
-*.pem
-*.key
+../_database-report/
