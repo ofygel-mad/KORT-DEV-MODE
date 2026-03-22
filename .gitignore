@@ -43,6 +43,8 @@ ENV/
 bin/
 lib/
 include/
+!src/shared/lib/
+!src/shared/lib/**
 
 # Distribution / packaging
 develop-eggs/
