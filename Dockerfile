@@ -22,6 +22,7 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Default backend — overridden in Railway/production via env var
+ENV PORT=80
 ENV BACKEND_URL=http://backend:8000
 
 EXPOSE 80
