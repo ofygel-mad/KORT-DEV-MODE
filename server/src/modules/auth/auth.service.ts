@@ -7,6 +7,7 @@ import {
   signRefreshToken,
   signFirstLoginToken,
   verifyFirstLoginToken,
+  verifyRefreshToken,
 } from '../../lib/jwt.js';
 import {
   ConflictError,
@@ -440,6 +441,11 @@ export async function registerCompany(data: {
   const email = normalizeEmail(data.email);
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new ConflictError(DUPLICATE_EMAIL_MESSAGE);
+  const phone = data.phone?.trim();
+  if (phone) {
+    const existingPhone = await prisma.user.findUnique({ where: { phone } });
+    if (existingPhone) throw new ConflictError(DUPLICATE_PHONE_MESSAGE);
+  }
 
   for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
@@ -449,7 +455,7 @@ export async function registerCompany(data: {
             fullName: data.full_name.trim(),
             email,
             password: await hashPassword(data.password),
-            phone: data.phone?.trim() || null,
+            phone: phone || null,
             status: 'active',
           },
         });
@@ -498,6 +504,9 @@ export async function registerCompany(data: {
     } catch (error) {
       if (isUniqueConstraint(error, 'email')) {
         throw new ConflictError(DUPLICATE_EMAIL_MESSAGE);
+      }
+      if (isUniqueConstraint(error, 'phone')) {
+        throw new ConflictError(DUPLICATE_PHONE_MESSAGE);
       }
       if (isUniqueConstraint(error, 'slug') && attempt < 3) continue;
       throw error;

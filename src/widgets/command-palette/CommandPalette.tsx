@@ -35,7 +35,7 @@ const NAV_COMMANDS = [
   { id: 'go-reports', label: 'Отчёты', sub: 'Перейти', icon: <BarChart2 size={14} />, path: '/reports' },
   { id: 'go-settings', label: 'Настройки', sub: 'Перейти', icon: <Settings size={14} />, path: '/settings' },
   { id: 'go-auto', label: 'Автоматизации', sub: 'Перейти', icon: <Zap size={14} />, path: '/automations' },
-  { id: 'go-import', label: 'Импорт', sub: 'Перейти', icon: <Upload size={14} />, path: '/imports' },
+  { id: 'go-import', label: 'Импорт', sub: 'Перейти', icon: <Upload size={14} />, path: '/crm/customers' },
   { id: 'go-audit', label: 'Аудит', sub: 'Перейти', icon: <Shield size={14} />, path: '/audit' },
 ];
 
@@ -93,10 +93,10 @@ export function CommandPalette() {
   const dq = useDebounce(query.trim(), 200);
 
   const actionCommands = useMemo(() => ([
-    { id: 'new-customer', label: 'Новый клиент', icon: <Plus size={14} />, color: 'var(--fill-info-text)', visible: can('customers:write'), action: () => ui.openCreateCustomer() },
-    { id: 'new-deal', label: 'Новая сделка', icon: <Plus size={14} />, color: 'var(--fill-warning-text)', visible: can('deals:write'), action: () => ui.openCreateDeal() },
-    { id: 'new-task', label: 'Новая задача', icon: <Plus size={14} />, color: 'var(--text-accent)', visible: can('tasks:write'), action: () => ui.openCreateTask() },
-    { id: 'open-import', label: 'Открыть импорт', icon: <Upload size={14} />, color: 'var(--text-secondary)', visible: can('customers.import'), action: () => navigate('/imports') },
+    { id: 'new-customer', label: 'Новый клиент', icon: <Plus size={14} />, color: 'var(--fill-info-text)', visible: can('customers:write'), action: () => { navigate('/crm/customers'); close(); } },
+    { id: 'new-deal', label: 'Новая сделка', icon: <Plus size={14} />, color: 'var(--fill-warning-text)', visible: can('deals:write'), action: () => { navigate('/crm/deals'); close(); } },
+    { id: 'new-task', label: 'Новая задача', icon: <Plus size={14} />, color: 'var(--text-accent)', visible: can('tasks:write'), action: () => { navigate('/crm/tasks'); close(); } },
+    { id: 'open-import', label: 'Открыть импорт', icon: <Upload size={14} />, color: 'var(--text-secondary)', visible: can('customers.import'), action: () => navigate('/crm/customers') },
   ].filter((item) => item.visible)), [can, navigate, ui]);
 
   const { cleanQuery, filterType } = useMemo(() => {
@@ -162,10 +162,10 @@ export function CommandPalette() {
   const isSlash = query.startsWith('/');
   const slashMatch = isSlash ? query.slice(1).toLowerCase() : '';
   const slashMap = [
-    { keys: ['клиент', 'client', 'customer', 'new-customer', 'к'], visible: can('customers:write'), label: 'Создать клиента', color: 'var(--fill-info-text)', action: () => ui.openCreateCustomer() },
-    { keys: ['сделка', 'deal', 'new-deal', 'с'], visible: can('deals:write'), label: 'Создать сделку', color: 'var(--fill-warning-text)', action: () => ui.openCreateDeal() },
-    { keys: ['задача', 'task', 'new-task', 'з'], visible: can('tasks:write'), label: 'Создать задачу', color: 'var(--text-accent)', action: () => ui.openCreateTask() },
-    { keys: ['импорт', 'import', 'и'], visible: can('customers.import'), label: 'Открыть импорт', color: 'var(--text-secondary)', action: () => navigate('/imports') },
+    { keys: ['клиент', 'client', 'customer', 'new-customer', 'к'], visible: can('customers:write'), label: 'Создать клиента', color: 'var(--fill-info-text)', action: () => { navigate('/crm/customers'); close(); } },
+    { keys: ['сделка', 'deal', 'new-deal', 'с'], visible: can('deals:write'), label: 'Создать сделку', color: 'var(--fill-warning-text)', action: () => { navigate('/crm/deals'); close(); } },
+    { keys: ['задача', 'task', 'new-task', 'з'], visible: can('tasks:write'), label: 'Создать задачу', color: 'var(--text-accent)', action: () => { navigate('/crm/tasks'); close(); } },
+    { keys: ['импорт', 'import', 'и'], visible: can('customers.import'), label: 'Открыть импорт', color: 'var(--text-secondary)', action: () => navigate('/crm/customers') },
     { keys: ['copilot', 'ai', 'ассистент'], visible: true, label: 'Спросить ассистента', color: 'var(--fill-positive-text)', action: () => ui.openAssistantPrompt('Какой следующий шаг по текущему контексту?') },
   ].filter((item) => item.visible);
 
@@ -192,7 +192,7 @@ export function CommandPalette() {
 
     NAV_COMMANDS.filter((n) => {
       if (n.path === '/automations') return canRunAutomations;
-      if (n.path === '/imports') return can('customers.import');
+      if (n.path === '/crm/customers') return can('customers.import');
       if (n.path === '/audit') return canViewAudit;
       return true;
     }).forEach((n, i) => results.push({
@@ -221,7 +221,7 @@ export function CommandPalette() {
 
     NAV_COMMANDS.filter((n) => n.label.toLowerCase().includes(query.toLowerCase())).filter((n) => {
       if (n.path === '/automations') return canRunAutomations;
-      if (n.path === '/imports') return can('customers.import');
+      if (n.path === '/crm/customers') return can('customers.import');
       if (n.path === '/audit') return canViewAudit;
       return true;
     }).forEach((n, i) => results.push({

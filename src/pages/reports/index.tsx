@@ -1,258 +1,324 @@
-import type { CSSProperties } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, Legend,
-} from 'recharts';
-import { TrendingUp, Users, Briefcase, CheckSquare, Download, Trophy, Target } from 'lucide-react';
-import { api } from '../../shared/api/client';
-import { PageHeader } from '../../shared/ui/PageHeader';
+import { Download, TrendingUp, Users, Factory } from 'lucide-react';
+import { useLeads } from '../../entities/lead/queries';
+import { useDeals } from '../../entities/deal/queries';
+import { useOrders } from '../../entities/order/queries';
 import { Skeleton } from '../../shared/ui/Skeleton';
-import { Button } from '../../shared/ui/Button';
-import { formatMoney } from '../../shared/utils/format';
-import { useIsMobile } from '../../shared/hooks/useIsMobile';
-import { format, subDays, startOfMonth, startOfQuarter, startOfYear } from 'date-fns';
-import { useDocumentTitle } from '../../shared/hooks/useDocumentTitle';
-import { listContainer, listItem } from '../../shared/motion/presets';
-import s from './Reports.module.css';
+import { exportToCSV } from '../../shared/lib/export';
+import styles from './Reports.module.css';
 
-/* ── Types ──────────────────────────────────────────────────── */
-type Period = '7d' | '30d' | 'month' | 'quarter' | 'year' | 'custom';
+type Tab = 'sales' | 'funnel' | 'production';
 
-interface ReportData {
-  customers_count: number; customers_delta: number;
-  active_deals_count: number; revenue_month: number;
-  tasks_today: number; overdue_tasks: number;
-  deals_by_stage: Array<{ stage: string; count: number; amount: number }>;
-  customers_by_source: Array<{ source: string; count: number }>;
-  revenue_by_month: Array<{ month: string; revenue: number; deals: number }>;
-  manager_leaderboard: Array<{ name: string; deals: number; revenue: number }>;
-  funnel: { customers: number; with_deals: number; deals: number; won: number; conversion_rate: number };
+function fmtMoney(n: number) {
+  return new Intl.NumberFormat('ru-KZ', { maximumFractionDigits: 0 }).format(n) + ' ₸';
+}
+function fmtPct(n: number) {
+  return n.toFixed(1) + '%';
+}
+function monthStart(offset = 0) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + offset, 1);
+  d.setHours(0,0,0,0);
+  return d.toISOString().slice(0,10);
+}
+function monthEnd(offset = 0) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + offset + 1, 0);
+  d.setHours(23,59,59,999);
+  return d.toISOString().slice(0,10);
 }
 
-/* ── Constants ──────────────────────────────────────────────── */
-const PERIODS: { key: Period; label: string }[] = [
-  { key: '7d',      label: '7 дней' },
-  { key: '30d',     label: '30 дней' },
-  { key: 'month',   label: 'Месяц' },
-  { key: 'quarter', label: 'Квартал' },
-  { key: 'year',    label: 'Год' },
-  { key: 'custom',  label: 'Свой' },
-];
+// ── Sales tab ──────────────────────────────────────────────────────────────────
 
-const COLORS = ['var(--chart-series-1)','var(--chart-series-2)','var(--chart-series-3)','var(--chart-series-4)','var(--chart-series-5)','var(--chart-series-6)','var(--fill-warning)','var(--text-tertiary)'];
+function SalesReport() {
+  const { data: dealsData, isLoading } = useDeals({ limit: 500 });
+  const { data: ordersData } = useOrders({ limit: 500 });
+  const deals = (dealsData as any)?.results ?? [];
+  const orders = (ordersData as any)?.results ?? [];
 
-function periodToDates(p: Period, custom?: { from: string; to: string }) {
-  if (p === 'custom' && custom?.from && custom?.to) return { date_from: custom.from, date_to: custom.to };
-  const now = new Date(), to = format(now, 'yyyy-MM-dd');
-  const from = format(
-    p === '7d' ? subDays(now, 7) : p === '30d' ? subDays(now, 30) :
-    p === 'month' ? startOfMonth(now) : p === 'quarter' ? startOfQuarter(now) : startOfYear(now),
-    'yyyy-MM-dd'
-  );
-  return { date_from: from, date_to: to };
-}
+  // Won deals by assignee
+  const wonDeals = deals.filter((d: any) => d.stage === 'won');
+  const byManager: Record<string, { deals: number; amount: number }> = {};
+  wonDeals.forEach((d: any) => {
+    const name = d.assignedName ?? 'Без менеджера';
+    if (!byManager[name]) byManager[name] = { deals: 0, amount: 0 };
+    byManager[name].deals++;
+    byManager[name].amount += d.amount ?? 0;
+  });
 
-/* ── Custom recharts tooltip ─────────────────────────────────── */
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
+  // Orders by manager (Chapan)
+  const completedOrders = orders.filter((o: any) => o.status === 'completed' || o.status === 'transferred');
+  const totalRevenue = completedOrders.reduce((s: number, o: any) => s + (o.totalAmount ?? 0), 0);
+  const totalPaid = completedOrders.reduce((s: number, o: any) => s + (o.paidAmount ?? 0), 0);
+
+  function handleExport() {
+    exportToCSV(
+      Object.entries(byManager).map(([name, d]) => ({ 'Менеджер': name, 'Сделок закрыто': d.deals, 'Сумма': d.amount })),
+      'отчёт_продажи.csv'
+    );
+  }
+
   return (
-    <div className={s.tooltip}>
-      <div className={s.tooltipLabel}>{label}</div>
-      {payload.map((p: any, i: number) => (
-        <div key={i} className={s.tooltipRow}>
-          <div className={s.tooltipDot} style={{ '--tooltip-dot-color': p.color } as CSSProperties} />
-          {typeof p.value === 'number' && p.value > 10000 ? formatMoney(p.value, 'KZT') : p.value}
-        </div>
-      ))}
+    <div className={styles.reportSection}>
+      {isLoading ? <Skeleton height={200} radius={10} /> : (
+        <>
+          <div className={styles.summaryRow}>
+            <div className={styles.summaryCard}>
+              <div className={styles.scLabel}>Сделок закрыто</div>
+              <div className={styles.scValue}>{wonDeals.length}</div>
+            </div>
+            <div className={styles.summaryCard}>
+              <div className={styles.scLabel}>Сумма сделок</div>
+              <div className={styles.scValue} style={{ color:'var(--fill-positive)' }}>
+                {fmtMoney(wonDeals.reduce((s: number, d: any) => s + (d.amount ?? 0), 0))}
+              </div>
+            </div>
+            <div className={styles.summaryCard}>
+              <div className={styles.scLabel}>Выручка Чапан</div>
+              <div className={styles.scValue} style={{ color:'var(--fill-positive)' }}>
+                {fmtMoney(totalRevenue)}
+              </div>
+            </div>
+            <div className={styles.summaryCard}>
+              <div className={styles.scLabel}>Оплачено</div>
+              <div className={styles.scValue}>{fmtMoney(totalPaid)}</div>
+            </div>
+          </div>
+
+          {Object.keys(byManager).length > 0 && (
+            <div className={styles.tableCard}>
+              <div className={styles.tableCardHeader}>
+                <span className={styles.tableCardTitle}>По менеджерам (закрытые сделки)</span>
+                <button className={styles.exportMini} onClick={handleExport}><Download size={12} /> CSV</button>
+              </div>
+              <table className={styles.table}>
+                <thead><tr><th>Менеджер</th><th style={{textAlign:'right'}}>Сделок</th><th style={{textAlign:'right'}}>Сумма</th></tr></thead>
+                <tbody>
+                  {Object.entries(byManager).sort(([,a],[,b]) => b.amount - a.amount).map(([name, data]) => (
+                    <tr key={name} className={styles.row}>
+                      <td className={styles.tdName}>{name}</td>
+                      <td style={{textAlign:'right',color:'var(--text-secondary)'}}>{data.deals}</td>
+                      <td style={{textAlign:'right',fontWeight:500,color:'var(--fill-positive)'}}>{fmtMoney(data.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {wonDeals.length === 0 && Object.keys(byManager).length === 0 && (
+            <div className={styles.empty}><p>Нет закрытых сделок за период</p></div>
+          )}
+        </>
+      )}
     </div>
   );
 }
 
-/* ── KPI card ────────────────────────────────────────────────── */
-function KpiCard({ label, value, delta, icon, isLoading }: { label: string; value: string; delta?: number; icon: React.ReactNode; isLoading: boolean }) {
+// ── Funnel tab ─────────────────────────────────────────────────────────────────
+
+function FunnelReport() {
+  const { data: leadsData, isLoading: leadsLoading } = useLeads({ limit: 500 });
+  const { data: dealsData, isLoading: dealsLoading } = useDeals({ limit: 500 });
+  const leads = (leadsData as any)?.results ?? [];
+  const deals = (dealsData as any)?.results ?? [];
+
+  const leadStages = [
+    { key: 'new', label: 'Новые лиды' },
+    { key: 'in_progress', label: 'В работе' },
+    { key: 'won', label: 'Конвертированы' },
+    { key: 'lost', label: 'Отказ' },
+  ];
+
+  const dealStages = [
+    { key: 'new', label: 'Новые сделки' },
+    { key: 'qualified', label: 'Квалификация' },
+    { key: 'proposal', label: 'КП отправлено' },
+    { key: 'negotiation', label: 'Переговоры' },
+    { key: 'won', label: 'Выиграно' },
+    { key: 'lost', label: 'Потеряно' },
+  ];
+
+  const totalLeads = leads.length;
+
+  function handleExport() {
+    const rows = [
+      ...leadStages.map(s => ({ 'Воронка': 'Лиды', 'Стадия': s.label, 'Кол-во': leads.filter((l: any) => l.stage === s.key).length })),
+      ...dealStages.map(s => ({
+        'Воронка': 'Сделки', 'Стадия': s.label,
+        'Кол-во': deals.filter((d: any) => d.stage === s.key).length,
+        'Сумма': deals.filter((d: any) => d.stage === s.key).reduce((s: number, d: any) => s + (d.amount ?? 0), 0),
+      })),
+    ];
+    exportToCSV(rows, 'отчёт_воронка.csv');
+  }
+
   return (
-    <motion.div className={s.kpiCard} variants={listItem}>
-      <div className={s.kpiLabel}>{icon}{label}</div>
-      {isLoading
-        ? <Skeleton height={28} width="60%" />
-        : <div className={s.kpiValue}>{value}</div>
-      }
-      {delta !== undefined && !isLoading && (
-        <div className={`${s.kpiDelta} ${delta > 0 ? s.positive : delta < 0 ? s.negative : s.neutral}`}>
-          {delta > 0 ? '↑' : delta < 0 ? '↓' : '—'} {Math.abs(delta)}%
-        </div>
+    <div className={styles.reportSection}>
+      {(leadsLoading || dealsLoading) ? <Skeleton height={200} radius={10} /> : (
+        <>
+          <div className={styles.tableCard}>
+            <div className={styles.tableCardHeader}>
+              <span className={styles.tableCardTitle}>Лиды</span>
+              <button className={styles.exportMini} onClick={handleExport}><Download size={12} /> CSV</button>
+            </div>
+            <table className={styles.table}>
+              <thead><tr><th>Стадия</th><th style={{textAlign:'right'}}>Кол-во</th><th style={{textAlign:'right'}}>% от входа</th></tr></thead>
+              <tbody>
+                {leadStages.map(s => {
+                  const count = leads.filter((l: any) => l.stage === s.key).length;
+                  return (
+                    <tr key={s.key} className={styles.row}>
+                      <td className={styles.tdName}>{s.label}</td>
+                      <td style={{textAlign:'right',fontWeight:500,color:'var(--text-primary)'}}>{count}</td>
+                      <td style={{textAlign:'right',color:'var(--text-tertiary)'}}>
+                        {totalLeads > 0 ? fmtPct(count / totalLeads * 100) : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className={styles.tableCard}>
+            <div className={styles.tableCardHeader}>
+              <span className={styles.tableCardTitle}>Сделки</span>
+            </div>
+            <table className={styles.table}>
+              <thead><tr><th>Стадия</th><th style={{textAlign:'right'}}>Кол-во</th><th style={{textAlign:'right'}}>Сумма</th></tr></thead>
+              <tbody>
+                {dealStages.map(s => {
+                  const stageDeals = deals.filter((d: any) => d.stage === s.key);
+                  const total = stageDeals.reduce((sum: number, d: any) => sum + (d.amount ?? 0), 0);
+                  return (
+                    <tr key={s.key} className={styles.row}>
+                      <td className={styles.tdName}>{s.label}</td>
+                      <td style={{textAlign:'right',color:'var(--text-secondary)'}}>{stageDeals.length}</td>
+                      <td style={{textAlign:'right',color: s.key==='won' ? 'var(--fill-positive)' : 'var(--text-secondary)',fontWeight: s.key==='won' ? 600 : 400}}>
+                        {total > 0 ? fmtMoney(total) : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
-    </motion.div>
+    </div>
   );
 }
 
-/* ── Main ────────────────────────────────────────────────────── */
-export default function ReportsPage() {
-  useDocumentTitle('Отчёты');
-  const isMobile = useIsMobile();
-  const [period, setPeriod] = useState<Period>('month');
-  const [custom, setCustom] = useState({ from: '', to: '' });
+// ── Production tab ─────────────────────────────────────────────────────────────
 
-  const dates = periodToDates(period, custom);
+function ProductionReport() {
+  const { data: ordersData, isLoading } = useOrders({ limit: 500 });
+  const orders = (ordersData as any)?.results ?? [];
 
-  const { data, isLoading } = useQuery<ReportData>({
-    queryKey: ['report', period, custom],
-    queryFn: () => api.get('/reports/summary/', dates),
+  const STATUS_LABEL: Record<string, string> = {
+    new: 'Новые', confirmed: 'Подтверждённые', in_production: 'В цехе',
+    ready: 'Готовы', transferred: 'Переданы', completed: 'Завершены', cancelled: 'Отменены',
+  };
+
+  const byStatus: Record<string, { count: number; total: number }> = {};
+  orders.forEach((o: any) => {
+    if (!byStatus[o.status]) byStatus[o.status] = { count: 0, total: 0 };
+    byStatus[o.status].count++;
+    byStatus[o.status].total += o.totalAmount ?? 0;
   });
 
-  const leaderboard = data?.manager_leaderboard ?? [];
-  const funnelData = data?.funnel;
-  const funnelMax = funnelData?.customers ?? 1;
+  const total = orders.reduce((s: number, o: any) => s + (o.totalAmount ?? 0), 0);
+  const paid = orders.reduce((s: number, o: any) => s + (o.paidAmount ?? 0), 0);
+
+  function handleExport() {
+    exportToCSV(
+      Object.entries(byStatus).map(([status, d]) => ({
+        'Статус': STATUS_LABEL[status] ?? status,
+        'Заказов': d.count,
+        'Сумма': d.total,
+      })),
+      'отчёт_производство.csv'
+    );
+  }
 
   return (
-    <div className={s.page}>
-      <PageHeader
-        title="Отчёты"
-        subtitle="Аналитика продаж и эффективности команды"
-        actions={<Button variant="secondary" size="sm" icon={<Download size={14} />}>Экспорт</Button>}
-      />
+    <div className={styles.reportSection}>
+      {isLoading ? <Skeleton height={200} radius={10} /> : (
+        <>
+          <div className={styles.summaryRow}>
+            <div className={styles.summaryCard}>
+              <div className={styles.scLabel}>Всего заказов</div>
+              <div className={styles.scValue}>{orders.length}</div>
+            </div>
+            <div className={styles.summaryCard}>
+              <div className={styles.scLabel}>Сумма заказов</div>
+              <div className={styles.scValue} style={{color:'var(--fill-positive)'}}>{fmtMoney(total)}</div>
+            </div>
+            <div className={styles.summaryCard}>
+              <div className={styles.scLabel}>Оплачено</div>
+              <div className={styles.scValue}>{fmtMoney(paid)}</div>
+            </div>
+            <div className={styles.summaryCard}>
+              <div className={styles.scLabel}>Долг</div>
+              <div className={styles.scValue} style={{color:'var(--fill-warning)'}}>{fmtMoney(total - paid)}</div>
+            </div>
+          </div>
 
-      {/* Period selector */}
-      <div className={s.periodBar}>
-        {PERIODS.map(p => (
-          <button
-            key={p.key}
-            className={`${s.periodTab} ${period === p.key ? s.active : ''}`}
-            onClick={() => setPeriod(p.key)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+          <div className={styles.tableCard}>
+            <div className={styles.tableCardHeader}>
+              <span className={styles.tableCardTitle}>По статусам</span>
+              <button className={styles.exportMini} onClick={handleExport}><Download size={12} /> CSV</button>
+            </div>
+            <table className={styles.table}>
+              <thead><tr><th>Статус</th><th style={{textAlign:'right'}}>Заказов</th><th style={{textAlign:'right'}}>Сумма</th></tr></thead>
+              <tbody>
+                {Object.entries(byStatus).map(([status, data]) => (
+                  <tr key={status} className={styles.row}>
+                    <td className={styles.tdName}>{STATUS_LABEL[status] ?? status}</td>
+                    <td style={{textAlign:'right',color:'var(--text-secondary)'}}>{data.count}</td>
+                    <td style={{textAlign:'right',color:'var(--text-primary)',fontWeight:500}}>
+                      {data.total > 0 ? fmtMoney(data.total) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      {period === 'custom' && (
-        <div className={s.customDates}>
-          <input type="date" value={custom.from} onChange={e => setCustom(c => ({ ...c, from: e.target.value }))} className={`kort-input ${s.dateInput}`} />
-          <span className={s.dateDivider}>—</span>
-          <input type="date" value={custom.to} onChange={e => setCustom(c => ({ ...c, to: e.target.value }))} className={`kort-input ${s.dateInput}`} />
-        </div>
+          {orders.length === 0 && <div className={styles.empty}><p>Нет заказов за период</p></div>}
+        </>
       )}
+    </div>
+  );
+}
 
-      {/* KPI grid */}
-      <motion.div className={s.kpiGrid} variants={listContainer} initial="hidden" animate="visible">
-        <KpiCard
-          label="Клиентов" icon={<Users size={13} />}
-          value={isLoading ? '—' : String(data?.customers_count ?? 0)}
-          delta={data?.customers_delta}
-          isLoading={isLoading}
-        />
-        <KpiCard
-          label="Активных сделок" icon={<Briefcase size={13} />}
-          value={isLoading ? '—' : String(data?.active_deals_count ?? 0)}
-          isLoading={isLoading}
-        />
-        <KpiCard
-          label="Выручка за месяц" icon={<TrendingUp size={13} />}
-          value={isLoading ? '—' : formatMoney(data?.revenue_month ?? 0, 'KZT')}
-          isLoading={isLoading}
-        />
-        <KpiCard
-          label="Просрочено задач" icon={<CheckSquare size={13} />}
-          value={isLoading ? '—' : String(data?.overdue_tasks ?? 0)}
-          isLoading={isLoading}
-        />
-      </motion.div>
+// ── Main page ──────────────────────────────────────────────────────────────────
 
-      {/* Revenue chart + Pie */}
-      <div className={s.chartGrid}>
-        <div className={s.chartCard}>
-          <div className={s.chartTitle}>Выручка по месяцам</div>
-          {isLoading
-            ? <Skeleton height={220} />
-            : <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={data?.revenue_by_month ?? []} barSize={24}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--chart-axis)' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: 'var(--chart-axis)' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="revenue" fill="var(--chart-series-1)" radius={[6,6,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-          }
-        </div>
+export default function ReportsPage() {
+  const [tab, setTab] = useState<Tab>('sales');
 
-        <div className={s.chartCard}>
-          <div className={s.chartTitle}>Источники клиентов</div>
-          {isLoading
-            ? <Skeleton height={220} />
-            : <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={data?.customers_by_source ?? []} dataKey="count" nameKey="source" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
-                    {(data?.customers_by_source ?? []).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip content={<ChartTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-          }
+  return (
+    <div className={styles.root}>
+      <div className={styles.header}>
+        <h1 className={styles.title}>Отчёты</h1>
+        <div className={styles.tabs}>
+          <button className={`${styles.tab} ${tab==='sales' ? styles.tabActive : ''}`} onClick={() => setTab('sales')}>
+            <TrendingUp size={13} /> Продажи
+          </button>
+          <button className={`${styles.tab} ${tab==='funnel' ? styles.tabActive : ''}`} onClick={() => setTab('funnel')}>
+            <Users size={13} /> Воронка CRM
+          </button>
+          <button className={`${styles.tab} ${tab==='production' ? styles.tabActive : ''}`} onClick={() => setTab('production')}>
+            <Factory size={13} /> Производство
+          </button>
         </div>
       </div>
 
-      {/* Leaderboard + Funnel */}
-      <div className={s.chartGrid2}>
-        <div className={s.chartCard}>
-          <div className={s.chartTitle}>
-            <span>Топ менеджеров</span>
-            <Trophy size={15} className={s.titleIcon} />
-          </div>
-          {isLoading
-            ? [1,2,3].map(i => <Skeleton key={i} height={40} className={s.leaderSkeleton} />)
-            : leaderboard.length === 0
-              ? <p className={s.emptyText}>Нет данных за период</p>
-              : leaderboard.map((m, i) => (
-                  <div key={m.name} className={s.leaderRow}>
-                    <div className={`${s.leaderRank} ${i === 0 ? s.first : i === 1 ? s.second : i === 2 ? s.third : s.other}`}>
-                      {i + 1}
-                    </div>
-                    <div className={s.leaderName}>{m.name}</div>
-                    <div className={s.leaderStats}>
-                      <div className={s.leaderRevenue}>{formatMoney(m.revenue, 'KZT')}</div>
-                      <div className={s.leaderDeals}>{m.deals} сделок</div>
-                    </div>
-                  </div>
-                ))
-          }
-        </div>
-
-        <div className={s.chartCard}>
-          <div className={s.chartTitle}>
-            <span>Воронка конверсии</span>
-            <Target size={15} className={s.titleIcon} />
-          </div>
-          {isLoading
-            ? <Skeleton height={160} />
-            : funnelData
-              ? (
-                  <div className={s.funnelList}>
-                    {[
-                      { label: 'Клиентов',   count: funnelData.customers },
-                      { label: 'Со сделками', count: funnelData.with_deals },
-                      { label: 'Сделок',     count: funnelData.deals },
-                      { label: 'Выиграно',   count: funnelData.won },
-                    ].map(row => (
-                      <div key={row.label} className={s.funnelRow}>
-                        <span className={s.funnelLabel}>{row.label}</span>
-                        <div className={s.funnelBarTrack}>
-                          <div className={s.funnelBarFill} style={{ '--funnel-width': `${(row.count / funnelMax) * 100}%` } as CSSProperties} />
-                        </div>
-                        <span className={s.funnelCount}>{row.count}</span>
-                      </div>
-                    ))}
-                    <div className={s.conversionNote}>
-                      Конверсия: <strong>{(funnelData.conversion_rate * 100).toFixed(1)}%</strong>
-                    </div>
-                  </div>
-                )
-              : <p className={s.emptyText}>Нет данных</p>
-          }
-        </div>
+      <div className={styles.content}>
+        {tab === 'sales' && <SalesReport />}
+        {tab === 'funnel' && <FunnelReport />}
+        {tab === 'production' && <ProductionReport />}
       </div>
     </div>
   );

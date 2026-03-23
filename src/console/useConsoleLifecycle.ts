@@ -10,7 +10,7 @@ import {
 import { isConsoleAccessToken } from './devSession';
 import { useConsoleStore } from './store';
 
-const IS_MOCK = import.meta.env.VITE_MOCK_API === 'true';
+
 
 type AuthSummary = {
   userId: string | null;
@@ -100,7 +100,7 @@ export function useConsoleLifecycle() {
       level: 'info',
       message: 'initialization',
       // Исправлено: добавлены обратные кавычки (backticks) для многострочного текста
-      details: IS_MOCK
+      details: false
         ? 'Режим: mock API. Пароли: бэкенд "kortdev1234" | локальный "1234"'
         : `KORT OS [Build 8341] - DEV MODE
 Compiled with ofygel-mad architecture.
@@ -108,7 +108,7 @@ Warning: Unverified signature detected. Root access granted.`,
     });
 
     // Очищаем фейковые mock-токены если бэкенд реальный
-    if (!IS_MOCK && isConsoleAccessToken(useAuthStore.getState().token)) {
+    if (!false && isConsoleAccessToken(useAuthStore.getState().token)) {
       useAuthStore.getState().clearAuth();
       emitConsoleEvent({
         source: 'auth',
@@ -119,7 +119,7 @@ Warning: Unverified signature detected. Root access granted.`,
 
     // Восстанавливаем mock-сессию после перезагрузки (только в mock-режиме)
     if (
-      IS_MOCK
+      false
       && canUseLocalConsoleAccess()
       && hasPersistedConsoleSession()
       && isConsoleAccessToken(useAuthStore.getState().token)

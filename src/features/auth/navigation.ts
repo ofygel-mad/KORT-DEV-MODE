@@ -4,12 +4,13 @@ export function resolvePostAuthPath(args: {
   org: Org | null;
   membership: Membership;
 }) {
-  if (args.membership.status !== 'active' || !args.org) {
-    return '/settings/company-access';
+  if (args.membership.status !== 'active') {
+    return args.org ? '/settings/company-access' : '/';
   }
 
   if (
     args.membership.role === 'owner' &&
+    args.org &&
     !args.org.onboarding_completed
   ) {
     return '/onboarding';

@@ -1,8 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { Search, LayoutGrid, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
-import { useWorkspaceStore } from '../model/store';
+import { useWorkspaceStore, TILE_NAV } from '../model/store';
 import { WORKSPACE_WIDGETS } from '../registry';
 import styles from './Workspace.module.css';
 
@@ -24,6 +25,7 @@ export function WorkspaceSpotlight({ open, onClose }: Props) {
   const [query, setQuery] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
   const store = useWorkspaceStore();
 
   const allActions: SpotlightAction[] = [
@@ -80,11 +82,12 @@ export function WorkspaceSpotlight({ open, onClose }: Props) {
     },
     ...store.tiles.map((tile) => ({
       id: `open-${tile.id}`,
-      label: `Открыть: ${tile.title}`,
+      label: `Перейти: ${tile.title}`,
       description: 'Плитка на рабочем поле',
       icon: WORKSPACE_WIDGETS.find((widget) => widget.kind === tile.kind)?.icon ?? Search,
       action: () => {
-        store.openTile(tile.id);
+        const navTo = TILE_NAV[tile.kind];
+        if (navTo) navigate(navTo);
         onClose();
       },
       tags: ['открыть', tile.title.toLowerCase(), tile.kind],

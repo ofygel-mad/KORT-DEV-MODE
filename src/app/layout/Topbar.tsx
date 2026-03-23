@@ -173,7 +173,7 @@ const BREADCRUMBS: Record<string, string> = {
   '/tasks': 'Задачи',
   '/reports': 'Отчёты',
   '/automations': 'Автоматизации',
-  '/imports': 'Импорт',
+  
   '/settings': 'Настройки',
   '/audit': 'Аудит',
   '/admin': 'Управление',

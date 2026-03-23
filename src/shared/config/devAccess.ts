@@ -6,7 +6,6 @@ import { useAuthStore } from '../stores/auth';
 export const DEV_AUTH_BYPASS_ENABLED = import.meta.env.DEV
   && (
     import.meta.env.VITE_DEV_AUTH_BYPASS === 'true'
-    || import.meta.env.VITE_MOCK_API === 'true'
   );
 
 export const DEV_RUNTIME_BLOCKERS_DISABLED = DEV_AUTH_BYPASS_ENABLED;

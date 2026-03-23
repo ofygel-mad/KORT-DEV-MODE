@@ -9,7 +9,7 @@ import { readApiErrorMessage } from './errors';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
-const IS_MOCK = import.meta.env.DEV && import.meta.env.VITE_MOCK_API === 'true';
+// Mock API disabled — all data from real backend
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -70,11 +70,7 @@ function shouldSuppressPermissionToast(status: number) {
     || pathname.startsWith('/auth/');
 }
 
-if (IS_MOCK) {
-  import('./mock-adapter').then(({ installMockAdapter }) => {
-    installMockAdapter(apiClient);
-  });
-}
+
 
 apiClient.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;

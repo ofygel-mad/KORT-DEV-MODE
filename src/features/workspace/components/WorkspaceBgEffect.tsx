@@ -70,7 +70,7 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
 
   const tiles = useWorkspaceStore((state) => state.tiles);
   const viewportSize = useWorkspaceStore((state) => state.viewportSize);
-  const activeTileId = useWorkspaceStore((state) => state.activeTileId);
+  
   const sceneTheme = useWorkspaceStore((state) => state.sceneTheme);
   const sceneThemeAuto = useWorkspaceStore((state) => state.sceneThemeAuto);
   const sceneMode = useWorkspaceStore((state) => state.sceneMode);
@@ -183,8 +183,8 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
   }, [sceneMode]);
 
   const sceneTiles = useMemo(
-    () => getSceneTiles(tiles, viewportSize, activeTileId),
-    [tiles, viewportSize, activeTileId],
+    () => getSceneTiles(tiles, viewportSize, null),
+    [tiles, viewportSize],
   );
 
   useEffect(() => {
@@ -197,7 +197,7 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
     });
   }, [sceneTheme, sceneThemeAuto, sceneMode, sceneTerrainMode, sceneTiles]);
 
-  // Pause the 3D scene entirely when a SPA modal is open (activeTileId !== null)
+  // Pause the 3D scene when tab is hidden
   // or when the browser tab is hidden (Page Visibility API).
   // The scene is fully invisible in both cases — no reason to burn GPU/CPU cycles.
   // Resume instantly when visible again (no cold-start cost — WebGL context stays alive).
@@ -207,13 +207,13 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
     const runtime = runtimeRef.current;
     if (!runtime) return;
 
-    const shouldPause = !!activeTileId || tabHiddenRef.current;
+    const shouldPause = tabHiddenRef.current;
     if (shouldPause) {
       runtime.pause();
     } else {
       runtime.resume();
     }
-  }, [activeTileId]);
+  }, []);
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -221,7 +221,7 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
       const runtime = runtimeRef.current;
       if (!runtime) return;
 
-      const shouldPause = document.hidden || !!useWorkspaceStore.getState().activeTileId;
+      const shouldPause = document.hidden;
       if (shouldPause) {
         runtime.pause();
       } else {
@@ -242,8 +242,7 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
       prevHovered = state.hoveredTileId;
       const runtime = runtimeRef.current;
       if (!runtime) return;
-      // Only update focus if no modal is open (activeTileId takes precedence)
-      if (state.activeTileId) return;
+      // Update focus on hover
       runtime.setState({
         theme: state.sceneTheme,
         themeAuto: state.sceneThemeAuto,

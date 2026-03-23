@@ -2,48 +2,31 @@ import type { PointerEvent as ReactPointerEvent, WheelEvent } from 'react';
 import { memo, useEffect, useRef, useCallback, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useWorkspaceStore, ZOOM_MIN, ZOOM_MAX } from '../model/store';
-import { useWorkspaceSnapshot } from '../model/useWorkspaceSnapshot';
 import type { WorkspaceTile as WorkspaceTileType } from '../model/types';
 import type { WorkspaceSceneFlightTileProjection } from '../scene/sceneRuntime';
 import { WorkspaceTile, type WorkspaceFlightTileLayout } from './WorkspaceTile';
-import { WorkspaceTileModal } from './WorkspaceTileModal';
 import { WorkspaceBgEffect } from './WorkspaceBgEffect';
 import { WorkspaceTileContextMenu } from './WorkspaceTileContextMenu';
 import styles from './Workspace.module.css';
 
-function clamp(v: number, lo: number, hi: number) {
-  return Math.min(Math.max(v, lo), hi);
-}
+function clamp(v: number, lo: number, hi: number) { return Math.min(Math.max(v, lo), hi); }
 
 function isTextInputTarget(target: EventTarget | null) {
-  return target instanceof HTMLElement
-    && (
-      target.tagName === 'INPUT'
-      || target.tagName === 'TEXTAREA'
-      || target.isContentEditable
-      || Boolean(target.closest('[contenteditable="true"]'))
-    );
+  return target instanceof HTMLElement && (
+    target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' ||
+    target.isContentEditable || Boolean(target.closest('[contenteditable="true"]'))
+  );
 }
 
 /**
- * ⚠️  ISOLATION BOUNDARY — this component and everything below it (WorkspaceBgEffect,
- * WorkspaceSceneRuntime, Three.js scene) must stay **fully independent** from auth,
- * UI, or any store outside `useWorkspaceStore`.  Do NOT add imports from `shared/stores`
- * or `shared/hooks` here.  Parent re-renders are blocked by React.memo — keep it that way.
+ * ISOLATION BOUNDARY — fully independent from auth, UI, or any store outside
+ * useWorkspaceStore. Parent re-renders are blocked by React.memo.
+ * Tiles are now navigation shortcuts — clicking navigates to the module page.
  */
-type WorkspaceCanvasProps = {
-  enableSnapshot?: boolean;
-  snapshotScope?: string | null;
-};
-
-export const WorkspaceCanvas = memo(function WorkspaceCanvas({
-  enableSnapshot = true,
-  snapshotScope = null,
-}: WorkspaceCanvasProps) {
+export const WorkspaceCanvas = memo(function WorkspaceCanvas() {
   const viewportRef        = useRef<HTMLDivElement>(null);
   const viewport           = useWorkspaceStore((s) => s.viewport);
   const tiles              = useWorkspaceStore((s) => s.tiles);
-  const activeTileId       = useWorkspaceStore((s) => s.activeTileId);
   const sceneMode          = useWorkspaceStore((s) => s.sceneMode);
   const zoom               = useWorkspaceStore((s) => s.zoom);
   const contextMenu        = useWorkspaceStore((s) => s.contextMenu);
@@ -52,129 +35,66 @@ export const WorkspaceCanvas = memo(function WorkspaceCanvas({
   const setZoom            = useWorkspaceStore((s) => s.setZoom);
   const closeContextMenu   = useWorkspaceStore((s) => s.closeContextMenu);
   const setHoveredTile     = useWorkspaceStore((s) => s.setHoveredTile);
-  const { data: snapshot } = useWorkspaceSnapshot(enableSnapshot, snapshotScope);
-  const [flightTileLayouts, setFlightTileLayouts] = useState<Record<string, WorkspaceFlightTileLayout>>({});
 
-  const activeTile = tiles.find((t) => t.id === activeTileId) ?? null;
+  const [flightTileLayouts, setFlightTileLayouts] = useState<Record<string, WorkspaceFlightTileLayout>>({});
 
   useEffect(() => {
     const node = viewportRef.current;
     if (!node) return;
     let frameHandle = 0;
-    const update = () => {
-      frameHandle = 0;
-      initializeViewport(node.clientWidth, node.clientHeight);
-    };
-    const scheduleUpdate = () => {
-      if (frameHandle) {
-        cancelAnimationFrame(frameHandle);
-      }
-      frameHandle = requestAnimationFrame(update);
-    };
+    const update = () => { frameHandle = 0; initializeViewport(node.clientWidth, node.clientHeight); };
+    const scheduleUpdate = () => { if (frameHandle) cancelAnimationFrame(frameHandle); frameHandle = requestAnimationFrame(update); };
     scheduleUpdate();
     const ro = new ResizeObserver(scheduleUpdate);
     ro.observe(node);
-    return () => {
-      ro.disconnect();
-      if (frameHandle) {
-        cancelAnimationFrame(frameHandle);
-      }
-    };
+    return () => { ro.disconnect(); if (frameHandle) cancelAnimationFrame(frameHandle); };
   }, [initializeViewport]);
 
-  // Ctrl + Wheel zoom — pinch-to-zoom feeling
   const handleWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
     if (sceneMode === 'flight') return;
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.06 : 0.06;
-    setZoom(clamp(+(zoom + delta).toFixed(2), ZOOM_MIN, ZOOM_MAX));
+    setZoom(clamp(+(zoom + (e.deltaY > 0 ? -0.06 : 0.06)).toFixed(2), ZOOM_MIN, ZOOM_MAX));
   }, [sceneMode, zoom, setZoom]);
 
-  // Keyboard shortcuts on workspace viewport
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (activeTileId) return; // don't capture when SPA is open
       if (isTextInputTarget(e.target)) return;
-
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         const store = useWorkspaceStore.getState();
-        if (e.key === 't' || e.key === 'T') {
-          e.preventDefault();
-          store.setSceneThemeAuto(!store.sceneThemeAuto);
-          return;
-        }
-
-        const themeByKey: Record<string, 'default' | 'morning' | 'overcast' | 'dusk' | 'night'> = {
-          '1': 'default',
-          '2': 'morning',
-          '3': 'overcast',
-          '4': 'dusk',
-          '5': 'night',
-        };
+        if (e.key === 't' || e.key === 'T') { e.preventDefault(); store.setSceneThemeAuto(!store.sceneThemeAuto); return; }
+        const themeByKey: Record<string, 'default' | 'morning' | 'overcast' | 'dusk' | 'night'> = { '1': 'default', '2': 'morning', '3': 'overcast', '4': 'dusk', '5': 'night' };
         const nextTheme = themeByKey[e.key];
-        if (nextTheme) {
-          e.preventDefault();
-          store.setSceneTheme(nextTheme);
-          return;
-        }
+        if (nextTheme) { e.preventDefault(); store.setSceneTheme(nextTheme); return; }
       }
-
       if (e.key === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         const store = useWorkspaceStore.getState();
         store.setSceneMode(store.sceneMode === 'flight' ? 'surface' : 'flight');
         return;
       }
-
       if (sceneMode === 'flight') return;
-      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
-        e.preventDefault();
-        useWorkspaceStore.getState().resetZoom();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === '=') {
-        e.preventDefault();
-        useWorkspaceStore.getState().zoomIn();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
-        e.preventDefault();
-        useWorkspaceStore.getState().zoomOut();
-      }
-      if (e.key === 'Escape') {
-        closeContextMenu();
-      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') { e.preventDefault(); useWorkspaceStore.getState().resetZoom(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === '=') { e.preventDefault(); useWorkspaceStore.getState().zoomIn(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') { e.preventDefault(); useWorkspaceStore.getState().zoomOut(); }
+      if (e.key === 'Escape') closeContextMenu();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [activeTileId, closeContextMenu, sceneMode]);
+  }, [closeContextMenu, sceneMode]);
 
   useEffect(() => {
     closeContextMenu();
     setHoveredTile(null);
-    if (sceneMode !== 'flight') {
-      setFlightTileLayouts({});
-    }
+    if (sceneMode !== 'flight') setFlightTileLayouts({});
   }, [sceneMode, closeContextMenu, setHoveredTile]);
 
   const flightFrameCounter = useRef(0);
   const handleFlightTileProjection = useCallback((projectedTiles: WorkspaceSceneFlightTileProjection[]) => {
-    // Throttle React state updates: only update every 3rd frame to avoid excessive re-renders
     flightFrameCounter.current += 1;
     if (flightFrameCounter.current % 3 !== 0) return;
-
     setFlightTileLayouts(() => Object.fromEntries(
-      projectedTiles.map((tile) => [
-        tile.id,
-        {
-          left: tile.left,
-          top: tile.top,
-          scale: tile.scale,
-          opacity: tile.opacity,
-          blur: tile.blur,
-          zIndex: tile.zIndex,
-          visible: tile.visible,
-        },
-      ]),
+      projectedTiles.map((t) => [t.id, { left: t.left, top: t.top, scale: t.scale, opacity: t.opacity, blur: t.blur, zIndex: t.zIndex, visible: t.visible }]),
     ));
   }, []);
 
@@ -183,88 +103,42 @@ export const WorkspaceCanvas = memo(function WorkspaceCanvas({
     if (target.closest('[data-scene-control="true"]')) return;
     if (target.closest('[data-workspace-ui="true"]')) return;
     if (target.closest('[data-workspace-tile="true"]')) return;
-    if (activeTileId) return;
     if (sceneMode === 'flight') return;
     closeContextMenu();
-
-    const node    = viewportRef.current!;
-    const startX  = e.clientX;
-    const startY  = e.clientY;
-    const originX = viewport.x;
-    const originY = viewport.y;
+    const node = viewportRef.current!;
+    const startX = e.clientX, startY = e.clientY, originX = viewport.x, originY = viewport.y;
     node.setPointerCapture(e.pointerId);
     node.style.cursor = 'grabbing';
-
-    const onMove = (me: PointerEvent) => {
-      setViewport(originX + (me.clientX - startX), originY + (me.clientY - startY));
-    };
-    const onUp = () => {
-      node.style.cursor = '';
-      node.releasePointerCapture(e.pointerId);
-      node.removeEventListener('pointermove', onMove);
-      node.removeEventListener('pointerup',   onUp);
-      node.removeEventListener('pointercancel', onUp);
-    };
-    node.addEventListener('pointermove',   onMove);
-    node.addEventListener('pointerup',     onUp);
+    const onMove = (me: PointerEvent) => setViewport(originX + (me.clientX - startX), originY + (me.clientY - startY));
+    const onUp = () => { node.style.cursor = ''; node.releasePointerCapture(e.pointerId); node.removeEventListener('pointermove', onMove); node.removeEventListener('pointerup', onUp); node.removeEventListener('pointercancel', onUp); };
+    node.addEventListener('pointermove', onMove);
+    node.addEventListener('pointerup', onUp);
     node.addEventListener('pointercancel', onUp);
   };
 
   return (
-    <div
-      ref={viewportRef}
-      data-workspace-viewport="true"
+    <div ref={viewportRef} data-workspace-viewport="true"
       className={`${styles.workspaceViewport} ${styles.workspaceViewportEffect} ${sceneMode === 'flight' ? styles.workspaceViewportFlight : ''}`}
-      onPointerDown={startPan}
-      onWheel={handleWheel}
+      onPointerDown={startPan} onWheel={handleWheel}
     >
       <WorkspaceBgEffect onFlightTileProjection={handleFlightTileProjection} />
 
-      {/* Scrollable world canvas with zoom */}
       {sceneMode !== 'flight' && (
-        <div
-          className={styles.workspaceWorld}
-          style={{
-            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${zoom})`,
-            transformOrigin: '0 0',
-          }}
-        >
-          {tiles.map((tile: WorkspaceTileType) => (
-            <WorkspaceTile key={tile.id} tile={tile} snapshot={snapshot} />
-          ))}
+        <div className={styles.workspaceWorld} style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
+          {tiles.map((tile: WorkspaceTileType) => <WorkspaceTile key={tile.id} tile={tile} />)}
         </div>
       )}
 
       {sceneMode === 'flight' && (
         <div className={styles.flightTileField}>
           {tiles.map((tile: WorkspaceTileType) => (
-            <WorkspaceTile
-              key={tile.id}
-              tile={tile}
-              snapshot={snapshot}
-              presentation="flight"
-              flightLayout={flightTileLayouts[tile.id]}
-            />
+            <WorkspaceTile key={tile.id} tile={tile} presentation="flight" flightLayout={flightTileLayouts[tile.id]} />
           ))}
         </div>
       )}
 
-      {/* Context menu for right-click on tiles */}
       <AnimatePresence>
-        {contextMenu && (
-          <WorkspaceTileContextMenu
-            tileId={contextMenu.tileId}
-            x={contextMenu.x}
-            y={contextMenu.y}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Tile modal via portal to body */}
-      <AnimatePresence>
-        {activeTile && (
-          <WorkspaceTileModal key={activeTile.id} tile={activeTile} snapshot={snapshot} />
-        )}
+        {contextMenu && <WorkspaceTileContextMenu tileId={contextMenu.tileId} x={contextMenu.x} y={contextMenu.y} />}
       </AnimatePresence>
     </div>
   );

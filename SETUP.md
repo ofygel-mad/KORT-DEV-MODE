@@ -20,7 +20,7 @@ npm run dev
 1. Поднять БД:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 2. Установить зависимости:

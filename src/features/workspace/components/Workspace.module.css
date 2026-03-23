@@ -1554,3 +1554,96 @@
   margin-right: 4px;
   color: rgba(255, 255, 255, 0.5);
 }
+
+/* ── New nav-shortcut tile styles ─────────────────────── */
+.tileHovered {
+  border-color: rgba(169,205,255,0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 16px 40px rgba(0,0,0,0.45),
+    0 0 0 1px rgba(59,115,189,0.12);
+}
+
+.tileInner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 8px;
+  gap: 6px;
+}
+
+.tileHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tileIconWrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tile-color, var(--fill-accent)) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tile-color, var(--fill-accent)) 30%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tile-color, var(--fill-accent));
+  flex-shrink: 0;
+}
+
+.tileTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tilePinIcon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.tileDesc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  flex: 1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.tileArrow {
+  font-size: 10px;
+  color: color-mix(in srgb, var(--tile-color, var(--fill-accent)) 80%, transparent);
+  letter-spacing: 0.02em;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.tile:hover .tileArrow,
+.tileHovered .tileArrow {
+  opacity: 1;
+}
+
+/* Legacy monitor styles — keep for backward compat canvas rendering */
+.tileMonitorLocked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+}
+.tileMonitorLockedIcon { color: var(--text-tertiary); }
+.tileMonitorLockedTitle { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.tileMonitorLockedText { font-size: 11px; color: var(--text-tertiary); line-height: 1.5; }
