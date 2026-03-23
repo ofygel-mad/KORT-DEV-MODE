@@ -18,12 +18,14 @@ RUN npm run build
 FROM nginx:1.27-alpine
 
 # nginx native template support — auto-runs envsubst on *.template files at startup
+COPY docker/04-normalize-backend-url.envsh /docker-entrypoint.d/04-normalize-backend-url.envsh
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Default backend — overridden in Railway/production via env var
+# Safe fallback: keeps nginx bootable even if BACKEND_URL was not set yet.
+# In Railway production, override BACKEND_URL with the real backend origin.
 ENV PORT=80
-ENV BACKEND_URL=http://backend:8000
+ENV BACKEND_URL=http://127.0.0.1:8000
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

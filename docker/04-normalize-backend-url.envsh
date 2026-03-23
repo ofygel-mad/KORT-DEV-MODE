@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+
+# Railway users often paste a bare host like "api.example.com".
+# nginx `proxy_pass` requires a full URL with scheme.
+if [ -n "${BACKEND_URL:-}" ]; then
+  case "$BACKEND_URL" in
+    http://*|https://*)
+      ;;
+    *)
+      export BACKEND_URL="https://${BACKEND_URL}"
+      ;;
+  esac
+fi
