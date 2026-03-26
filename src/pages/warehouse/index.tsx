@@ -1,16 +1,20 @@
 import { useState, useDeferredValue } from 'react';
-import { Plus, Search, Package, TrendingDown, AlertTriangle, Download } from 'lucide-react';
+import { Plus, Search, Package, TrendingDown, AlertTriangle, Download, PackageCheck, Send, FileText, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import {
   useWarehouseItems, useWarehouseMovements, useWarehouseAlerts,
   useWarehouseCategories, useCreateItem, useAddMovement, useDeleteItem, useResolveAlert,
 } from '../../entities/warehouse/queries';
+import {
+  useInvoices, useConfirmWarehouse, useOrders, useShipOrder,
+} from '../../entities/order/queries';
 import type { WarehouseItem, MovementType, CreateItemDto, AddMovementDto } from '../../entities/warehouse/types';
+import type { ChapanOrder, ChapanInvoice } from '../../entities/order/types';
 import { getStockStatus } from '../../entities/warehouse/types';
 import { Skeleton } from '../../shared/ui/Skeleton';
 import { exportToCSV } from '../../shared/lib/export';
 import styles from './Warehouse.module.css';
 
-type Tab = 'items' | 'movements' | 'alerts';
+type Tab = 'incoming' | 'orders_wh' | 'to_ship' | 'items' | 'movements' | 'alerts';
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
   in: 'Приход', out: 'Расход', adjustment: 'Корректировка', write_off: 'Списание', return: 'Возврат',
@@ -49,7 +53,7 @@ function AddItemDrawer({ onClose }: { onClose: () => void }) {
       <div className={styles.drawer} onClick={e => e.stopPropagation()}>
         <div className={styles.drawerHeader}>
           <span className={styles.drawerTitle}>Добавить позицию</span>
-          <button className={styles.drawerClose} onClick={onClose}>✕</button>
+          <button className={styles.drawerClose} onClick={onClose}><X size={14} /></button>
         </div>
         <form className={styles.drawerBody} onSubmit={handleSubmit}>
           <div className={styles.field}>
@@ -58,7 +62,7 @@ function AddItemDrawer({ onClose }: { onClose: () => void }) {
           </div>
           <div className={styles.row2}>
             <div className={styles.field}>
-              <label className={styles.label}>SKU</label>
+              <label className={styles.label}>Уникальный номер</label>
               <input className={styles.input} value={form.sku ?? ''} onChange={sf('sku')} placeholder="WOOL-01" />
             </div>
             <div className={styles.field}>
@@ -69,11 +73,11 @@ function AddItemDrawer({ onClose }: { onClose: () => void }) {
           <div className={styles.row2}>
             <div className={styles.field}>
               <label className={styles.label}>Остаток</label>
-              <input className={styles.input} type="number" min="0" value={form.qty ?? 0} onChange={sf('qty')} />
+              <input className={styles.input} type="number" min="0" value={form.qty ?? 0} onChange={sf('qty')} onFocus={(e) => e.target.select()} />
             </div>
             <div className={styles.field}>
               <label className={styles.label}>Минимум (алерт)</label>
-              <input className={styles.input} type="number" min="0" value={form.qtyMin ?? 0} onChange={sf('qtyMin')} />
+              <input className={styles.input} type="number" min="0" value={form.qtyMin ?? 0} onChange={sf('qtyMin')} onFocus={(e) => e.target.select()} />
             </div>
           </div>
           {categories.length > 0 && (
@@ -124,7 +128,7 @@ function AddMovementDrawer({ items, preselectItemId, onClose }: { items: Warehou
       <div className={styles.drawer} onClick={e => e.stopPropagation()}>
         <div className={styles.drawerHeader}>
           <span className={styles.drawerTitle}>Новое движение</span>
-          <button className={styles.drawerClose} onClick={onClose}>✕</button>
+          <button className={styles.drawerClose} onClick={onClose}><X size={14} /></button>
         </div>
         <form className={styles.drawerBody} onSubmit={handleSubmit}>
           <div className={styles.field}>
@@ -149,7 +153,7 @@ function AddMovementDrawer({ items, preselectItemId, onClose }: { items: Warehou
           <div className={styles.row2}>
             <div className={styles.field}>
               <label className={styles.label}>Количество <span className={styles.req}>*</span></label>
-              <input className={styles.input} type="number" min="0.01" step="any" value={form.qty} onChange={e => setForm(f => ({ ...f, qty: parseFloat(e.target.value) || 0 }))} required />
+              <input className={styles.input} type="number" min="0.01" step="any" value={form.qty} onChange={e => setForm(f => ({ ...f, qty: parseFloat(e.target.value) || 0 }))} onFocus={(e) => e.target.select()} required />
             </div>
           </div>
           <div className={styles.field}>
@@ -170,6 +174,17 @@ function AddMovementDrawer({ items, preselectItemId, onClose }: { items: Warehou
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 
+function fmtMoney(n: number) {
+  return new Intl.NumberFormat('ru-KZ', { maximumFractionDigits: 0 }).format(n) + ' ₸';
+}
+
+const PAY_LABEL: Record<string, string> = {
+  not_paid: 'Не оплачен', partial: 'Частично', paid: 'Оплачен',
+};
+const PAY_COLOR: Record<string, string> = {
+  not_paid: 'var(--fill-negative)', partial: 'var(--fill-warning)', paid: 'var(--fill-positive)',
+};
+
 export default function WarehousePage() {
   const [tab, setTab] = useState<Tab>('items');
   const [search, setSearch] = useState('');
@@ -178,22 +193,35 @@ export default function WarehousePage() {
   const [addMovOpen, setAddMovOpen] = useState(false);
   const [preselectItem, setPreselectItem] = useState<string | undefined>();
 
+  // Warehouse inventory data
   const { data: itemsData, isLoading: itemsLoading } = useWarehouseItems({ search: deferredSearch || undefined });
   const { data: movData, isLoading: movLoading } = useWarehouseMovements({ limit: 100 });
   const { data: alertsData } = useWarehouseAlerts();
   const deleteItem = useDeleteItem();
   const resolveAlert = useResolveAlert();
 
+  // Chapan order handoff data
+  const { data: invoicesData, isLoading: invoicesLoading } = useInvoices({ status: 'pending_confirmation', limit: 200 });
+  const pendingInvoices = (invoicesData?.results ?? []).filter((inv) => !inv.warehouseConfirmed);
+  const { data: whOrdersData, isLoading: whOrdersLoading } = useOrders({ status: 'on_warehouse', limit: 200 });
+  const warehouseOrders: ChapanOrder[] = whOrdersData?.results ?? [];
+  const toShipOrders = warehouseOrders.filter((o) => o.paymentStatus === 'paid');
+  const unpaidOrders = warehouseOrders.filter((o) => o.paymentStatus !== 'paid');
+
+  const confirmWarehouse = useConfirmWarehouse();
+  const shipOrder = useShipOrder();
+
   const items = itemsData?.results ?? [];
   const movements = movData?.results ?? [];
   const alerts = alertsData?.results ?? [];
 
   const alertCount = alerts.length;
+  const incomingCount = pendingInvoices.length;
 
   function handleExportItems() {
     exportToCSV(items.map(i => ({
       'Название': i.name,
-      'SKU': i.sku ?? '',
+      'Уникальный номер': i.sku ?? '',
       'Ед.изм': i.unit,
       'Остаток': i.qty,
       'Мин.остаток': i.qtyMin,
@@ -213,9 +241,11 @@ export default function WarehousePage() {
     })), 'склад_движения.csv');
   }
 
+  const totalUnits = items.reduce((sum, i) => sum + i.qty, 0);
+
   return (
     <div className={styles.root}>
-      {/* Tabs */}
+      {/* Header + tabs */}
       <div className={styles.header}>
         <h1 className={styles.title}>Склад</h1>
         <div className={styles.headerRight}>
@@ -227,11 +257,190 @@ export default function WarehousePage() {
               <TrendingDown size={13} /> Движения
             </button>
             <button className={`${styles.tab} ${tab === 'alerts' ? styles.tabActive : ''}`} onClick={() => setTab('alerts')}>
-              <AlertTriangle size={13} /> Алерты {alertCount > 0 && <span className={styles.alertBadge}>{alertCount}</span>}
+              <AlertTriangle size={13} /> Оповещения {alertCount > 0 && <span className={styles.alertBadge}>{alertCount}</span>}
+            </button>
+
+            <div className={styles.tabDivider} />
+            <span className={styles.tabGroupLabel}>Чапан</span>
+
+            <button className={`${styles.tab} ${tab === 'incoming' ? styles.tabActive : ''}`} onClick={() => setTab('incoming')}>
+              <FileText size={13} /> Приёмка {incomingCount > 0 && <span className={styles.alertBadge}>{incomingCount}</span>}
+            </button>
+            <button className={`${styles.tab} ${tab === 'orders_wh' ? styles.tabActive : ''}`} onClick={() => setTab('orders_wh')}>
+              <Package size={13} /> Заказы {warehouseOrders.length > 0 && <span className={styles.alertBadge}>{warehouseOrders.length}</span>}
+            </button>
+            <button className={`${styles.tab} ${tab === 'to_ship' ? styles.tabActive : ''}`} onClick={() => setTab('to_ship')}>
+              <Send size={13} /> К отправке
             </button>
           </div>
         </div>
       </div>
+
+      {/* Summary stats — always visible */}
+      {!itemsLoading && (
+        <div className={styles.statsBar}>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{items.length}</span>
+            <span className={styles.statLabel}>Позиций в базе</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{fmtNum(totalUnits)}</span>
+            <span className={styles.statLabel}>Единиц на складе</span>
+          </div>
+          {alertCount > 0 && (
+            <div className={styles.statItem}>
+              <span className={styles.statValue} style={{ color: 'var(--fill-warning)' }}>{alertCount}</span>
+              <span className={styles.statLabel}>Алертов</span>
+            </div>
+          )}
+          {incomingCount > 0 && (
+            <div className={styles.statItem}>
+              <span className={styles.statValue} style={{ color: 'var(--fill-accent)' }}>{incomingCount}</span>
+              <span className={styles.statLabel}>Накладных на приёмку</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Incoming invoices tab ── */}
+      {tab === 'incoming' && (
+        invoicesLoading ? (
+          <div className={styles.skeletons}>{[...Array(4)].map((_,i) => <Skeleton key={i} height={56} radius={8} />)}</div>
+        ) : pendingInvoices.length === 0 ? (
+          <div className={styles.empty}>
+            <PackageCheck size={32} className={styles.emptyIcon} />
+            <p>Нет входящих накладных</p>
+            <span className={styles.emptyNote}>Когда контролёр передаст заказы на склад, накладные появятся здесь</span>
+          </div>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead><tr><th>Накладная</th><th>Дата</th><th>Заказов</th><th>Создал</th><th></th></tr></thead>
+              <tbody>
+                {pendingInvoices.map((inv) => (
+                  <tr key={inv.id} className={styles.row}>
+                    <td className={styles.tdName}>#{inv.invoiceNumber}</td>
+                    <td className={styles.tdDate}>{fmtDate(inv.createdAt)}</td>
+                    <td className={styles.tdNum}>{inv.items?.length ?? 0}</td>
+                    <td className={styles.tdSecondary}>{inv.createdByName}</td>
+                    <td className={styles.tdActions}>
+                      <button
+                        className={styles.incomBtn}
+                        onClick={() => confirmWarehouse.mutate(inv.id)}
+                        disabled={confirmWarehouse.isPending}
+                      >
+                        <PackageCheck size={12} /> {confirmWarehouse.isPending ? 'Подтверждение...' : 'Принять'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {/* ── Orders on warehouse tab ── */}
+      {tab === 'orders_wh' && (
+        whOrdersLoading ? (
+          <div className={styles.skeletons}>{[...Array(4)].map((_,i) => <Skeleton key={i} height={52} radius={8} />)}</div>
+        ) : warehouseOrders.length === 0 ? (
+          <div className={styles.empty}>
+            <Package size={32} className={styles.emptyIcon} />
+            <p>Склад пуст</p>
+            <span className={styles.emptyNote}>Принятые заказы появятся после подтверждения накладных</span>
+          </div>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead><tr><th>Заказ</th><th>Клиент</th><th>Модель</th><th>Сумма</th><th>Оплата</th><th></th></tr></thead>
+              <tbody>
+                {warehouseOrders.map((order) => (
+                  <tr key={order.id} className={styles.row}>
+                    <td className={styles.tdMono}>#{order.orderNumber}</td>
+                    <td className={styles.tdName}>{order.clientName}</td>
+                    <td className={styles.tdSecondary}>{order.items?.[0]?.productName ?? '—'}</td>
+                    <td className={styles.tdNum}>{fmtMoney(order.totalAmount)}</td>
+                    <td>
+                      <span style={{ color: PAY_COLOR[order.paymentStatus], fontWeight: 500, fontSize: 12 }}>
+                        {PAY_LABEL[order.paymentStatus]}
+                      </span>
+                    </td>
+                    <td className={styles.tdActions}>
+                      {order.paymentStatus === 'paid' ? (
+                        <button
+                          className={styles.incomBtn}
+                          onClick={() => shipOrder.mutate(order.id)}
+                          disabled={shipOrder.isPending}
+                        >
+                          <Send size={12} /> Отправить
+                        </button>
+                      ) : (
+                        <span style={{ color: 'var(--fill-warning)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <AlertCircle size={12} /> Не оплачен
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {/* ── To ship tab ── */}
+      {tab === 'to_ship' && (
+        whOrdersLoading ? (
+          <div className={styles.skeletons}>{[...Array(4)].map((_,i) => <Skeleton key={i} height={52} radius={8} />)}</div>
+        ) : toShipOrders.length === 0 && unpaidOrders.length === 0 ? (
+          <div className={styles.empty}>
+            <Send size={32} className={styles.emptyIcon} />
+            <p>Нет заказов к отправке</p>
+            <span className={styles.emptyNote}>Оплаченные заказы со склада будут готовы к отгрузке</span>
+          </div>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead><tr><th>Заказ</th><th>Клиент</th><th>Модель</th><th>Сумма</th><th>Оплата</th><th></th></tr></thead>
+              <tbody>
+                {toShipOrders.map((order) => (
+                  <tr key={order.id} className={styles.row}>
+                    <td className={styles.tdMono}>#{order.orderNumber}</td>
+                    <td className={styles.tdName}>{order.clientName}</td>
+                    <td className={styles.tdSecondary}>{order.items?.[0]?.productName ?? '—'}</td>
+                    <td className={styles.tdNum}>{fmtMoney(order.totalAmount)}</td>
+                    <td><span style={{ color: PAY_COLOR[order.paymentStatus], fontWeight: 500, fontSize: 12 }}>{PAY_LABEL[order.paymentStatus]}</span></td>
+                    <td className={styles.tdActions}>
+                      <button
+                        className={styles.incomBtn}
+                        onClick={() => shipOrder.mutate(order.id)}
+                        disabled={shipOrder.isPending}
+                      >
+                        <Send size={12} /> Отправить
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {unpaidOrders.map((order) => (
+                  <tr key={order.id} className={styles.row}>
+                    <td className={styles.tdMono}>#{order.orderNumber}</td>
+                    <td className={styles.tdName}>{order.clientName}</td>
+                    <td className={styles.tdSecondary}>{order.items?.[0]?.productName ?? '—'}</td>
+                    <td className={styles.tdNum}>{fmtMoney(order.totalAmount)}</td>
+                    <td><span style={{ color: PAY_COLOR[order.paymentStatus], fontWeight: 500, fontSize: 12 }}>{PAY_LABEL[order.paymentStatus]}</span></td>
+                    <td className={styles.tdActions}>
+                      <span style={{ color: 'var(--fill-negative)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <AlertTriangle size={12} /> Не оплачен
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
 
       {/* ── Items tab ── */}
       {tab === 'items' && (
@@ -239,7 +448,7 @@ export default function WarehousePage() {
           <div className={styles.toolbar}>
             <div className={styles.searchWrap}>
               <Search size={13} className={styles.searchIcon} />
-              <input className={styles.searchInput} value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по названию, SKU..." />
+              <input className={styles.searchInput} value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по названию или позиций в базе" />
             </div>
             <button className={styles.exportBtn} onClick={handleExportItems}><Download size={13} /> Excel</button>
             <button className={styles.addBtn} onClick={() => setAddItemOpen(true)}><Plus size={14} /> Добавить</button>
@@ -252,7 +461,7 @@ export default function WarehousePage() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Название</th><th>SKU</th><th>Кат.</th><th>Остаток</th><th>Мин.</th><th>Статус</th><th></th>
+                    <th>Название</th><th>Уникальный номер</th><th>Кат.</th><th>Остаток</th><th>Мин.</th><th>Статус</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -267,12 +476,12 @@ export default function WarehousePage() {
                         <td className={styles.tdSecondary}>{fmtNum(item.qtyMin)} {item.unit}</td>
                         <td>
                           <span className={styles.stockBadge} data-status={status}>
-                            {status === 'ok' ? '✓ Норма' : status === 'low' ? '⚠ Мало' : '❗ Критично'}
+                            {status === 'ok' ? 'Норма' : status === 'low' ? 'Мало' : 'Критично'}
                           </span>
                         </td>
                         <td className={styles.tdActions}>
                           <button className={styles.incomBtn} onClick={() => { setPreselectItem(item.id); setAddMovOpen(true); }}>Приход</button>
-                          <button className={styles.deleteBtn} onClick={() => { if (confirm('Удалить позицию?')) deleteItem.mutate(item.id); }}>✕</button>
+                          <button className={styles.deleteBtn} onClick={() => { if (confirm('Удалить позицию?')) deleteItem.mutate(item.id); }}><X size={12} /></button>
                         </td>
                       </tr>
                     );
@@ -353,7 +562,7 @@ export default function WarehousePage() {
                   <td className={styles.tdNum} style={{ color: 'var(--fill-negative)' }}>{fmtNum(a.item?.qty ?? 0)}</td>
                   <td className={styles.tdSecondary}>{fmtNum(a.item?.qtyMin ?? 0)}</td>
                   <td className={styles.tdSecondary}>{a.item?.unit ?? '—'}</td>
-                  <td><span className={styles.alertStatusBadge}>⚠ Низкий остаток</span></td>
+                  <td><span className={styles.alertStatusBadge}>Низкий остаток</span></td>
                   <td className={styles.tdActions}>
                     <button className={styles.incomBtn} onClick={() => { setPreselectItem(a.itemId); setAddMovOpen(true); setTab('movements'); }}>Записать приход</button>
                     <button className={styles.resolveBtn} onClick={() => resolveAlert.mutate(a.id)}>Закрыть</button>
@@ -366,7 +575,7 @@ export default function WarehousePage() {
             <div className={styles.empty}>
               <AlertTriangle size={32} className={styles.emptyIcon} style={{ color: 'var(--fill-positive)' }} />
               <p>Все в норме</p>
-              <span className={styles.emptyNote}>Алерты появятся когда остаток упадёт ниже минимума</span>
+              <span className={styles.emptyNote}>Оповещения появятся когда остаток упадёт ниже минимума</span>
             </div>
           )}
         </div>

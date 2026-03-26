@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/react';
 import { Component, type ReactNode } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
 import styles from './ErrorBoundary.module.css';
 import { redirectTo } from '../lib/browser';
@@ -33,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className={styles.root}>
-        <div className={styles.icon}>⚠️</div>
+        <div className={styles.icon}><AlertTriangle size={28} /></div>
         <div className={styles.title}>
           Что-то пошло не так
         </div>

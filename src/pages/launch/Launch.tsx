@@ -304,7 +304,7 @@ export function Launch({ introSessionKey, onComplete }: LaunchProps) {
     const glCtx = buildGLContext(glCanvas);
     if (!glCtx) {
       // WebGL unavailable — fallback: skip straight to complete
-      window.sessionStorage.setItem(introSessionKey, '1');
+      window.localStorage.setItem(introSessionKey, '1');
       onComplete();
       return;
     }
@@ -411,7 +411,7 @@ export function Launch({ introSessionKey, onComplete }: LaunchProps) {
 
       // ─── Done ─────────────────────────────────────────────────────────────
       .add(() => {
-        window.sessionStorage.setItem(introSessionKey, '1');
+        window.localStorage.setItem(introSessionKey, '1');
         onComplete();
       });
 

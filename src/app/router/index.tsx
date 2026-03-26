@@ -1,9 +1,11 @@
-import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, Navigate, NavLink, RouterProvider } from 'react-router-dom';
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { AppShell } from '../layout/AppShell';
 import { PageLoader } from '../../shared/ui/PageLoader';
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
 import { useAuthStore } from '../../shared/stores/auth';
+import { usePlan, planIncludes, PLAN_LABELS, type OrgMode } from '../../shared/hooks/usePlan';
+import { Settings } from 'lucide-react';
 
 function makePage(imp: () => Promise<{ default: ComponentType }>) {
   const Comp = lazy(imp);
@@ -25,9 +27,11 @@ const DealsPage      = makePage(() => import('../../pages/crm/deals'));
 const CustomersPage  = makePage(() => import('../../pages/crm/customers'));
 const TasksPage      = makePage(() => import('../../pages/crm/tasks'));
 const WarehousePage  = makePage(() => import('../../pages/warehouse'));
+const ProductionPage = makePage(() => import('../../pages/production'));
 const FinancePage    = makePage(() => import('../../pages/finance'));
 const EmployeesPage  = makePage(() => import('../../pages/employees'));
 const ReportsPage    = makePage(() => import('../../pages/reports'));
+const DocumentsPage  = makePage(() => import('../../pages/documents'));
 const SettingsPage   = makePage(() => import('../../pages/settings'));
 const OnboardingPage = makePage(() => import('../../pages/onboarding'));
 
@@ -41,8 +45,12 @@ const ChapanShell        = makePage(() => import('../../pages/workzone/chapan/Ch
 const ChapanOrdersPage   = makePage(() => import('../../pages/workzone/chapan/orders/ChapanOrders'));
 const ChapanNewOrderPage = makePage(() => import('../../pages/workzone/chapan/orders/ChapanNewOrder'));
 const ChapanOrderDetailPage = makePage(() => import('../../pages/workzone/chapan/orders/ChapanOrderDetail'));
-const ChapanProductionPage = makePage(() => import('../../pages/workzone/chapan/production/ChapanProduction'));
-const ChapanSettingsPage = makePage(() => import('../../pages/workzone/chapan/settings/ChapanSettings'));
+const ChapanEditOrderPage   = makePage(() => import('../../pages/workzone/chapan/orders/ChapanEditOrder'));
+const ChapanProductionPage  = makePage(() => import('../../pages/workzone/chapan/production/ChapanProduction'));
+const ChapanReadyPage       = makePage(() => import('../../pages/workzone/chapan/ready/ChapanReady'));
+const ChapanSettingsPage    = makePage(() => import('../../pages/workzone/chapan/settings/ChapanSettings'));
+const ChapanInvoicesPage    = makePage(() => import('../../pages/workzone/chapan/invoices/ChapanInvoices'));
+const ChapanArchivePage     = makePage(() => import('../../pages/workzone/chapan/archive/ChapanArchive'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user);
@@ -53,6 +61,75 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function RequireOrg({ children }: { children: ReactNode }) {
   const status = useAuthStore((s) => s.membership.status);
   if (status !== 'active') return <Navigate to="/settings" replace />;
+  return <>{children}</>;
+}
+
+const PLAN_COLORS: Record<OrgMode, string> = {
+  basic: '#5C8DFF',
+  advanced: '#D97706',
+  industrial: '#7C3AED',
+};
+
+function PlanGate({ required }: { required: OrgMode }) {
+  const color = PLAN_COLORS[required];
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '60vh',
+      gap: '16px',
+      textAlign: 'center',
+      padding: '40px 24px',
+    }}>
+      <div style={{
+        width: 56,
+        height: 56,
+        borderRadius: '50%',
+        background: `color-mix(in srgb, ${color} 14%, var(--bg-surface-elevated))`,
+        border: `1.5px solid color-mix(in srgb, ${color} 30%, transparent)`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 22,
+      }}>
+        🔒
+      </div>
+      <div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
+          Требуется план «{PLAN_LABELS[required]}»
+        </div>
+        <div style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 360, lineHeight: 1.5 }}>
+          Этот модуль недоступен в вашем текущем режиме. Измените план в настройках организации.
+        </div>
+      </div>
+      <NavLink
+        to="/settings"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '8px 16px',
+          borderRadius: 8,
+          background: `color-mix(in srgb, ${color} 12%, var(--bg-surface))`,
+          border: `1px solid color-mix(in srgb, ${color} 28%, var(--brand-panel-border))`,
+          color: color,
+          fontSize: 13,
+          fontWeight: 500,
+          textDecoration: 'none',
+        }}
+      >
+        <Settings size={14} />
+        Перейти в настройки
+      </NavLink>
+    </div>
+  );
+}
+
+function RequirePlan({ tier, children }: { tier: OrgMode; children: ReactNode }) {
+  const plan = usePlan();
+  if (!planIncludes(plan, tier)) return <PlanGate required={tier} />;
   return <>{children}</>;
 }
 
@@ -72,7 +149,7 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: 'crm/deals',
-        element: <RequireAuth><RequireOrg><DealsPage /></RequireOrg></RequireAuth>,
+        element: <RequireAuth><RequireOrg><RequirePlan tier="advanced"><DealsPage /></RequirePlan></RequireOrg></RequireAuth>,
       },
       {
         path: 'crm/customers',
@@ -80,23 +157,31 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: 'crm/tasks',
-        element: <RequireAuth><RequireOrg><TasksPage /></RequireOrg></RequireAuth>,
+        element: <RequireAuth><RequireOrg><RequirePlan tier="advanced"><TasksPage /></RequirePlan></RequireOrg></RequireAuth>,
       },
       {
         path: 'warehouse',
         element: <RequireAuth><RequireOrg><WarehousePage /></RequireOrg></RequireAuth>,
       },
       {
+        path: 'production',
+        element: <RequireAuth><RequireOrg><RequirePlan tier="advanced"><ProductionPage /></RequirePlan></RequireOrg></RequireAuth>,
+      },
+      {
         path: 'finance',
-        element: <RequireAuth><RequireOrg><FinancePage /></RequireOrg></RequireAuth>,
+        element: <RequireAuth><RequireOrg><RequirePlan tier="advanced"><FinancePage /></RequirePlan></RequireOrg></RequireAuth>,
       },
       {
         path: 'employees',
-        element: <RequireAuth><RequireOrg><EmployeesPage /></RequireOrg></RequireAuth>,
+        element: <RequireAuth><RequireOrg><RequirePlan tier="advanced"><EmployeesPage /></RequirePlan></RequireOrg></RequireAuth>,
       },
       {
         path: 'reports',
-        element: <RequireAuth><RequireOrg><ReportsPage /></RequireOrg></RequireAuth>,
+        element: <RequireAuth><RequireOrg><RequirePlan tier="advanced"><ReportsPage /></RequirePlan></RequireOrg></RequireAuth>,
+      },
+      {
+        path: 'documents',
+        element: <RequireAuth><RequireOrg><RequirePlan tier="advanced"><DocumentsPage /></RequirePlan></RequireOrg></RequireAuth>,
       },
       {
         path: 'settings',
@@ -106,17 +191,19 @@ export const appRouter = createBrowserRouter([
         path: 'settings/:section',
         element: <RequireAuth><SettingsPage /></RequireAuth>,
       },
-      {
-        path: 'onboarding',
-        element: <RequireAuth><OnboardingPage /></RequireAuth>,
-      },
     ],
+  },
+
+  // ── Onboarding — own fullscreen layout, no sidebar ────
+  {
+    path: '/onboarding',
+    element: <RequireAuth><OnboardingPage /></RequireAuth>,
   },
 
   // ── Chapan Workzone — own shell, own layout ────────────
   {
     path: '/workzone/chapan',
-    element: <RequireAuth><ChapanShell /></RequireAuth>,
+    element: <RequireAuth><RequirePlan tier="industrial"><ChapanShell /></RequirePlan></RequireAuth>,
     children: [
       {
         index: true,
@@ -135,8 +222,24 @@ export const appRouter = createBrowserRouter([
         element: <ChapanOrderDetailPage />,
       },
       {
+        path: 'orders/:id/edit',
+        element: <ChapanEditOrderPage />,
+      },
+      {
         path: 'production',
         element: <ChapanProductionPage />,
+      },
+      {
+        path: 'ready',
+        element: <ChapanReadyPage />,
+      },
+      {
+        path: 'invoices',
+        element: <ChapanInvoicesPage />,
+      },
+      {
+        path: 'archive',
+        element: <ChapanArchivePage />,
       },
       {
         path: 'settings',

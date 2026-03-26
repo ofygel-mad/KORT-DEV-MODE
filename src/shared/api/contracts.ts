@@ -3,11 +3,12 @@ import type { InviteContext, Membership, MembershipRole, Org, OrgSummary, User }
 // ─── Employee permissions ────────────────────────────────────────────────────
 /** Права доступа сотрудника, назначаемые администратором через чекбоксы */
 export type EmployeePermission =
-  | 'full_access'       // Полный доступ — эквивалент прав руководителя
-  | 'financial_report'  // Финансовый отчёт — Excel-импорт/экспорт, аналитика
-  | 'sales'             // Продажи — лиды, сделки, заявки, сводки
-  | 'production'        // Производство — раздел производства
-  | 'observer';         // Наблюдатель — просмотр без права редактирования
+  | 'full_access'         // Полный доступ — эквивалент прав руководителя
+  | 'financial_report'    // Финансовый отчёт — Excel-импорт/экспорт, аналитика
+  | 'sales'               // Продажи — лиды, сделки, заявки, сводки
+  | 'production'          // Производство — раздел производства
+  | 'warehouse_manager'   // Завсклад — приёмка, хранение, отгрузка
+  | 'observer';           // Наблюдатель — просмотр без права редактирования
 
 export type EmployeeAccountStatus = 'active' | 'pending_first_login' | 'dismissed';
 

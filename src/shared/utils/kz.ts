@@ -38,29 +38,24 @@ export function formatBinIin(value: string): string {
 }
 
 function readKazakhPhoneDigits(value: string): string {
-  const digits = value.replace(/\D/g, '');
+  let digits = value.replace(/\D/g, '');
 
-  if (!digits) {
-    return '';
-  }
+  if (!digits) return '';
 
-  if (digits === '7') {
-    return '7';
-  }
-
+  // Normalize legacy 8-prefix (e.g. 8-700-...) to 7
   if (digits.startsWith('8')) {
-    return `7${digits.slice(1)}`.slice(0, 11);
+    digits = '7' + digits.slice(1);
   }
 
-  if (digits.length === 11 && digits.startsWith('7')) {
+  // If digits already include the country code prefix (7...), take first 11.
+  // This correctly handles partially-typed formatted values like "+7 (700" whose
+  // stripped digits are "7700" — we keep them as-is instead of prepending another 7.
+  if (digits.startsWith('7')) {
     return digits.slice(0, 11);
   }
 
-  if (digits.length <= 10) {
-    return `7${digits}`.slice(0, 11);
-  }
-
-  return `7${digits.slice(-10)}`.slice(0, 11);
+  // Raw national digits (no country code) — prepend 7 and limit to 11
+  return ('7' + digits).slice(0, 11);
 }
 
 export function formatKazakhPhoneInput(value: string): string {

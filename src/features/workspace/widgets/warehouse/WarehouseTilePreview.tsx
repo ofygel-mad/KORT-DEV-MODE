@@ -31,7 +31,7 @@ export function WarehouseTilePreview({ tileId: _tileId }: { tileId: string }) {
       <div className={styles.previewHeaderRow}>
         <span>Позиции</span>
         <span>Мало</span>
-        <span>Алерты</span>
+        <span>Оповещения</span>
       </div>
 
       <div className={styles.previewBody}>
@@ -39,7 +39,7 @@ export function WarehouseTilePreview({ tileId: _tileId }: { tileId: string }) {
           <strong>{totalItems}</strong>
           <span className={lowStockCount > 0 ? s.warn : ''}>{lowStockCount}</span>
           <span className={openAlerts > 0 ? s.danger : s.ok}>
-            {openAlerts > 0 ? `${openAlerts} ⚠` : '—'}
+            {openAlerts > 0 ? openAlerts : '—'}
           </span>
         </div>
 

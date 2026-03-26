@@ -76,3 +76,28 @@
 .typeGroup { display: flex; gap: 6px; flex-wrap: wrap; }
 .typeBtn { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-subtle); background: var(--bg-surface-inset); color: var(--text-secondary); font-size: 12px; font-family: inherit; cursor: pointer; transition: all 120ms; }
 .typeBtnActive { border-color: var(--tc, var(--fill-accent)); background: color-mix(in srgb, var(--tc, var(--fill-accent)) 14%, transparent); color: var(--tc, var(--fill-accent)); }
+
+/* Tab separator & group label */
+.tabDivider { width: 1px; height: 18px; background: var(--border-subtle); margin: 0 4px; align-self: center; flex-shrink: 0; }
+.tabGroupLabel { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-tertiary); padding: 0 4px; align-self: center; white-space: nowrap; user-select: none; }
+
+/* Summary stats bar */
+.statsBar {
+  display: flex;
+  gap: 0;
+  background: var(--bg-surface-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 10px 20px;
+  border-right: 1px solid var(--border-subtle);
+}
+.statItem:last-child { border-right: none; }
+.statValue { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -.02em; line-height: 1.1; }
+.statLabel { font-size: 11px; color: var(--text-tertiary); }

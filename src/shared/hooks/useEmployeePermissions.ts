@@ -35,6 +35,7 @@ export function useEmployeePermissions() {
     has('observer') &&
     !has('sales') &&
     !has('production') &&
+    !has('warehouse_manager') &&
     !has('financial_report');
 
   return {
@@ -66,6 +67,9 @@ export function useEmployeePermissions() {
 
     /** Может подключать API и Webhook-интеграции */
     canManageIntegrations: isAbsolute,
+
+    /** Доступ к разделу склада */
+    canAccessWarehouse: isAbsolute || has('warehouse_manager'),
 
     /** Может изменять данные (не observer) */
     canEdit: !isObserverOnly,

@@ -1,7 +1,7 @@
 // Backend: /api/v1/company/employees
 // Note: prefix is /api/v1/company NOT /api/v1/employees
 
-export type EmployeePermission = 'full_access' | 'financial_report' | 'sales' | 'production' | 'observer';
+export type EmployeePermission = 'full_access' | 'financial_report' | 'sales' | 'production' | 'warehouse_manager' | 'observer';
 
 export interface Employee {
   id: string;                   // userId
@@ -19,6 +19,7 @@ export const PERMISSION_LABEL: Record<EmployeePermission, string> = {
   financial_report: 'Финансы',
   sales: 'Продажи',
   production: 'Производство',
+  warehouse_manager: 'Завсклад',
   observer: 'Наблюдатель',
 };
 

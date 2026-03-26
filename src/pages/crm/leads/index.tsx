@@ -1,5 +1,5 @@
 import { useState, useDeferredValue } from 'react';
-import { Plus, LayoutList, Columns3, Search } from 'lucide-react';
+import { Plus, LayoutList, Columns3, Search, AlertCircle } from 'lucide-react';
 import { useLeads, useUpdateLead, useCreateLead } from '../../../entities/lead/queries';
 import type { Lead, LeadStage, LeadPipeline } from '../../../entities/lead/types';
 import { LeadDrawer } from './LeadDrawer';
@@ -38,7 +38,7 @@ export default function LeadsPage() {
   const byStage = (stage: LeadStage) => filtered.filter(l => l.stage === stage);
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root} kort-page-enter`}>
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <h1 className={styles.title}>Лиды</h1>
@@ -81,7 +81,12 @@ export default function LeadsPage() {
           ))}
         </div>
       )}
-      {isError && <div className={styles.error}>Не удалось загрузить лиды</div>}
+      {isError && (
+        <div className="kort-inline-error">
+          <AlertCircle size={16} />
+          Не удалось загрузить лиды. Проверьте соединение и попробуйте обновить страницу.
+        </div>
+      )}
 
       {!isLoading && !isError && view === 'kanban' && (
         <div className={styles.kanban}>
@@ -106,7 +111,7 @@ export default function LeadsPage() {
                       </div>
                     </button>
                   ))}
-                  {cards.length === 0 && <div className={styles.colEmpty}>—</div>}
+                  {cards.length === 0 && <div className={styles.colEmpty}>Нет лидов</div>}
                 </div>
               </div>
             );

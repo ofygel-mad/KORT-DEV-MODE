@@ -42,7 +42,7 @@ const INTRO_KEY = 'kort.workspace:intro-v1';
 
 function hasSeenIntro(): boolean {
   try {
-    return window.sessionStorage.getItem(INTRO_KEY) === '1';
+    return window.localStorage.getItem(INTRO_KEY) === '1';
   } catch {
     return false;
   }

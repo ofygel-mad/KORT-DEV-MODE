@@ -199,7 +199,7 @@ apiClient.interceptors.response.use(
     }
 
     if ((error.response?.status ?? 0) >= 500) {
-      toast.error('Server error. Try again later.');
+      toast.error('Ошибка сервера. Попробуйте позже.');
     }
 
     const config = error.config as typeof error.config & { metadata?: RequestMeta };

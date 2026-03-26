@@ -3,7 +3,7 @@
 
 export type OrderStatus =
   | 'new' | 'confirmed' | 'in_production' | 'ready'
-  | 'transferred' | 'completed' | 'cancelled';
+  | 'transferred' | 'on_warehouse' | 'shipped' | 'completed' | 'cancelled';
 
 export type PaymentStatus = 'not_paid' | 'partial' | 'paid';
 
@@ -24,9 +24,12 @@ export interface ChapanOrder {
   totalAmount: number;
   paidAmount: number;
   dueDate: string | null;          // was: deadline
+  streetAddress: string | null;
   cancelReason: string | null;
   completedAt: string | null;
   cancelledAt: string | null;
+  isArchived: boolean;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
   // Relations (included by backend):
@@ -41,7 +44,7 @@ export interface OrderItem {
   id: string;
   orderId: string;
   productName: string;
-  fabric: string;           // was: fabricName
+  fabric?: string;          // optional after removing fabric input from the order form
   size: string;             // was: sizeName
   quantity: number;         // was: qty
   unitPrice: number;
@@ -55,7 +58,7 @@ export interface ProductionTask {
   orderId: string;
   orderItemId: string;
   productName: string;
-  fabric: string;
+  fabric?: string;
   size: string;
   quantity: number;
   status: ProductionStatus;
@@ -78,7 +81,7 @@ export interface ProductionTask {
 }
 
 export type ProductionStatus =
-  | 'pending' | 'cutting' | 'sewing' | 'finishing' | 'quality_check' | 'done';
+  | 'queued' | 'in_progress' | 'done';
 
 export interface OrderPayment {
   id: string;
@@ -116,19 +119,42 @@ export interface CreateOrderDto {
   clientPhone: string;         // required
   clientId?: string;           // optional: link to existing ChapanClient
   priority: Priority;
+  orderDate?: string;
   dueDate?: string;            // ISO date: '2026-03-25'
+  streetAddress?: string;
+  postalCode?: string;
+  totalAmount?: number;
+  orderDiscount?: number;
+  prepayment?: number;
+  paymentMethod?: 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'mixed';
+  mixedBreakdown?: {
+    mixedCash: number;
+    mixedKaspiQr: number;
+    mixedKaspiTerminal: number;
+    mixedTransfer: number;
+  };
+  receiptFileNames?: string[];
   items: CreateOrderItemDto[];
   sourceRequestId?: string;
+  managerNote?: string;
 }
 
 export interface CreateOrderItemDto {
   productName: string;
-  fabric: string;              // was: fabricName
+  fabric?: string;             // optional; backend will default when omitted
   size: string;                // was: sizeName
   quantity: number;            // was: qty (min 1)
   unitPrice: number;
   notes?: string;
   workshopNotes?: string;
+}
+
+export interface UpdateOrderDto {
+  clientName?: string;
+  clientPhone?: string;
+  dueDate?: string | null;
+  priority?: Priority;
+  items?: CreateOrderItemDto[];
 }
 
 export interface AddPaymentDto {
@@ -173,4 +199,34 @@ export interface ChapanClient {
 export interface ListResponse<T> {
   count: number;
   results: T[];
+}
+
+// ── Invoice (Накладная) types ────────────────────────────────────────────────
+
+export type InvoiceStatus = 'pending_confirmation' | 'confirmed' | 'rejected';
+
+export interface ChapanInvoice {
+  id: string;
+  orgId: string;
+  invoiceNumber: string;
+  status: InvoiceStatus;
+  createdById: string;
+  createdByName: string;
+  seamstressConfirmed: boolean;
+  seamstressConfirmedAt: string | null;
+  seamstressConfirmedBy: string | null;
+  warehouseConfirmed: boolean;
+  warehouseConfirmedAt: string | null;
+  warehouseConfirmedBy: string | null;
+  rejectedBy: string | null;
+  rejectionReason: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: Array<{
+    id: string;
+    invoiceId: string;
+    orderId: string;
+    order: ChapanOrder;
+  }>;
 }

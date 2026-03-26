@@ -6,29 +6,64 @@
 }
 .controls {
   position: absolute;
-  bottom: 20px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 10px;
-  z-index: 10;
+  justify-content: center;
+  z-index: 20;
 }
 .addBtn {
-  padding: 8px 18px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 20px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
+  min-height: 48px;
+  padding: 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fill-accent) 34%, rgba(255,255,255,0.14)) 0%, color-mix(in srgb, var(--fill-accent) 52%, rgba(20,28,40,0.92)) 100%);
+  border: 1px solid color-mix(in srgb, var(--fill-accent) 44%, rgba(255,255,255,0.16));
+  border-radius: 999px;
+  color: rgba(255,255,255,0.96);
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: all 160ms ease;
-  letter-spacing: 0.02em;
+  backdrop-filter: blur(16px) saturate(140%);
+  box-shadow:
+    0 22px 48px -22px rgba(0,0,0,0.72),
+    0 0 0 1px rgba(255,255,255,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.18);
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+  letter-spacing: 0.01em;
 }
 .addBtn:hover {
-  background: rgba(255,255,255,0.1);
-  color: var(--text-primary);
-  border-color: rgba(255,255,255,0.2);
+  transform: translateY(-1px);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fill-accent) 40%, rgba(255,255,255,0.18)) 0%, color-mix(in srgb, var(--fill-accent) 60%, rgba(20,28,40,0.96)) 100%);
+  border-color: color-mix(in srgb, var(--fill-accent) 54%, rgba(255,255,255,0.22));
+  box-shadow:
+    0 26px 56px -24px rgba(0,0,0,0.76),
+    0 0 0 1px rgba(255,255,255,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.22);
+}
+
+.addBtn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 640px) {
+  .controls {
+    left: 16px;
+    right: 16px;
+    transform: none;
+  }
+
+  .addBtn {
+    width: 100%;
+    justify-content: center;
+  }
 }

@@ -90,6 +90,14 @@ export interface AddMovementDto {
 
 export type StockStatus = 'ok' | 'low' | 'critical';
 
+export interface ProductStockInfo {
+  available: boolean;
+  qty: number;
+  itemName: string | null;
+}
+
+export type ProductsAvailabilityMap = Record<string, ProductStockInfo>;
+
 export function getStockStatus(item: WarehouseItem): StockStatus {
   if (item.qty <= item.qtyMin) return 'critical';
   if (item.qty <= item.qtyMin * 1.5) return 'low';

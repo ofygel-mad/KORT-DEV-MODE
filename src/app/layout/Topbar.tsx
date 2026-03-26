@@ -3,6 +3,7 @@ import { useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Bell, ChevronRight, Search } from 'lucide-react';
+import { ThemeSwitcher } from '../../shared/ui/ThemeSwitcher';
 import { addDocumentListener } from '../../shared/lib/browser';
 import { api } from '../../shared/api/client';
 import { useSSE } from '../../shared/hooks/useSSE';
@@ -137,9 +138,9 @@ function NotificationBell({ enabled }: { enabled: boolean }) {
 }
 
 function useDynamicCrumb(enabled: boolean): { parent: string; parentPath: string; current: string } | null {
-  const matchCustomer = useMatch('/customers/:id');
-  const matchDeal = useMatch('/deals/:id');
-  const matchTask = useMatch('/tasks/:id');
+  const matchCustomer = useMatch('/crm/customers/:id');
+  const matchDeal = useMatch('/crm/deals/:id');
+  const matchTask = useMatch('/crm/tasks/:id');
   const customerId = matchCustomer?.params.id;
   const dealId = matchDeal?.params.id;
 
@@ -159,21 +160,22 @@ function useDynamicCrumb(enabled: boolean): { parent: string; parentPath: string
     select: (data: any) => data.title as string,
   });
 
-  if (customerId) return { parent: 'Лиды', parentPath: '/customers', current: customer ?? '...' };
-  if (dealId) return { parent: 'Сделки', parentPath: '/deals', current: deal ?? '...' };
-  if (matchTask) return { parent: 'Задачи', parentPath: '/tasks', current: 'Задача' };
+  if (customerId) return { parent: 'Клиенты', parentPath: '/crm/customers', current: customer ?? '...' };
+  if (dealId) return { parent: 'Сделки', parentPath: '/crm/deals', current: deal ?? '...' };
+  if (matchTask) return { parent: 'Задачи', parentPath: '/crm/tasks', current: 'Задача' };
   return null;
 }
 
 const BREADCRUMBS: Record<string, string> = {
   '/': 'Главная',
   '/feed': 'Лента',
-  '/customers': 'Лиды',
-  '/deals': 'Сделки',
-  '/tasks': 'Задачи',
+  '/crm/leads': 'Лиды',
+  '/crm/deals': 'Сделки',
+  '/crm/customers': 'Клиенты',
+  '/crm/tasks': 'Задачи',
+  '/warehouse': 'Склад',
   '/reports': 'Отчёты',
   '/automations': 'Автоматизации',
-  
   '/settings': 'Настройки',
   '/audit': 'Аудит',
   '/admin': 'Управление',
@@ -188,7 +190,7 @@ function resolveBackTarget(pathname: string) {
   return '/';
 }
 
-export function Topbar() {
+export function Topbar({ chromeTone = 'dark' }: { chromeTone?: 'canvas' | 'dark' | 'light' }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { toggle } = useCommandPalette();
@@ -203,7 +205,7 @@ export function Topbar() {
   const backTarget = resolveBackTarget(location.pathname);
 
   return (
-    <header className={styles.topbar}>
+    <header className={styles.topbar} data-chrome={chromeTone}>
       <div className={styles.left}>
         {showBack && (
           <button className={styles.backBtn} onClick={() => navigate(backTarget)} aria-label="Назад">
@@ -212,13 +214,8 @@ export function Topbar() {
           </button>
         )}
 
-        {isDashboard ? (
-          <div className={styles.dashboardWordmark} aria-label="Название продукта">KORT</div>
-        ) : (
+        {!isDashboard && !showBack && (
           <nav className={styles.breadcrumb} aria-label="breadcrumb">
-            {!isMobile && <span className={styles.crumbRoot}>KORT</span>}
-            {!isMobile && <ChevronRight size={12} className={styles.crumbSep} />}
-
             {dynamic ? (
               <>
                 <button className={styles.crumbParent} onClick={() => navigate(dynamic.parentPath)}>
@@ -242,6 +239,8 @@ export function Topbar() {
         </button>
 
         <NotificationBell enabled={hasCompanyAccess} />
+
+        <ThemeSwitcher />
 
         <button className={styles.langBtn} onClick={() => setLocale(locale === 'ru' ? 'kk' : 'ru')}>
           {locale === 'ru' ? 'KK' : 'RU'}

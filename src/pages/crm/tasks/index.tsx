@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useTasks, useCreateTask, useUpdateTaskStatus } from '../../../entities/task/queries';
 import type { Task, TaskStatus, TaskPriority } from '../../../entities/task/types';
 import { TaskDrawer } from './TaskDrawer';
@@ -63,7 +63,7 @@ export default function TasksPage() {
             placeholder="Название задачи..." autoFocus
             onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setCreating(false); }} />
           <button className={styles.quickOk} onClick={handleCreate} disabled={createTask.isPending}>Создать</button>
-          <button className={styles.quickCancel} onClick={() => setCreating(false)}>✕</button>
+          <button className={styles.quickCancel} onClick={() => setCreating(false)}><X size={13} /></button>
         </div>
       )}
 

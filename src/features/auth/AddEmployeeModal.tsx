@@ -31,6 +31,11 @@ const PERMISSION_OPTIONS: Array<{ key: EmployeePermission; label: string; descri
     description: 'Доступ только к разделу производства.',
   },
   {
+    key: 'warehouse_manager',
+    label: 'Завсклад',
+    description: 'Приёмка товара, хранение на складе, отгрузка клиентам.',
+  },
+  {
     key: 'observer',
     label: 'Наблюдатель',
     description: 'Просмотр всех разделов без права редактирования.',

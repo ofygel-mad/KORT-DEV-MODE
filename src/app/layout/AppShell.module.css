@@ -39,8 +39,23 @@
   position: sticky;
   top: 0;
   height: 100dvh;
+  width: 56px;          /* collapsed gutter — sidebar overlays content when hovered */
   overflow: visible;
   z-index: var(--z-sidebar);
+}
+
+/* Canvas mode: sidebar takes zero layout space, floats over canvas */
+.canvasMode .sidebarRail {
+  width: 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100dvh;
+}
+
+/* Canvas mode: topbar is absolutely overlaid, doesn't push content down */
+.canvasMode .content {
+  position: static;
 }
 
 .content {

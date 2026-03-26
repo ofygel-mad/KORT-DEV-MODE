@@ -1,9 +1,0 @@
-[build]
-builder = "nixpacks"
-buildCommand = "npm run build"
-
-[deploy]
-healthcheckPath = "/healthz"
-healthcheckTimeout = 300
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 10

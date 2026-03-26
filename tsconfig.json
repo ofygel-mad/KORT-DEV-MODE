@@ -22,7 +22,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    // ── Obsolete SPA layers (replaced by src/entities + src/pages/crm/) ──────
     "src/features/accounting-spa",
     "src/features/chapan-spa",
     "src/features/deals-spa",
@@ -31,9 +30,7 @@
     "src/features/summary-spa",
     "src/features/tasks-spa",
     "src/features/warehouse-spa",
-    // ── Old workspace widget previews (workspace is now nav-only) ─────────────
     "src/features/workspace/widgets",
-    // ── Old page tree (superseded by src/pages/crm/) ──────────────────────────
     "src/pages/customers",
     "src/pages/deals",
     "src/pages/tasks",
@@ -43,7 +40,6 @@
     "src/pages/feed",
     "src/pages/imports",
     "src/pages/workzone-request",
-    // ── Deleted widgets ───────────────────────────────────────────────────────
     "src/features/imports",
     "src/features/quick-actions",
     "src/widgets/ai-assistant",

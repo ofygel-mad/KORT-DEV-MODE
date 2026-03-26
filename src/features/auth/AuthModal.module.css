@@ -1,38 +1,33 @@
+/* === Layout === */
+
 .overlay {
   position: fixed;
   inset: 0;
   z-index: 9000;
   display: grid;
-  place-items: center;
-  min-height: 100vh;
+  grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
   min-height: 100dvh;
-  padding: 24px;
-  overflow-y: auto;
-  background: var(--bg-overlay);
-  backdrop-filter: blur(8px) saturate(120%);
 }
 
 .panel {
-  width: min(1080px, 100%);
-  max-height: calc(100dvh - 48px);
-  display: grid;
-  grid-template-columns: minmax(320px, 0.92fr) minmax(0, 1.08fr);
-  overflow: hidden;
-  border-radius: calc(var(--surface-radius) + 10px);
-  border: 1px solid var(--brand-auth-card-border);
-  background: color-mix(in srgb, var(--bg-surface-elevated) 94%, transparent);
-  box-shadow: var(--brand-panel-shadow-strong);
+  display: contents;
 }
+
+/* === Brand Side === */
 
 .brandSide {
   position: relative;
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 18px;
-  padding: 28px;
-  background: var(--brand-auth-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 28px 32px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 10%, transparent) 0%, transparent 28%),
+    radial-gradient(circle at top left, color-mix(in srgb, white 18%, transparent) 0%, transparent 34%),
+    var(--brand-auth-bg);
   color: var(--text-inverse);
   overflow: hidden;
+  min-height: 100dvh;
 }
 
 .brandSide::before,
@@ -45,20 +40,36 @@
 .brandSide::before {
   inset: 0;
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, white 16%, transparent) 0%, transparent 30%),
-    linear-gradient(180deg, color-mix(in srgb, white 10%, transparent) 0%, transparent 26%);
-  opacity: 0.8;
+    linear-gradient(135deg, color-mix(in srgb, white 9%, transparent) 0%, transparent 48%),
+    radial-gradient(circle at 72% 18%, color-mix(in srgb, var(--fill-accent) 22%, transparent) 0%, transparent 32%),
+    radial-gradient(circle at 20% 80%, color-mix(in srgb, #7C3AED 18%, transparent) 0%, transparent 36%);
+  opacity: 0.95;
 }
 
 .brandSide::after {
-  width: 220px;
-  height: 220px;
-  right: -80px;
-  bottom: -96px;
+  width: 280px;
+  height: 280px;
+  right: -96px;
+  bottom: -118px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--fill-accent) 18%, transparent);
-  filter: blur(26px);
-  opacity: 0.9;
+  background: color-mix(in srgb, var(--fill-accent) 24%, transparent);
+  filter: blur(34px);
+}
+
+.brandTopAccent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--fill-accent) 60%, white 20%) 30%,
+    color-mix(in srgb, #7C3AED 50%, var(--fill-accent)) 70%,
+    transparent 100%
+  );
+  z-index: 2;
 }
 
 .brandEyebrow,
@@ -220,33 +231,6 @@
   font-weight: 600;
 }
 
-.brandSide {
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 14px;
-  padding: 24px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 10%, transparent) 0%, transparent 28%),
-    radial-gradient(circle at top left, color-mix(in srgb, white 18%, transparent) 0%, transparent 34%),
-    var(--brand-auth-bg);
-}
-
-.brandSide::before {
-  inset: 0;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, white 7%, transparent) 0%, transparent 44%),
-    radial-gradient(circle at 72% 18%, color-mix(in srgb, var(--fill-accent) 18%, transparent) 0%, transparent 28%);
-  opacity: 0.92;
-}
-
-.brandSide::after {
-  width: 280px;
-  height: 280px;
-  right: -96px;
-  bottom: -118px;
-  background: color-mix(in srgb, var(--fill-accent) 24%, transparent);
-  filter: blur(34px);
-}
-
 .brandSignals,
 .brandPreview,
 .brandMarquee {
@@ -275,6 +259,7 @@
 }
 
 .brandCarousel {
+  flex: 1;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 12px;
@@ -288,7 +273,7 @@
   min-height: 0;
   height: 100%;
   padding: 20px;
-  border-radius: 28px;
+  border-radius: 20px;
   background:
     linear-gradient(180deg, color-mix(in srgb, white 8%, transparent) 0%, transparent 100%),
     color-mix(in srgb, var(--bg-surface-elevated) 14%, transparent);
@@ -333,7 +318,7 @@
   position: relative;
   min-height: 220px;
   height: 100%;
-  border-radius: 22px;
+  border-radius: 16px;
   border: 1px solid color-mix(in srgb, white 8%, transparent);
   background:
     linear-gradient(180deg, color-mix(in srgb, white 6%, transparent) 0%, transparent 100%),
@@ -359,6 +344,13 @@
   background:
     linear-gradient(180deg, color-mix(in srgb, white 7%, transparent) 0%, transparent 100%),
     linear-gradient(135deg, color-mix(in srgb, var(--fill-accent) 9%, transparent) 0%, transparent 60%),
+    color-mix(in srgb, var(--bg-surface-elevated) 12%, transparent);
+}
+
+.sceneMetrics {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 7%, transparent) 0%, transparent 100%),
+    radial-gradient(circle at 30% 60%, color-mix(in srgb, #7C3AED 14%, transparent) 0%, transparent 44%),
     color-mix(in srgb, var(--bg-surface-elevated) 12%, transparent);
 }
 
@@ -409,6 +401,7 @@
   background: color-mix(in srgb, white 10%, transparent);
   cursor: pointer;
   transition:
+    width var(--motion-fast) var(--motion-ease),
     transform var(--motion-fast) var(--motion-ease),
     background var(--motion-fast) var(--motion-ease),
     border-color var(--motion-fast) var(--motion-ease);
@@ -428,6 +421,8 @@
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--fill-accent) 24%, transparent);
 }
+
+/* Scene: Network */
 
 .sceneNode {
   position: absolute;
@@ -551,6 +546,8 @@
   line-height: 1.35;
 }
 
+/* Scene: Briefing */
+
 .sceneTable {
   position: absolute;
   width: 132px;
@@ -633,6 +630,8 @@
   bottom: 16px;
 }
 
+/* Scene: Flow */
+
 .sceneLane {
   position: absolute;
   inset: 22px 18px 88px;
@@ -713,11 +712,81 @@
   animation-delay: 1.6s;
 }
 
+/* Scene: Metrics */
+
+.sceneMetricGrid {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  right: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sceneMetricCard {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, white 7%, transparent);
+  border: 1px solid color-mix(in srgb, white 10%, transparent);
+  display: grid;
+  gap: 4px;
+}
+
+.sceneMetricValue {
+  color: var(--text-inverse);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.sceneMetricTrend {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sceneMetricTrendUp {
+  color: #34D399;
+}
+
+.sceneSparkline {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  height: 56px;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.sceneSparkBar {
+  flex: 1;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #7C3AED 70%, white 14%) 0%,
+    color-mix(in srgb, #7C3AED 40%, transparent) 100%
+  );
+  animation: brand-rise 6.2s ease-in-out infinite;
+}
+
+.sceneSparkS1 { height: 22px; }
+.sceneSparkS2 { height: 36px; animation-delay: 0.3s; }
+.sceneSparkS3 { height: 48px; animation-delay: 0.6s; }
+.sceneSparkS4 { height: 30px; animation-delay: 0.9s; }
+.sceneSparkS5 { height: 52px; animation-delay: 1.2s; }
+.sceneSparkS6 { height: 40px; animation-delay: 1.5s; }
+.sceneSparkS7 { height: 56px; animation-delay: 1.8s; }
+
+/* === Form Side === */
+
 .formSide {
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  background: var(--brand-surface-3);
+  position: relative;
+  background: var(--bg-surface);
 }
 
 .formHeader {
@@ -725,8 +794,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 22px 0;
+  padding: 16px 24px 0;
   flex-shrink: 0;
+  min-height: 52px;
 }
 
 .headerLeft {
@@ -753,7 +823,7 @@
   justify-content: center;
   gap: 6px;
   min-height: 40px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--brand-panel-border);
   background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
   color: var(--text-secondary);
@@ -786,20 +856,22 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 48px;
 }
 
 .stepContent {
-  padding: 18px 28px 28px;
+  width: 100%;
+  max-width: 400px;
+  margin: auto; /* auto top+bottom = centered when space available; 0 when content overflows */
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-height: 100%;
-  box-sizing: border-box;
 }
 
 .companyStepContent {
-  padding-bottom: 0;
+  /* no overrides needed */
 }
 
 .stepHeader {
@@ -833,32 +905,17 @@
 }
 
 .companyStepActions {
-  position: sticky;
-  bottom: -1px;
   display: grid;
   gap: 12px;
   margin-top: auto;
-  padding: 18px 0 6px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--brand-surface-3) 0%, transparent) 0%,
-    color-mix(in srgb, var(--brand-surface-3) 84%, transparent) 28%,
-    var(--brand-surface-3) 100%
-  );
-  z-index: 1;
-}
-
-.companyStepActions .primaryButton {
-  position: static;
-  bottom: auto;
-  margin-top: 0;
+  padding: 8px 0 0;
 }
 
 .input {
   width: 100%;
-  min-height: 50px;
-  padding: 0 16px;
-  border-radius: 14px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 8px;
   border: 1px solid var(--brand-panel-border);
   background: color-mix(in srgb, var(--bg-surface-elevated) 88%, transparent);
   color: var(--text-primary);
@@ -918,21 +975,21 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border-radius: 14px;
+  border-radius: 10px;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
 .primaryButton {
-  position: sticky;
-  bottom: 20px;
-  z-index: 1;
   margin-top: 4px;
   border: 1px solid color-mix(in srgb, var(--fill-accent) 42%, var(--brand-panel-border));
   background: var(--fill-accent-gradient);
   color: var(--text-inverse);
   box-shadow: var(--shadow-accent);
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
 .primaryButton:hover {
@@ -980,7 +1037,7 @@
 .errorMessage,
 .pinInfo {
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: 10px;
   font-size: 13px;
   line-height: 1.55;
 }
@@ -1084,6 +1141,8 @@
   line-height: 1.55;
 }
 
+/* === PIN Step === */
+
 .pinArea {
   display: flex;
   flex-direction: column;
@@ -1115,7 +1174,7 @@
 .pinDot {
   width: 54px;
   height: 58px;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid var(--brand-panel-border);
   background: color-mix(in srgb, var(--bg-surface-elevated) 88%, transparent);
   display: flex;
@@ -1190,6 +1249,8 @@
   background: var(--border-subtle);
 }
 
+/* === Animations === */
+
 @keyframes brand-marquee {
   to {
     transform: translateX(calc(-50% - 5px));
@@ -1233,115 +1294,42 @@
   }
 }
 
+/* === Responsive === */
+
 @media (max-width: 960px) {
   .overlay {
-    padding: 14px;
-    align-items: flex-start;
+    grid-template-columns: minmax(0, 50fr) minmax(0, 50fr);
   }
 
-  .panel {
-    grid-template-columns: 1fr;
-    max-height: none;
-  }
-
-  .brandSide {
-    padding: 22px 20px;
-    gap: 12px;
-  }
-
-  .brandHero {
-    min-height: 30px;
-  }
-
-  .slideScene {
-    min-height: 208px;
-  }
-
-  .brandDisplay {
-    max-width: none;
-    font-size: clamp(22px, 6vw, 28px);
-  }
-
-  .formHeader {
-    padding: 14px 18px 0;
-  }
-
-  .stepContent {
-    padding: 14px 20px 22px;
-  }
-
-  .companyStepActions {
-    padding: 16px 0 4px;
-  }
-}
-
-@media (max-width: 720px) {
-  .overlay {
-    padding: 0;
-  }
-
-  .panel {
-    width: 100%;
-    min-height: 100dvh;
-    border-radius: 0;
-    border-left: 0;
-    border-right: 0;
-  }
-
-  .brandSide {
-    padding: 20px 16px;
-  }
-
-  .companyStepActions {
-    padding: 14px 0 2px;
-  }
-
-  .brandSignals,
-  .brandPreviewGrid,
-  .typeGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .brandCarousel {
-    gap: 12px;
+  .formViewport {
+    padding: 24px 32px;
   }
 
   .brandSlide {
     padding: 16px;
   }
 
-  .slideTop {
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-
   .slideScene {
-    min-height: 198px;
+    min-height: 200px;
   }
+}
 
-  .sceneLane {
-    inset: 18px 16px 80px;
+@media (max-width: 767px) {
+  .overlay {
     grid-template-columns: 1fr;
   }
 
-  .sceneStageActive {
-    transform: none;
+  .brandSide {
+    display: none;
   }
 
-  .sceneGraph {
-    gap: 8px;
+  .formViewport {
+    padding: 24px;
   }
 
-  .sceneMiniCardTop,
-  .sceneMiniCardBottom,
-  .sceneBoard,
-  .sceneBriefCard {
-    padding: 10px 12px;
-  }
-
-  .brandPreviewHeader {
-    flex-direction: column;
-    align-items: flex-start;
+  .stepContent {
+    max-width: 100%;
+    margin: 0 auto; /* top-aligned on mobile, no vertical centering */
   }
 
   .pinDots {

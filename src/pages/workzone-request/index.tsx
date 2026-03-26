@@ -31,9 +31,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { chapanApi } from '../../features/chapan-spa/api/client';
-import type { ClientRequest, WorkzoneProfile } from '../../features/chapan-spa/api/types';
-import { FABRIC_CATALOG, PRODUCT_CATALOG, SIZE_OPTIONS } from '../../features/chapan-spa/api/types';
+import { chapanApi, FABRIC_CATALOG, PRODUCT_CATALOG, SIZE_OPTIONS, type ClientRequest, type WorkzoneProfile } from './chapanApi';
 import styles from './WorkzoneRequest.module.css';
 
 interface DraftItem {

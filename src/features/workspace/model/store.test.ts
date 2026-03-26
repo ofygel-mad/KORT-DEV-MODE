@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ZOOM_MAX,
+  clampTileToViewportBounds,
   clampTileToWorldBounds,
   clampViewportToBounds,
   getTileViewportBounds,
@@ -56,7 +57,7 @@ describe('sanitizeWorkspacePersistedState', () => {
       width: 260,
       height: 170,
       modalSize: 'default',
-      version: 1,
+      version: 2,
       status: 'floating',
       rotation3D: { x: -0.03, y: 0, z: 0 },
       pinned: false,
@@ -84,13 +85,13 @@ describe('sanitizeWorkspacePersistedState', () => {
     });
   });
 
-  it('migrates legacy Chapan tile titles to the new Production module name', () => {
+  it('migrates legacy production shortcuts away from Chapan', () => {
     const state = sanitizeWorkspacePersistedState({
       tiles: [
         {
-          id: 'chapan-1',
+          id: 'chapan-legacy',
           kind: 'chapan',
-          title: 'Чапан',
+          title: 'Производство',
           x: 40,
           y: 20,
           width: 260,
@@ -103,29 +104,63 @@ describe('sanitizeWorkspacePersistedState', () => {
       ],
     });
 
-    expect(state.tiles[0]?.title).toBe('Производство');
+    expect(state.tiles[0]).toMatchObject({
+      kind: 'production',
+      title: 'Производство',
+      version: 2,
+    });
+  });
+
+  it('keeps current Chapan shortcuts intact', () => {
+    const state = sanitizeWorkspacePersistedState({
+      tiles: [
+        {
+          id: 'chapan-current',
+          kind: 'chapan',
+          title: 'Чапан',
+          x: 40,
+          y: 20,
+          width: 260,
+          height: 170,
+          modalSize: 'default',
+          version: 2,
+          createdAt: '2026-03-18T00:00:00.000Z',
+          lastInteractionAt: '2026-03-18T00:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(state.tiles[0]).toMatchObject({
+      kind: 'chapan',
+      title: 'Чапан',
+      version: 2,
+    });
   });
 
   it('clamps viewport and tile positions to the current workspace bounds', () => {
     const viewport = clampViewportToBounds({ x: -5000, y: 120 }, 800, 600);
-    const tile = clampTileToWorldBounds({
-      id: 'tile-1',
-      kind: 'tasks',
-      title: 'Tasks',
-      x: 2600,
-      y: 1900,
-      width: 260,
-      height: 170,
-      modalSize: 'default',
-      version: 1,
-      createdAt: '2026-03-18T00:00:00.000Z',
-      lastInteractionAt: '2026-03-18T00:00:00.000Z',
-      status: 'floating',
-      rotation3D: { x: -0.03, y: 0, z: 0 },
-      distance3D: 'mid',
-      pinned: false,
-      zIndex: 10,
-    }, 800, 600);
+    const tile = clampTileToWorldBounds(
+      {
+        id: 'tile-1',
+        kind: 'tasks',
+        title: 'Tasks',
+        x: 2600,
+        y: 1900,
+        width: 260,
+        height: 170,
+        modalSize: 'default',
+        version: 1,
+        createdAt: '2026-03-18T00:00:00.000Z',
+        lastInteractionAt: '2026-03-18T00:00:00.000Z',
+        status: 'floating',
+        rotation3D: { x: -0.03, y: 0, z: 0 },
+        distance3D: 'mid',
+        pinned: false,
+        zIndex: 10,
+      },
+      800,
+      600,
+    );
 
     expect(viewport).toEqual({ x: -1600, y: 0 });
     expect(tile.x).toBe(2140);
@@ -156,6 +191,20 @@ describe('sanitizeWorkspacePersistedState', () => {
       maxX: 1140,
       minY: 300,
       maxY: 663.3333333333334,
+    });
+  });
+
+  it('clamps dragged tiles to the visible viewport in surface mode', () => {
+    const position = clampTileToViewportBounds(
+      { x: 1400, y: 900, width: 260, height: 170 },
+      { x: -900, y: -450 },
+      { width: 1200, height: 800 },
+      1.5,
+    );
+
+    expect(position).toEqual({
+      x: 1140,
+      y: 663.3333333333334,
     });
   });
 });

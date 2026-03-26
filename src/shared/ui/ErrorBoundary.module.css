@@ -21,10 +21,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--fill-negative-soft);
-  font-size: 28px;
-  line-height: 1;
+  border: 1px solid color-mix(in srgb, var(--fill-negative) 18%, var(--border-subtle));
+  color: var(--fill-negative);
 }
 
 .title {

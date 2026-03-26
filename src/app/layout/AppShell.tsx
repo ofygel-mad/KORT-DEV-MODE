@@ -1,6 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { WifiOff } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -39,6 +39,27 @@ export function AppShell() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
 
+  // Reactively read the resolved data-theme attribute (kept in sync by applyTheme)
+  const resolvedTheme = useSyncExternalStore(
+    (cb) => {
+      const obs = new MutationObserver(cb);
+      obs.observe(document.documentElement, { attributeFilter: ['data-theme'] });
+      return () => obs.disconnect();
+    },
+    () => document.documentElement.getAttribute('data-theme') ?? 'dark',
+    () => 'dark',
+  );
+
+  const isCanvasPage = location.pathname === '/';
+  // Canvas: overlaid glass chrome (not in layout flow)
+  // Work pages + light theme: light chrome
+  // Everything else: dark chrome
+  const chromeTone: 'canvas' | 'dark' | 'light' = isCanvasPage
+    ? 'canvas'
+    : !isCanvasPage && resolvedTheme === 'light'
+    ? 'light'
+    : 'dark';
+
   // Cmd/Ctrl+K → command palette
   useEffect(() => {
     return addDocumentListener('keydown', (e: KeyboardEvent) => {
@@ -58,19 +79,19 @@ export function AppShell() {
   }
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root} ${isCanvasPage ? styles.canvasMode : ''}`}>
       <div className={styles.ambientGlow} aria-hidden="true" />
       <div className={styles.ambientGrid} aria-hidden="true" />
       <OfflineBanner />
 
       {!isMobile && (
         <div className={styles.sidebarRail}>
-          <Sidebar />
+          <Sidebar chromeTone={chromeTone} />
         </div>
       )}
 
       <div className={styles.content}>
-        <Topbar />
+        <Topbar chromeTone={chromeTone} />
         <main className={styles.main}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div

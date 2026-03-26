@@ -1,61 +1,212 @@
-import { useState } from 'react';
-import { Flag, X, User, AlertTriangle } from 'lucide-react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { AlertTriangle, CheckCircle2, Factory, FileText, Flag, Layers, User, X } from 'lucide-react';
 import {
-  useProductionTasks, useWorkshopTasks,
-  useUpdateProductionStatus, useAssignWorker, useFlagTask, useUnflagTask,
+  useAssignWorker,
+  useChapanCatalogs,
+  useClaimProductionTask,
+  useConfirmSeamstress,
+  useFlagTask,
+  useInvoices,
+  useProductionTasks,
+  useUnflagTask,
+  useUpdateProductionStatus,
+  useWorkshopTasks,
 } from '../../../../entities/order/queries';
-import { useChapanCatalogs } from '../../../../entities/order/queries';
-import type { ProductionTask, ProductionStatus, Priority } from '../../../../entities/order/types';
+import type { ChapanInvoice, Priority, ProductionStatus, ProductionTask } from '../../../../entities/order/types';
+import { useAuthStore } from '@/shared/stores/auth';
 import styles from './ChapanProduction.module.css';
 
-// ── Constants ────────────────────────────────────────────────────────────────
+type ProductionMode = 'manager' | 'workshop';
+type ColumnKey = Extract<ProductionStatus, 'queued' | 'in_progress'>;
 
-const STAGES: { key: ProductionStatus; label: string }[] = [
-  { key: 'pending',       label: 'Ожидание' },
-  { key: 'cutting',       label: 'Раскрой' },
-  { key: 'sewing',        label: 'Пошив' },
-  { key: 'finishing',     label: 'Отделка' },
-  { key: 'quality_check', label: 'Контроль' },
-  { key: 'done',          label: 'Готово' },
+const COLUMNS: { key: ColumnKey; label: string }[] = [
+  { key: 'queued', label: 'Новые заказы' },
+  { key: 'in_progress', label: 'Выполнение' },
 ];
 
-const STAGE_NEXT: Partial<Record<ProductionStatus, ProductionStatus>> = {
-  pending:       'cutting',
-  cutting:       'sewing',
-  sewing:        'finishing',
-  finishing:     'quality_check',
-  quality_check: 'done',
-};
-
 const PRIORITY_DOT: Record<Priority, string> = {
-  normal: 'transparent',
+  normal: 'rgba(180,192,210,.32)',
   urgent: '#D94F4F',
-  vip:    '#C9A84C',
+  vip: '#C9A84C',
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
+const BATCH_WINDOW_DAYS = 2;
+
+type TaskDisplayGroup =
+  | { kind: 'single'; task: ProductionTask }
+  | { kind: 'batch'; tasks: ProductionTask[] };
+
+function groupStorageKey(userId?: string) {
+  return `chapan_prod_grouped_${userId ?? 'guest'}`;
+}
+
+function taskBatchKey(task: ProductionTask): string {
+  return [
+    task.productName?.toLowerCase().trim() ?? '',
+    task.fabric?.toLowerCase().trim() ?? '',
+    task.size?.toLowerCase().trim() ?? '',
+    task.order.priority,
+    task.status,
+  ].join('|');
+}
+
+function buildTaskGroups(tasks: ProductionTask[]): TaskDisplayGroup[] {
+  const buckets = new Map<string, ProductionTask[]>();
+
+  for (const task of tasks) {
+    const key = taskBatchKey(task);
+    buckets.set(key, [...(buckets.get(key) ?? []), task]);
+  }
+
+  const result: TaskDisplayGroup[] = [];
+
+  for (const [, bucket] of buckets) {
+    if (bucket.length === 1) {
+      result.push({ kind: 'single', task: bucket[0] });
+      continue;
+    }
+
+    const withDate = bucket
+      .filter((task) => task.order.dueDate)
+      .sort((a, b) => +new Date(a.order.dueDate!) - +new Date(b.order.dueDate!));
+    const withoutDate = bucket.filter((task) => !task.order.dueDate);
+    const clusters: ProductionTask[][] = [];
+    let current: ProductionTask[] = [];
+
+    for (const task of withDate) {
+      if (!current.length) {
+        current.push(task);
+        continue;
+      }
+
+      const diffDays = (+new Date(task.order.dueDate!) - +new Date(current[0].order.dueDate!)) / 86_400_000;
+      if (diffDays <= BATCH_WINDOW_DAYS) current.push(task);
+      else {
+        clusters.push(current);
+        current = [task];
+      }
+    }
+
+    if (current.length) clusters.push(current);
+    if (withoutDate.length) clusters.push(withoutDate);
+
+    for (const cluster of clusters) {
+      if (cluster.length === 1) result.push({ kind: 'single', task: cluster[0] });
+      else result.push({ kind: 'batch', tasks: cluster });
+    }
+  }
+
+  return result;
+}
+
+const INVOICE_STATUS_LABEL: Record<string, string> = {
+  pending_confirmation: 'Ожидает',
+  confirmed: 'Подтверждена',
+  rejected: 'Отклонена',
+};
+
+function invoiceStatusStyle(status: string): CSSProperties {
+  if (status === 'confirmed') return { background: 'color-mix(in srgb, #10B981 14%, transparent)', color: '#10B981', border: '1px solid color-mix(in srgb, #10B981 28%, transparent)' };
+  if (status === 'rejected') return { background: 'color-mix(in srgb, #EF4444 14%, transparent)', color: '#EF4444', border: '1px solid color-mix(in srgb, #EF4444 28%, transparent)' };
+  return { background: 'color-mix(in srgb, #F59E0B 14%, transparent)', color: '#F59E0B', border: '1px solid color-mix(in srgb, #F59E0B 28%, transparent)' };
+}
+
+function fmtDate(d: string | null | undefined) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('ru-KZ', { day: '2-digit', month: 'short' });
+}
+
+function getBatchColor(priority: Priority) {
+  if (priority === 'urgent') return '#D94F4F';
+  if (priority === 'vip') return '#C9A84C';
+  return 'rgba(180,192,210,.4)';
+}
+
+function formatDeadline(value: string | null) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString('ru-KZ', { day: '2-digit', month: 'short' });
+}
+
+function filterWorkshopTasks(tasks: ProductionTask[], currentWorkerName: string | null) {
+  if (!currentWorkerName) return tasks;
+
+  return tasks.filter((task) => {
+    if (task.status === 'queued') {
+      return !task.assignedTo || task.assignedTo === currentWorkerName;
+    }
+
+    return task.assignedTo === currentWorkerName;
+  });
+}
 
 export default function ChapanProductionPage() {
-  const [view, setView] = useState<'manager' | 'workshop'>('manager');
+  const userId = useAuthStore((state) => state.user?.id);
+  const currentWorkerName = useAuthStore((state) => state.user?.full_name ?? null);
+  const membershipRole = useAuthStore((state) => state.membership.role);
+  const employeePermissions = useAuthStore((state) => state.user?.employee_permissions ?? []);
+
+  const workshopDefault =
+    employeePermissions.includes('production')
+    && membershipRole !== 'owner'
+    && membershipRole !== 'admin';
+
+  const [view, setView] = useState<ProductionMode>(workshopDefault ? 'workshop' : 'manager');
+  const [grouped, setGroupedState] = useState(true);
   const [flagModal, setFlagModal] = useState<{ taskId: string } | null>(null);
   const [flagReason, setFlagReason] = useState('');
-  const [assignModal, setAssignModal] = useState<{ taskId: string } | null>(null);
+  const [assignModal, setAssignModal] = useState<{ taskId: string; currentWorker: string | null } | null>(null);
+  const [invoicePanelOpen, setInvoicePanelOpen] = useState(false);
+
+  useEffect(() => {
+    setView(workshopDefault ? 'workshop' : 'manager');
+  }, [workshopDefault, userId]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(groupStorageKey(userId));
+    if (saved !== null) {
+      setGroupedState(saved !== 'false');
+    }
+  }, [userId]);
+
+  const toggleGrouped = () => {
+    setGroupedState((value) => {
+      localStorage.setItem(groupStorageKey(userId), String(!value));
+      return !value;
+    });
+  };
 
   const { data: managerData, isLoading: managerLoading } = useProductionTasks();
   const { data: workshopData, isLoading: workshopLoading } = useWorkshopTasks();
   const { data: catalogs } = useChapanCatalogs();
 
+  const claimTask = useClaimProductionTask();
   const updateStatus = useUpdateProductionStatus();
   const assignWorker = useAssignWorker();
   const flagTask = useFlagTask();
   const unflagTask = useUnflagTask();
 
-  const isLoading = view === 'manager' ? managerLoading : workshopLoading;
-  const rawTasks = view === 'manager' ? managerData?.results : workshopData?.results;
-  const tasks: ProductionTask[] = rawTasks ?? [];
+  const { data: invoicesData } = useInvoices({ limit: 50 });
+  const invoices: ChapanInvoice[] = invoicesData?.results ?? [];
+  const confirmSeamstress = useConfirmSeamstress();
+  const pendingSeamstress = invoices.filter((inv) => !inv.seamstressConfirmed).length;
 
-  const byStage = (key: ProductionStatus) =>
-    tasks.filter(t => t.status === key);
+  const rawTasks = view === 'manager' ? (managerData?.results ?? []) : (workshopData?.results ?? []);
+  const tasks = useMemo(
+    () => view === 'workshop' ? filterWorkshopTasks(rawTasks, currentWorkerName) : rawTasks,
+    [currentWorkerName, rawTasks, view],
+  );
+
+  const isLoading = view === 'manager' ? managerLoading : workshopLoading;
+  const workers = catalogs?.workers ?? [];
+
+  const queuedTasks = useMemo(
+    () => tasks.filter((task) => task.status === 'queued'),
+    [tasks],
+  );
+  const runningTasks = useMemo(
+    () => tasks.filter((task) => task.status === 'in_progress'),
+    [tasks],
+  );
 
   async function handleFlag() {
     if (!flagModal || !flagReason.trim()) return;
@@ -64,131 +215,173 @@ export default function ChapanProductionPage() {
     setFlagReason('');
   }
 
-  async function handleAssign(taskId: string, worker: string) {
-    await assignWorker.mutateAsync({ taskId, worker });
+  async function handleAssign(worker: string | null) {
+    if (!assignModal) return;
+    await assignWorker.mutateAsync({ taskId: assignModal.taskId, worker });
     setAssignModal(null);
   }
 
-  const workers = catalogs?.workers ?? [];
+  async function handleClaim(taskId: string) {
+    await claimTask.mutateAsync(taskId);
+  }
+
+  async function handleMarkDone(taskId: string) {
+    await updateStatus.mutateAsync({ taskId, status: 'done' });
+  }
+
+  async function handleReturnToQueue(taskId: string) {
+    await assignWorker.mutateAsync({ taskId, worker: null });
+    await updateStatus.mutateAsync({ taskId, status: 'queued' });
+  }
 
   return (
     <div className={styles.root}>
-      {/* Header */}
       <div className={styles.header}>
-        <h1 className={styles.title}>Производство</h1>
-        <div className={styles.viewSwitch}>
+        <div className={styles.headerLeft}>
+          <div className={styles.headerTitle}>
+            <Factory size={18} />
+            <span>Производство</span>
+          </div>
+          <div className={styles.headerSub}>Пошив и контроль выполнения</div>
+        </div>
+
+        <div className={styles.headerRight}>
           <button
-            className={`${styles.switchBtn} ${view === 'manager' ? styles.switchActive : ''}`}
-            onClick={() => setView('manager')}
+            className={`${styles.groupToggle} ${invoicePanelOpen ? styles.groupToggleActive : ''}`}
+            onClick={() => setInvoicePanelOpen((v) => !v)}
           >
-            Менеджер
+            <FileText size={13} />
+            <span>Накладные</span>
+            {pendingSeamstress > 0 && (
+              <span className={styles.invoiceBadge}>{pendingSeamstress}</span>
+            )}
           </button>
+
           <button
-            className={`${styles.switchBtn} ${view === 'workshop' ? styles.switchActive : ''}`}
-            onClick={() => setView('workshop')}
+            className={`${styles.groupToggle} ${grouped ? styles.groupToggleActive : ''}`}
+            onClick={toggleGrouped}
+            title={grouped ? 'Отключить группировку' : 'Сгруппировать похожие задания'}
           >
-            Цех
+            <Layers size={13} />
+            <span>Группировать</span>
           </button>
+
+          <div className={styles.viewSwitch}>
+            <button
+              className={`${styles.switchBtn} ${view === 'manager' ? styles.switchActive : ''}`}
+              onClick={() => setView('manager')}
+            >
+              Управление
+            </button>
+            <button
+              className={`${styles.switchBtn} ${view === 'workshop' ? styles.switchActive : ''}`}
+              onClick={() => setView('workshop')}
+            >
+              Швея
+            </button>
+          </div>
         </div>
       </div>
 
-      {view === 'workshop' && (
-        <div className={styles.workshopNote}>
-          Цеховой вид — данные клиентов скрыты
-        </div>
-      )}
-
-      {/* Stats strip */}
-      {!isLoading && tasks.length > 0 && (
-        <div className={styles.statsStrip}>
-          {STAGES.map(s => {
-            const count = byStage(s.key).length;
-            const blocked = byStage(s.key).filter(t => t.isBlocked).length;
-            return (
-              <div key={s.key} className={styles.statItem}>
-                <span className={styles.statCount}>{count}</span>
-                <span className={styles.statLabel}>{s.label}</span>
-                {blocked > 0 && <span className={styles.statBlocked}>⚑ {blocked}</span>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {isLoading && (
         <div className={styles.loadingGrid}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className={styles.skeleton} />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className={styles.skeleton} />
           ))}
         </div>
       )}
 
       {!isLoading && tasks.length === 0 && (
         <div className={styles.emptyState}>
-          <div>🏭</div>
-          <div>Нет активных производственных заданий</div>
+          <div className={styles.emptyTitle}>Активных производственных карточек нет</div>
+          <div className={styles.emptyText}>
+            Новые подтвержденные заказы появятся здесь автоматически.
+          </div>
         </div>
       )}
 
       {!isLoading && tasks.length > 0 && (
-        <div className={styles.kanban}>
-          {STAGES.map(stage => {
-            const stageTasks = byStage(stage.key);
+        <div className={styles.board}>
+          {COLUMNS.map((column) => {
+            const columnTasks = column.key === 'queued' ? queuedTasks : runningTasks;
+            const displayGroups = grouped
+              ? buildTaskGroups(columnTasks)
+              : columnTasks.map((task) => ({ kind: 'single' as const, task }));
+
             return (
-              <div key={stage.key} className={styles.column}>
-                <div className={styles.colHeader}>
-                  <span className={styles.colLabel}>{stage.label}</span>
-                  <span className={styles.colCount}>{stageTasks.length}</span>
+              <section key={column.key} className={styles.column}>
+                <div className={styles.columnHeader}>
+                  <div className={styles.columnTitle}>{column.label}</div>
+                  <span className={styles.columnCount}>{displayGroups.length}</span>
                 </div>
-                <div className={styles.colCards}>
-                  {stageTasks.map(task => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      stageKey={stage.key}
-                      isManagerView={view === 'manager'}
-                      onMoveForward={() => {
-                        const next = STAGE_NEXT[stage.key];
-                        if (next) updateStatus.mutate({ taskId: task.id, status: next });
-                      }}
-                      onFlag={() => {
-                        setFlagModal({ taskId: task.id });
-                        setFlagReason('');
-                      }}
-                      onUnflag={() => unflagTask.mutate(task.id)}
-                      onAssign={() => setAssignModal({ taskId: task.id })}
-                      priorityDot={PRIORITY_DOT[task.order.priority]}
-                    />
+
+                <div className={styles.columnCards}>
+                  {displayGroups.map((group, index) => (
+                    group.kind === 'single' ? (
+                      <TaskCard
+                        key={group.task.id}
+                        task={group.task}
+                        column={column.key}
+                        mode={view}
+                        currentWorkerName={currentWorkerName}
+                        onClaim={handleClaim}
+                        onDone={handleMarkDone}
+                        onReturnToQueue={handleReturnToQueue}
+                        onAssign={(task) => setAssignModal({ taskId: task.id, currentWorker: task.assignedTo })}
+                        onFlag={(task) => {
+                          setFlagModal({ taskId: task.id });
+                          setFlagReason('');
+                        }}
+                        onUnflag={(task) => unflagTask.mutate(task.id)}
+                      />
+                    ) : (
+                      <BatchTaskCard
+                        key={`${column.key}-${index}`}
+                        tasks={group.tasks}
+                        column={column.key}
+                        mode={view}
+                        currentWorkerName={currentWorkerName}
+                        onClaim={handleClaim}
+                        onDone={handleMarkDone}
+                        onReturnToQueue={handleReturnToQueue}
+                        onAssign={(task) => setAssignModal({ taskId: task.id, currentWorker: task.assignedTo })}
+                        onFlag={(task) => {
+                          setFlagModal({ taskId: task.id });
+                          setFlagReason('');
+                        }}
+                        onUnflag={(task) => unflagTask.mutate(task.id)}
+                      />
+                    )
                   ))}
-                  {stageTasks.length === 0 && (
-                    <div className={styles.colEmpty}>—</div>
+
+                  {displayGroups.length === 0 && (
+                    <div className={styles.columnEmpty}>Пока пусто</div>
                   )}
                 </div>
-              </div>
+              </section>
             );
           })}
         </div>
       )}
 
-      {/* Flag modal */}
       {flagModal && (
         <div className={styles.modalOverlay} onClick={() => setFlagModal(null)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+          <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <span>Заблокировать задание</span>
+              <span>Заблокировать карточку</span>
               <button className={styles.modalClose} onClick={() => setFlagModal(null)}>
                 <X size={16} />
               </button>
             </div>
             <div className={styles.modalBody}>
-              <label className={styles.modalLabel}>Причина блокировки</label>
+              <label className={styles.modalLabel}>Причина</label>
               <input
                 className={styles.modalInput}
                 value={flagReason}
-                onChange={e => setFlagReason(e.target.value)}
-                placeholder="Нет ткани, дефект материала..."
+                onChange={(event) => setFlagReason(event.target.value)}
+                placeholder="Например: не хватает ткани или найден дефект"
                 autoFocus
-                onKeyDown={e => e.key === 'Enter' && handleFlag()}
+                onKeyDown={(event) => event.key === 'Enter' && handleFlag()}
               />
             </div>
             <div className={styles.modalFooter}>
@@ -207,33 +400,106 @@ export default function ChapanProductionPage() {
         </div>
       )}
 
-      {/* Assign modal */}
+      {invoicePanelOpen && (
+        <>
+          <div className={styles.invoicePanelOverlay} onClick={() => setInvoicePanelOpen(false)} />
+          <div className={styles.invoicePanel}>
+            <div className={styles.invoicePanelHead}>
+              <span className={styles.invoicePanelTitle}>Накладные</span>
+              <button className={styles.invoicePanelClose} onClick={() => setInvoicePanelOpen(false)}>
+                <X size={14} />
+              </button>
+            </div>
+            <div className={styles.invoicePanelBody}>
+              {invoices.length === 0 ? (
+                <div className={styles.invoicePanelEmpty}>
+                  <div className={styles.invoicePanelEmptyText}>Накладных нет</div>
+                  <div className={styles.invoicePanelEmptyNote}>Накладные создаются контролёром в разделе «Готово»</div>
+                </div>
+              ) : (
+                <div className={styles.invoiceSection}>
+                  {invoices.map((inv) => (
+                    <div key={inv.id} className={styles.invoiceRow}>
+                      <div className={styles.invoiceRowHead}>
+                        <span className={styles.invoiceRowNum}>№{inv.invoiceNumber}</span>
+                        <span
+                          className={styles.invoiceStatusBadge}
+                          style={invoiceStatusStyle(inv.status)}
+                        >
+                          {INVOICE_STATUS_LABEL[inv.status] ?? inv.status}
+                        </span>
+                      </div>
+                      <div className={styles.invoiceRowMeta}>
+                        {inv.items?.length ?? 0} заказ(ов) · {fmtDate(inv.createdAt)}
+                      </div>
+                      <div className={styles.invoiceConfirmIcons}>
+                        <span className={`${styles.invoiceConfirmIcon} ${inv.seamstressConfirmed ? styles.invoiceConfirmDone : ''}`}>
+                          ✓ Швея
+                        </span>
+                        <span className={`${styles.invoiceConfirmIcon} ${inv.warehouseConfirmed ? styles.invoiceConfirmDone : ''}`}>
+                          ✓ Склад
+                        </span>
+                      </div>
+                      {!inv.seamstressConfirmed && inv.status !== 'rejected' && (
+                        <button
+                          className={styles.invoiceConfirmBtn}
+                          onClick={() => confirmSeamstress.mutate(inv.id)}
+                          disabled={confirmSeamstress.isPending}
+                        >
+                          {confirmSeamstress.isPending ? '...' : 'Подтвердить отправку'}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       {assignModal && (
         <div className={styles.modalOverlay} onClick={() => setAssignModal(null)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+          <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
             <div className={styles.modalHeader}>
               <span>Назначить исполнителя</span>
               <button className={styles.modalClose} onClick={() => setAssignModal(null)}>
                 <X size={16} />
               </button>
             </div>
-            <div className={styles.workerList}>
-              {workers.length === 0 ? (
-                <div className={styles.noWorkers}>
-                  Добавьте работников в настройках Чапан
+
+            <div className={styles.modalBody}>
+              {assignModal.currentWorker && (
+                <div className={styles.currentWorker}>
+                  Сейчас назначена: <strong>{assignModal.currentWorker}</strong>
                 </div>
-              ) : (
-                workers.map(w => (
-                  <button
-                    key={w}
-                    className={styles.workerBtn}
-                    onClick={() => handleAssign(assignModal.taskId, w)}
-                  >
-                    <User size={13} />
-                    {w}
-                  </button>
-                ))
               )}
+
+              <div className={styles.workerList}>
+                {workers.length === 0 ? (
+                  <div className={styles.noWorkers}>Добавьте швей в настройках Чапан</div>
+                ) : (
+                  workers.map((worker) => (
+                    <button
+                      key={worker}
+                      className={styles.workerBtn}
+                      onClick={() => handleAssign(worker)}
+                    >
+                      <User size={13} />
+                      {worker}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button className={styles.modalCancel} onClick={() => setAssignModal(null)}>
+                Отмена
+              </button>
+              <button className={styles.modalGhost} onClick={() => handleAssign(null)}>
+                Снять исполнителя
+              </button>
             </div>
           </div>
         </div>
@@ -242,97 +508,242 @@ export default function ChapanProductionPage() {
   );
 }
 
-// ── Task Card ─────────────────────────────────────────────────────────────────
-
 interface TaskCardProps {
   task: ProductionTask;
-  stageKey: ProductionStatus;
-  isManagerView: boolean;
-  onMoveForward: () => void;
-  onFlag: () => void;
-  onUnflag: () => void;
-  onAssign: () => void;
-  priorityDot: string;
+  column: ColumnKey;
+  mode: ProductionMode;
+  currentWorkerName: string | null;
+  onClaim: (taskId: string) => Promise<void>;
+  onDone: (taskId: string) => Promise<void>;
+  onReturnToQueue: (taskId: string) => Promise<void>;
+  onAssign: (task: ProductionTask) => void;
+  onFlag: (task: ProductionTask) => void;
+  onUnflag: (task: ProductionTask) => void;
 }
 
 function TaskCard({
-  task, stageKey, isManagerView,
-  onMoveForward, onFlag, onUnflag, onAssign, priorityDot,
+  task,
+  column,
+  mode,
+  currentWorkerName,
+  onClaim,
+  onDone,
+  onReturnToQueue,
+  onAssign,
+  onFlag,
+  onUnflag,
 }: TaskCardProps) {
-  const isDone = stageKey === 'done';
+  const deadline = formatDeadline(task.order.dueDate);
+  const canClaim = !task.isBlocked && (!task.assignedTo || task.assignedTo === currentWorkerName);
 
   return (
-    <div className={`${styles.taskCard} ${task.isBlocked ? styles.taskBlocked : ''} ${isDone ? styles.taskDone : ''}`}>
-      {/* Block banner */}
+    <article className={`${styles.card} ${task.isBlocked ? styles.cardBlocked : ''}`}>
       {task.isBlocked && task.blockReason && (
         <div className={styles.blockBanner}>
-          <AlertTriangle size={11} />
-          {task.blockReason}
+          <AlertTriangle size={12} />
+          <span>{task.blockReason}</span>
         </div>
       )}
 
-      {/* Order number + priority dot */}
-      <div className={styles.taskHead}>
+      <div className={styles.cardHead}>
         <span
-          className={styles.taskOrderNum}
-          style={{ borderLeftColor: priorityDot !== 'transparent' ? priorityDot : 'rgba(255,255,255,.1)' }}
+          className={styles.orderNumber}
+          style={{ borderLeftColor: PRIORITY_DOT[task.order.priority] }}
         >
           #{task.order.orderNumber}
         </span>
-        {task.order.priority !== 'normal' && (
-          <span
-            className={styles.taskPriority}
-            style={{ color: priorityDot }}
-          >
-            {task.order.priority === 'urgent' ? '🔴' : '⭐'}
-          </span>
-        )}
-        {isManagerView && task.order.clientName && (
-          <span className={styles.taskClient}>{task.order.clientName.split(' ')[0]}</span>
+        {mode === 'manager' && task.order.clientName && (
+          <span className={styles.clientName}>{task.order.clientName.split(' ')[0]}</span>
         )}
       </div>
 
-      {/* Product info */}
-      <div className={styles.taskProduct}>{task.productName}</div>
-      <div className={styles.taskMeta}>
+      <div className={styles.productName}>{task.productName}</div>
+      <div className={styles.metaLine}>
         {[task.fabric, task.size].filter(Boolean).join(' · ')}
         {task.quantity > 1 && ` × ${task.quantity}`}
       </div>
 
-      {/* Worker */}
-      <div className={styles.taskWorker}>
-        <button className={styles.workerChip} onClick={onAssign}>
+      <div className={styles.infoRow}>
+        <span className={styles.workerChip}>
           <User size={11} />
-          {task.assignedTo ?? 'Не назначен'}
-        </button>
-        {task.order.dueDate && (
-          <span className={styles.taskDeadline}>
-            {new Date(task.order.dueDate).toLocaleDateString('ru-KZ', { day: '2-digit', month: 'short' })}
-          </span>
-        )}
+          {task.assignedTo ?? 'Не назначена'}
+        </span>
+        {deadline && <span className={styles.deadline}>{deadline}</span>}
       </div>
 
-      {/* Actions */}
-      {!isDone && (
-        <div className={styles.taskActions}>
-          {!task.isBlocked && (
-            <button className={styles.nextBtn} onClick={onMoveForward}>
-              → {STAGES[STAGES.findIndex(s => s.key === stageKey) + 1]?.label ?? '✓'}
+      <div className={styles.cardActions}>
+        {column === 'queued' && mode === 'workshop' && (
+          <button
+            className={styles.primaryAction}
+            onClick={() => onClaim(task.id)}
+            disabled={!canClaim}
+          >
+            Взять в работу
+          </button>
+        )}
+
+        {column === 'queued' && mode === 'manager' && (
+          <button className={styles.secondaryAction} onClick={() => onAssign(task)}>
+            {task.assignedTo ? 'Сменить швею' : 'Назначить'}
+          </button>
+        )}
+
+        {column === 'in_progress' && (
+          <>
+            <button
+              className={styles.successAction}
+              onClick={() => onDone(task.id)}
+              disabled={task.isBlocked}
+            >
+              <CheckCircle2 size={13} />
+              Готово
             </button>
-          )}
-          {task.isBlocked ? (
-            <button className={styles.unflagBtn} onClick={onUnflag}>
+            {mode === 'manager' && (
+              <button className={styles.secondaryAction} onClick={() => onReturnToQueue(task.id)}>
+                Вернуть
+              </button>
+            )}
+          </>
+        )}
+
+        {mode === 'manager' && (
+          task.isBlocked ? (
+            <button className={styles.ghostAction} onClick={() => onUnflag(task)}>
               Снять блок
             </button>
           ) : (
-            <button className={styles.flagBtn} onClick={onFlag}>
-              <Flag size={11} />
+            <button className={styles.iconAction} onClick={() => onFlag(task)} title="Заблокировать">
+              <Flag size={12} />
             </button>
+          )
+        )}
+      </div>
+    </article>
+  );
+}
+
+interface BatchTaskCardProps {
+  tasks: ProductionTask[];
+  column: ColumnKey;
+  mode: ProductionMode;
+  currentWorkerName: string | null;
+  onClaim: (taskId: string) => Promise<void>;
+  onDone: (taskId: string) => Promise<void>;
+  onReturnToQueue: (taskId: string) => Promise<void>;
+  onAssign: (task: ProductionTask) => void;
+  onFlag: (task: ProductionTask) => void;
+  onUnflag: (task: ProductionTask) => void;
+}
+
+function BatchTaskCard({
+  tasks,
+  column,
+  mode,
+  currentWorkerName,
+  onClaim,
+  onDone,
+  onReturnToQueue,
+  onAssign,
+  onFlag,
+  onUnflag,
+}: BatchTaskCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const firstTask = tasks[0];
+  const batchColor = getBatchColor(firstTask.order.priority);
+  const totalQty = tasks.reduce((sum, task) => sum + task.quantity, 0);
+  const blockedCount = tasks.filter((task) => task.isBlocked).length;
+
+  const dateRange = useMemo(() => {
+    const dated = tasks
+      .filter((task) => task.order.dueDate)
+      .sort((a, b) => +new Date(a.order.dueDate!) - +new Date(b.order.dueDate!));
+
+    if (!dated.length) return null;
+
+    const first = formatDeadline(dated[0].order.dueDate);
+    const last = formatDeadline(dated[dated.length - 1].order.dueDate);
+
+    return first === last ? first : `${first} – ${last}`;
+  }, [tasks]);
+
+  async function handleClaimAll() {
+    for (const task of tasks) {
+      const canClaim = !task.isBlocked && (!task.assignedTo || task.assignedTo === currentWorkerName);
+      if (canClaim) {
+        await onClaim(task.id);
+      }
+    }
+  }
+
+  async function handleDoneAll() {
+    for (const task of tasks) {
+      if (!task.isBlocked) {
+        await onDone(task.id);
+      }
+    }
+  }
+
+  const cardStyle = { '--batch-color': batchColor } as CSSProperties;
+
+  return (
+    <div className={styles.batchWrap} style={cardStyle}>
+      <div className={`${styles.batchCard} ${expanded ? styles.batchOpen : ''}`}>
+        <div className={styles.batchHead}>
+          <span className={styles.batchBadge}>{tasks.length}</span>
+          <span className={styles.batchLabel}>карточки</span>
+          {blockedCount > 0 && (
+            <span className={styles.batchBlocked}>
+              <AlertTriangle size={10} />
+              {blockedCount}
+            </span>
           )}
+          <button className={styles.batchExpand} onClick={() => setExpanded((value) => !value)}>
+            {expanded ? 'Скрыть' : 'Открыть'}
+          </button>
         </div>
-      )}
-      {isDone && (
-        <div className={styles.doneLabel}>✓ Готово</div>
+
+        <div className={styles.productName}>{firstTask.productName}</div>
+        <div className={styles.metaLine}>
+          {[firstTask.fabric, firstTask.size].filter(Boolean).join(' · ')} · {totalQty} шт.
+        </div>
+
+        <div className={styles.batchMeta}>
+          {dateRange && <span>{dateRange}</span>}
+          <span>{tasks.filter((task) => task.assignedTo).length} назначено</span>
+        </div>
+
+        {column === 'queued' && mode === 'workshop' && (
+          <button className={styles.primaryAction} onClick={handleClaimAll}>
+            Взять все
+          </button>
+        )}
+
+        {column === 'in_progress' && (
+          <button className={styles.successAction} onClick={handleDoneAll}>
+            <CheckCircle2 size={13} />
+            Готово ×{tasks.filter((task) => !task.isBlocked).length}
+          </button>
+        )}
+      </div>
+
+      {expanded && (
+        <div className={styles.batchList}>
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              column={column}
+              mode={mode}
+              currentWorkerName={currentWorkerName}
+              onClaim={onClaim}
+              onDone={onDone}
+              onReturnToQueue={onReturnToQueue}
+              onAssign={onAssign}
+              onFlag={onFlag}
+              onUnflag={onUnflag}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

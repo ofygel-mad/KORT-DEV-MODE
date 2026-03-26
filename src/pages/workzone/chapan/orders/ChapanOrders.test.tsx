@@ -19,6 +19,10 @@ vi.mock('../../../../entities/order/queries', () => ({
   useOrders: (params: unknown) => useOrdersMock(params),
 }));
 
+vi.mock('../../../../entities/warehouse/queries', () => ({
+  useProductsAvailability: () => ({ data: undefined }),
+}));
+
 function buildOrder(): ChapanOrder {
   return {
     id: 'order-1',
@@ -33,9 +37,12 @@ function buildOrder(): ChapanOrder {
     totalAmount: 120000,
     paidAmount: 0,
     dueDate: null,
+    streetAddress: null,
     cancelReason: null,
     completedAt: null,
     cancelledAt: null,
+    isArchived: false,
+    archivedAt: null,
     createdAt: '2026-03-23T00:00:00.000Z',
     updatedAt: '2026-03-23T00:00:00.000Z',
     items: [],

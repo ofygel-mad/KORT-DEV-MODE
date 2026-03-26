@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useDealsBoard, useCreateDeal } from '../../../entities/deal/queries';
 import type { Deal, DealStage, CreateDealDto } from '../../../entities/deal/types';
 import { DealDrawer } from './DealDrawer';
@@ -60,7 +60,7 @@ export default function DealsPage() {
             placeholder="Название сделки..." autoFocus
             onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setCreating(false); }} />
           <button className={styles.quickOk} onClick={handleCreate} disabled={createDeal.isPending}>Создать</button>
-          <button className={styles.quickCancel} onClick={() => setCreating(false)}>✕</button>
+          <button className={styles.quickCancel} onClick={() => setCreating(false)}><X size={13} /></button>
         </div>
       )}
 

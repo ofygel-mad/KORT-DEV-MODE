@@ -10,6 +10,20 @@ import { WorkspaceTileContextMenu } from './WorkspaceTileContextMenu';
 import styles from './Workspace.module.css';
 
 function clamp(v: number, lo: number, hi: number) { return Math.min(Math.max(v, lo), hi); }
+function resolveInteractiveInsets() {
+  if (typeof window === 'undefined') {
+    return { top: 68, left: 12, right: 12, bottom: 12 };
+  }
+
+  const rootStyles = getComputedStyle(document.documentElement);
+  const topbarHeight = parseFloat(rootStyles.getPropertyValue('--topbar-height')) || 56;
+  return {
+    top: topbarHeight + 12,
+    left: window.matchMedia('(min-width: 981px)').matches ? 68 : 12,
+    right: 12,
+    bottom: 12,
+  };
+}
 
 function isTextInputTarget(target: EventTarget | null) {
   return target instanceof HTMLElement && (
@@ -26,6 +40,7 @@ function isTextInputTarget(target: EventTarget | null) {
 export const WorkspaceCanvas = memo(function WorkspaceCanvas() {
   const viewportRef        = useRef<HTMLDivElement>(null);
   const viewport           = useWorkspaceStore((s) => s.viewport);
+  const viewportSize       = useWorkspaceStore((s) => s.viewportSize);
   const tiles              = useWorkspaceStore((s) => s.tiles);
   const sceneMode          = useWorkspaceStore((s) => s.sceneMode);
   const zoom               = useWorkspaceStore((s) => s.zoom);
@@ -88,6 +103,38 @@ export const WorkspaceCanvas = memo(function WorkspaceCanvas() {
     setHoveredTile(null);
     if (sceneMode !== 'flight') setFlightTileLayouts({});
   }, [sceneMode, closeContextMenu, setHoveredTile]);
+
+  useEffect(() => {
+    if (sceneMode === 'flight' || viewportRef.current === null || tiles.length === 0) {
+      return;
+    }
+
+    useWorkspaceStore.setState((state) => {
+      if (state.viewportSize.width <= 0 || state.viewportSize.height <= 0) {
+        return state;
+      }
+
+      const insets = resolveInteractiveInsets();
+      let changed = false;
+      const nextTiles = state.tiles.map((tile) => {
+        const minX = Math.max(0, (insets.left - state.viewport.x) / state.zoom);
+        const minY = Math.max(0, (insets.top - state.viewport.y) / state.zoom);
+        const maxX = Math.max(minX, (state.viewportSize.width - insets.right - state.viewport.x) / state.zoom - tile.width);
+        const maxY = Math.max(minY, (state.viewportSize.height - insets.bottom - state.viewport.y) / state.zoom - tile.height);
+        const nextX = clamp(tile.x, minX, maxX);
+        const nextY = clamp(tile.y, minY, maxY);
+
+        if (nextX === tile.x && nextY === tile.y) {
+          return tile;
+        }
+
+        changed = true;
+        return { ...tile, x: nextX, y: nextY };
+      });
+
+      return changed ? { tiles: nextTiles } : state;
+    });
+  }, [sceneMode, tiles.length, viewportSize.height, viewportSize.width, zoom]);
 
   const flightFrameCounter = useRef(0);
   const handleFlightTileProjection = useCallback((projectedTiles: WorkspaceSceneFlightTileProjection[]) => {

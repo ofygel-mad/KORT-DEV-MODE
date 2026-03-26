@@ -504,7 +504,11 @@ export const WORKSPACE_WIDGET_ACCENTS: Record<WorkspaceWidgetKind | 'reports' | 
   deals: { accent: '#7acbff', screen: '#122132' },
   tasks: { accent: '#c6a7ff', screen: '#22183a' },
   warehouse: { accent: '#bba76d', screen: '#2a2310' },
+  production: { accent: '#ffbe66', screen: '#2d1b10' },
+  finance: { accent: '#72e2c4', screen: '#10261f' },
+  employees: { accent: '#c7d6ef', screen: '#162233' },
   reports: { accent: '#8de8c0', screen: '#10261e' },
+  documents: { accent: '#9ab6ff', screen: '#151f34' },
   imports: { accent: '#ffb09d', screen: '#311712' },
   chapan: { accent: '#ffe38f', screen: '#2e2612' },
 };
@@ -515,7 +519,11 @@ export const WORKSPACE_WIDGET_SHELL_PROFILES: Record<WorkspaceWidgetKind | 'repo
   deals: { depthFactor: 0.102, screenInset: 0.86, hoverLift: 1.02, introLift: 10.1 },
   tasks: { depthFactor: 0.104, screenInset: 0.845, hoverLift: 1.04, introLift: 10.4 },
   warehouse: { depthFactor: 0.095, screenInset: 0.838, hoverLift: 0.99, introLift: 9.6 },
+  production: { depthFactor: 0.103, screenInset: 0.848, hoverLift: 1.02, introLift: 10.2 },
+  finance: { depthFactor: 0.101, screenInset: 0.844, hoverLift: 1.01, introLift: 9.9 },
+  employees: { depthFactor: 0.1, screenInset: 0.846, hoverLift: 1.01, introLift: 9.8 },
   reports: { depthFactor: 0.098, screenInset: 0.84, hoverLift: 0.98, introLift: 9.7 },
+  documents: { depthFactor: 0.099, screenInset: 0.842, hoverLift: 1, introLift: 9.9 },
   imports: { depthFactor: 0.106, screenInset: 0.848, hoverLift: 1.01, introLift: 10.6 },
   chapan: { depthFactor: 0.11, screenInset: 0.852, hoverLift: 1.06, introLift: 11.4 },
 };

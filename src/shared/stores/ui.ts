@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { useCommandPalette } from './commandPalette';
 import { getDocument, getWindow, readStorage } from '../lib/browser';
 
-export type Theme = 'dark';
+export type Theme = 'dark' | 'light' | 'system';
 export type ThemePack = 'neutral' | 'graphite' | 'sand' | 'obsidian' | 'enterprise';
 
 type ActionRequest<T = undefined> = {
@@ -44,13 +44,50 @@ interface UIStore {
   openCommandPalette: () => void;
 }
 
-function applyTheme(theme: Theme, pack: ThemePack = 'neutral') {
+let _systemMQCleanup: (() => void) | null = null;
+
+function resolveSystemTheme(): 'dark' | 'light' {
+  return getWindow()?.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme: Theme, pack: ThemePack = 'neutral', animate = true) {
   const root = getDocument()?.documentElement;
   if (!root) return;
-  root.setAttribute('data-theme', theme);
-  root.setAttribute('data-theme-mode', theme);
+
+  if (animate) {
+    root.classList.add('theme-transitioning');
+    setTimeout(() => root.classList.remove('theme-transitioning'), 220);
+  }
+
+  // Remove previous system-theme listener if any
+  if (_systemMQCleanup) {
+    _systemMQCleanup();
+    _systemMQCleanup = null;
+  }
+
+  let resolved: 'dark' | 'light';
+  if (theme === 'system') {
+    resolved = resolveSystemTheme();
+    // Keep in sync with OS preference
+    const mq = getWindow()?.matchMedia('(prefers-color-scheme: dark)');
+    if (mq) {
+      const handler = (e: MediaQueryListEvent) => {
+        const r = e.matches ? 'dark' : 'light';
+        root.setAttribute('data-theme', r);
+        root.setAttribute('data-theme-mode', r);
+        root.style.colorScheme = r;
+      };
+      mq.addEventListener('change', handler);
+      _systemMQCleanup = () => mq.removeEventListener('change', handler);
+    }
+  } else {
+    resolved = theme;
+  }
+
+  root.setAttribute('data-theme', resolved);
+  root.setAttribute('data-theme-mode', resolved);
   root.setAttribute('data-theme-pack', pack);
-  root.style.colorScheme = theme;
+  root.style.colorScheme = resolved;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -65,9 +102,9 @@ export const useUIStore = create<UIStore>()(
       createDealRequest: { nonce: 0, payload: undefined },
       createTaskRequest: { nonce: 0, payload: undefined },
       assistantPromptRequest: { nonce: 0, payload: undefined },
-      setTheme: () => {
-        set({ theme: 'dark' });
-        applyTheme('dark', get().themePack);
+      setTheme: (t) => {
+        set({ theme: t });
+        applyTheme(t, get().themePack);
       },
       setThemePack: (themePack) => {
         set({ themePack });
@@ -112,7 +149,8 @@ if (win) {
   } catch {
     parsed = {};
   }
-  const theme: Theme = 'dark';
+  const stored = parsed.theme as string | undefined;
+  const theme: Theme = (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : 'dark';
   const themePack: ThemePack = (parsed.themePack as ThemePack) ?? 'neutral';
-  applyTheme(theme, themePack);
+  applyTheme(theme, themePack, false);
 }

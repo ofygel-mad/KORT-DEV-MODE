@@ -63,6 +63,17 @@ export const useAddMovement = () => {
   });
 };
 
+/** Check finished-goods availability for a list of product names (Chapan integration) */
+export const useProductsAvailability = (names: string[]) => {
+  const sorted = [...names].sort();
+  return useQuery({
+    queryKey: ['warehouse_products_availability', sorted],
+    queryFn: () => warehouseApi.checkProducts(sorted),
+    enabled: sorted.length > 0,
+    staleTime: 30_000,
+  });
+};
+
 export const useResolveAlert = () => {
   const qc = useQueryClient();
   return useMutation({

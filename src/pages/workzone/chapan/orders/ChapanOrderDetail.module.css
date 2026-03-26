@@ -32,6 +32,9 @@
 .itemName { font-size:14px; color:var(--ch-text); }
 .itemMeta { font-size:11px; color:var(--ch-text-muted); }
 .itemNote { font-size:11px; color:var(--ch-plat-dim); font-style:italic; }
+.stockBadgeIn { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; color:#10B981; margin-top:2px; }
+.stockBadgeOut { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; color:#EF4444; margin-top:2px; }
+.stockNotice { display:flex; align-items:center; gap:7px; padding:10px 14px; border-radius:8px; border:1px solid color-mix(in srgb, #10B981 28%, transparent); background:color-mix(in srgb, #10B981 10%, transparent); color:#10B981; font-size:12px; font-weight:600; }
 .itemPrice { font-size:14px; font-weight:600; color:var(--ch-plat-bright); white-space:nowrap; }
 .noItems { font-size:12px; color:var(--ch-text-muted); text-align:center; padding:12px 0; }
 .itemsTotal { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-top:1px solid var(--ch-border); margin-top:4px; font-size:13px; color:var(--ch-text-dim); }
@@ -60,19 +63,25 @@
 .payInput:focus { border-color:var(--ch-plat-border); }
 .payInputError { border-color:rgba(239,68,68,.5)!important; }
 .payError { font-size:11px; color:var(--ch-red); }
+.payBalanceHint { font-size:11px; color:rgba(240,232,212,.45); margin-top:2px; }
 .payFormActions { display:flex; gap:8px; }
 
 .addPayBtn,
-.actionBtn { width:100%; padding:10px 16px; border-radius:8px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:all 140ms; }
+.actionBtn { width:100%; padding:13px 16px; border-radius:8px; font-size:14px; font-weight:600; font-family:inherit; cursor:pointer; transition:all 140ms; }
 .addPayBtn { display:flex; align-items:center; justify-content:center; gap:8px; background:var(--ch-plat-soft); border:1px solid var(--ch-plat-border); color:var(--ch-plat-bright); }
 .addPayBtn:hover { background:rgba(180,192,210,.16); }
 .actionPrimary { background:var(--ch-plat); border:none; color:#0B0D12; box-shadow:0 2px 10px rgba(180,192,210,.18); }
 .actionPrimary:hover { background:var(--ch-plat-bright); }
+.actionEdit { background:var(--ch-plat-soft); border:1px solid var(--ch-plat-border); color:var(--ch-plat-bright); }
+.actionEdit:hover { background:rgba(180,192,210,.14); }
 .actionDanger { background:none; border:1px solid rgba(239,68,68,.3); color:var(--ch-red); }
 .actionDanger:hover { background:rgba(239,68,68,.06); }
 .actionSecondary { background:var(--ch-surface); border:1px solid var(--ch-border); color:var(--ch-text-dim); }
 .actionSecondary:hover { border-color:var(--ch-border-plat); color:var(--ch-text); }
-.actions { display:flex; flex-direction:column; gap:8px; }
+.actionArchive { background:none; border:1px solid rgba(180,192,210,.18); color:var(--ch-text-muted); }
+.actionArchive:hover { border-color:var(--ch-plat-border); color:var(--ch-plat-bright); }
+.archivedBadge { display:flex; align-items:center; justify-content:center; padding:10px 14px; border-radius:8px; font-size:13px; font-weight:600; border:1px solid rgba(180,192,210,.18); color:var(--ch-text-muted); }
+.actions { display:flex; flex-direction:column; gap:14px; }
 .completedBadge,
 .cancelledBadge { display:flex; align-items:center; justify-content:center; padding:10px 14px; border-radius:8px; font-size:13px; font-weight:600; border:1px solid var(--ch-border); }
 .completedBadge { background:rgba(16,185,129,.08); border-color:rgba(16,185,129,.24); color:var(--ch-green); }
@@ -104,6 +113,93 @@
 .commentBtn { padding:8px 12px; background:var(--ch-plat-soft); border:1px solid var(--ch-plat-border); border-radius:7px; color:var(--ch-plat); cursor:pointer; transition:all 120ms; }
 .commentBtn:hover:not(:disabled) { background:rgba(180,192,210,.18); }
 .commentBtn:disabled { opacity:.4; cursor:not-allowed; }
+
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 11, 0.68);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  padding: 20px;
+}
+
+.confirmDialog {
+  width: 100%;
+  max-width: 420px;
+  background: var(--ch-card);
+  border: 1px solid var(--ch-border-plat);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.confirmTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ch-text);
+}
+
+.confirmText {
+  font-size: 13px;
+  color: var(--ch-text-dim);
+  line-height: 1.45;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.confirmSecondary,
+.confirmPrimary {
+  border-radius: 9px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.confirmSecondary {
+  background: var(--ch-surface);
+  border: 1px solid var(--ch-border);
+  color: var(--ch-text-dim);
+}
+
+.confirmPrimary {
+  background: var(--ch-plat);
+  border: none;
+  color: #0B0D12;
+  font-weight: 700;
+}
+
+.confirmPrimary:disabled,
+.confirmDanger:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.confirmDanger {
+  background: rgba(217, 79, 79, 0.12);
+  border: 1px solid rgba(217, 79, 79, 0.35);
+  color: #E87272;
+  border-radius: 9px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 130ms, border-color 130ms;
+}
+.confirmDanger:hover {
+  background: rgba(217, 79, 79, 0.2);
+  border-color: rgba(217, 79, 79, 0.55);
+}
 
 .payModal { position:fixed; inset:0; background:rgba(5,7,11,0.85); z-index:50; display:flex; align-items:center; justify-content:center; }
 .payModalBox { background:var(--ch-card); border:1px solid var(--ch-border-plat); border-radius:14px; padding:24px; width:360px; max-width:90vw; display:flex; flex-direction:column; gap:14px; box-shadow:0 32px 64px rgba(0,0,0,0.7); }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Download, BookOpen, BarChart3 } from 'lucide-react';
+import { Plus, Download, BookOpen, BarChart3, X } from 'lucide-react';
 import { useFinanceEntries, useFinanceSummary, useCreateEntry } from '../../entities/finance/queries';
 import type { EntryType, CreateEntryDto } from '../../entities/finance/types';
 import { ENTRY_TYPE_LABEL, INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../../entities/finance/types';
@@ -56,7 +56,7 @@ function AddEntryDrawer({ onClose }: { onClose: () => void }) {
       <div className={styles.drawer} onClick={e => e.stopPropagation()}>
         <div className={styles.drawerHeader}>
           <span className={styles.drawerTitle}>Новая запись</span>
-          <button className={styles.drawerClose} onClick={onClose}>✕</button>
+          <button className={styles.drawerClose} onClick={onClose}><X size={14} /></button>
         </div>
         <form className={styles.drawerBody} onSubmit={handleSubmit}>
           <div className={styles.field}>
@@ -74,6 +74,7 @@ function AddEntryDrawer({ onClose }: { onClose: () => void }) {
             <label className={styles.label}>Сумма (₸) <span className={styles.req}>*</span></label>
             <input className={styles.input} type="number" min="0.01" step="any"
               value={form.amount || ''} onChange={e => setForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))}
+              onFocus={(e) => e.target.select()}
               placeholder="0" required autoFocus />
           </div>
           <div className={styles.field}>

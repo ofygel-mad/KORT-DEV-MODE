@@ -1,55 +1,59 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import {
-  BarChart2, Briefcase, Building2, CheckSquare, LogOut,
-  Settings, Users, Warehouse, Layers, User, ChevronRight,
-} from 'lucide-react';
+import { ChevronRight, LogOut } from 'lucide-react';
 import { useAuthStore } from '../../shared/stores/auth';
 import { KortLogo } from '../../shared/ui/KortLogo';
+import {
+  CANVAS_NAV_ITEM,
+  CHAPAN_NAV_ITEM,
+  SETTINGS_NAV_ITEM,
+  SIDEBAR_NAV_SECTIONS,
+  type ShortcutNavItem,
+} from '../../shared/navigation/appNavigation';
+import { usePlan, planIncludes } from '../../shared/hooks/usePlan';
 import styles from './Sidebar.module.css';
 
-interface NavItem {
-  to: string;
-  icon: React.ElementType;
-  label: string;
-  external?: boolean;
+function SidebarRouteItem({
+  item,
+  className = '',
+  showChevron = false,
+}: {
+  item: { to: string; icon: React.ElementType; label: string; end?: boolean };
+  className?: string;
+  showChevron?: boolean;
+}) {
+  const Icon = item.icon;
+
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      className={({ isActive }) =>
+        `${styles.navItem} ${className} ${isActive ? styles.navItemActive : ''}`.trim()
+      }
+    >
+      <Icon size={15} className={styles.navIcon} />
+      <span className={styles.navLabel}>{item.label}</span>
+      {showChevron && <ChevronRight size={11} className={styles.navExternalIcon} />}
+    </NavLink>
+  );
 }
 
-const CRM_ITEMS: NavItem[] = [
-  { to: '/crm/leads',     icon: Users,     label: 'Лиды' },
-  { to: '/crm/deals',     icon: Briefcase, label: 'Сделки' },
-  { to: '/crm/customers', icon: User,      label: 'Клиенты' },
-  { to: '/crm/tasks',     icon: CheckSquare, label: 'Задачи' },
-];
-
-const OPS_ITEMS: NavItem[] = [
-  { to: '/warehouse',  icon: Warehouse,   label: 'Склад' },
-  { to: '/finance',    icon: BarChart2,   label: 'Финансы' },
-  { to: '/employees',  icon: Building2,   label: 'Сотрудники' },
-];
-
-function NavGroup({ label, items }: { label: string; items: NavItem[] }) {
+function NavGroup({ label, items }: { label: string; items: ShortcutNavItem[] }) {
+  if (items.length === 0) return null;
   return (
     <div className={styles.navGroup}>
       <div className={styles.navGroupLabel}>{label}</div>
       {items.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          className={({ isActive }) =>
-            `${styles.navItem} ${isActive ? styles.navItemActive : ''}`
-          }
-        >
-          <item.icon size={15} className={styles.navIcon} />
-          <span className={styles.navLabel}>{item.label}</span>
-        </NavLink>
+        <SidebarRouteItem key={item.id} item={item} />
       ))}
     </div>
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ chromeTone = 'dark' }: { chromeTone?: 'canvas' | 'dark' | 'light' }) {
   const navigate = useNavigate();
   const clearAuth = useAuthStore((s) => s.clearAuth);
+  const plan = usePlan();
 
   function handleLogout() {
     clearAuth();
@@ -57,60 +61,44 @@ export function Sidebar() {
   }
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={styles.sidebar} data-chrome={chromeTone}>
       <div className={styles.logo}>
         <KortLogo size={28} />
         <span className={styles.logoText}>KORT</span>
       </div>
 
       <nav className={styles.nav}>
-        <NavLink
-          to="/"
-          end
-          className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
-        >
-          <Layers size={15} className={styles.navIcon} />
-          <span className={styles.navLabel}>Канвас</span>
-        </NavLink>
+        <SidebarRouteItem item={CANVAS_NAV_ITEM} />
 
-        <NavGroup label="CRM" items={CRM_ITEMS} />
-        <NavGroup label="Операции" items={OPS_ITEMS} />
+        {SIDEBAR_NAV_SECTIONS.map((section) => {
+          const visibleItems = section.items.filter((item) =>
+            planIncludes(plan, item.planTier),
+          );
+          return (
+            <NavGroup key={section.label} label={section.label} items={visibleItems} />
+          );
+        })}
 
-        <div className={styles.navGroup}>
-          <div className={styles.navGroupLabel}>Аналитика</div>
-          <NavLink
-            to="/reports"
-            className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
-          >
-            <BarChart2 size={15} className={styles.navIcon} />
-            <span className={styles.navLabel}>Отчёты</span>
-          </NavLink>
-        </div>
-
-        <div className={styles.navDivider} />
-
-        {/* Chapan Workzone — external link */}
-        <NavLink
-          to="/workzone/chapan"
-          className={({ isActive }) => `${styles.navItem} ${styles.navItemChapan} ${isActive ? styles.navItemActive : ''}`}
-        >
-          <Layers size={15} className={styles.navIcon} />
-          <span className={styles.navLabel}>Чапан</span>
-          <ChevronRight size={11} className={styles.navExternalIcon} />
-        </NavLink>
+        {planIncludes(plan, 'industrial') && (
+          <>
+            <div className={styles.navDivider} />
+            <div className={styles.navGroup}>
+              <div className={styles.navGroupLabel}>Воркзоны</div>
+              <SidebarRouteItem
+                item={CHAPAN_NAV_ITEM}
+                className={styles.navItemChapan}
+                showChevron
+              />
+            </div>
+          </>
+        )}
       </nav>
 
       <div className={styles.bottom}>
-        <NavLink
-          to="/settings"
-          className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navItemActive : ''}`}
-        >
-          <Settings size={15} className={styles.navIcon} />
-          <span className={styles.navLabel}>Настройки</span>
-        </NavLink>
+        <SidebarRouteItem item={SETTINGS_NAV_ITEM} />
         <button className={styles.logoutBtn} onClick={handleLogout}>
-          <LogOut size={14} />
-          <span>Выйти</span>
+          <LogOut size={15} className={styles.navIcon} />
+          <span className={styles.navLabel}>Выйти</span>
         </button>
       </div>
     </aside>

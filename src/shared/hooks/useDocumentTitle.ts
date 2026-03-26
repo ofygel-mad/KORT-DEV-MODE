@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const BASE = 'Kort';
+const BASE = 'KORT';
 
 export function useDocumentTitle(title?: string) {
   useEffect(() => {

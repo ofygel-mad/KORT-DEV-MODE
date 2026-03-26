@@ -1,29 +1,36 @@
-/* ChapanShell — Platinum dark palette. Cool steel, no gold, no brown. */
+/* ChapanShell — light premium shell aligned with the global light theme */
 .root {
-  --ch-bg:          #0B0D12;
-  --ch-sidebar:     #0E1018;
-  --ch-surface:     #13161F;
-  --ch-card:        #191D28;
-  --ch-card-hover:  #1E2330;
-  --ch-border:      rgba(255,255,255,0.07);
-  --ch-border-plat: rgba(180,192,210,0.16);
-  --ch-plat:        #B4C0D2;
-  --ch-plat-bright: #CDD6E8;
-  --ch-plat-dim:    #6B7A90;
-  --ch-plat-soft:   rgba(180,192,210,0.09);
-  --ch-plat-border: rgba(180,192,210,0.18);
-  --ch-text:        #E8ECF2;
-  --ch-text-dim:    #8892A4;
-  --ch-text-muted:  #4A5268;
+  --ch-bg:          var(--bg-canvas);
+  --ch-sidebar:     color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  --ch-surface:     var(--bg-surface);
+  --ch-card:        var(--bg-surface-elevated);
+  --ch-card-hover:  var(--bg-hover);
+  --ch-border:      var(--border-subtle);
+  --ch-border-plat: color-mix(in srgb, var(--fill-accent) 22%, var(--border-default));
+  --ch-plat:        var(--fill-accent);
+  --ch-plat-bright: color-mix(in srgb, var(--fill-accent) 80%, #fff 20%);
+  --ch-plat-dim:    var(--text-tertiary);
+  --ch-plat-soft:   var(--fill-accent-subtle);
+  --ch-plat-border: color-mix(in srgb, var(--fill-accent) 26%, var(--border-default));
+  --ch-text:        var(--text-primary);
+  --ch-text-dim:    var(--text-secondary);
+  --ch-text-muted:  var(--text-tertiary);
   --ch-green:  #10B981;
   --ch-red:    #EF4444;
   --ch-amber:  #F59E0B;
-  --ch-blue:   #3B82F6;
+  --ch-blue:   #6E8EF0;
+  --ch-accent:        var(--fill-accent);
+  --ch-accent-soft:   var(--fill-accent-subtle);
+  --ch-accent-border: color-mix(in srgb, var(--fill-accent) 28%, var(--border-default));
+  --ch-accent-glow:   rgba(154,74,27,0.14);
 
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
   background: var(--ch-bg);
+  background-image:
+    radial-gradient(ellipse 70% 50% at 15% -5%, rgba(154,74,27,0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 45% at 85% 105%, rgba(59,130,246,0.05) 0%, transparent 55%);
   color: var(--ch-text);
   font-family: var(--font-sans, 'Plus Jakarta Sans', sans-serif);
 }
@@ -32,41 +39,59 @@
 .topbar {
   display: flex;
   align-items: center;
-  height: 48px;
+  height: 50px;
   flex-shrink: 0;
-  background: var(--ch-sidebar);
-  border-bottom: 1px solid var(--ch-border-plat);
+  background: color-mix(in srgb, var(--bg-surface) 90%, transparent);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  border-bottom: 1px solid var(--border-default);
   padding: 0 20px;
   position: sticky;
   top: 0;
   z-index: 20;
 }
 
+.topbarRight {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
 .kortBack {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 7px;
+  padding: 7px 14px 7px 10px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
   color: var(--ch-text-dim);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: all 120ms;
+  transition: all 140ms;
   white-space: nowrap;
 }
-.kortBack:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.18); color: var(--ch-text); }
+.kortBack:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  color: var(--ch-text);
+}
 
-.topbarDivider { width: 1px; height: 16px; background: var(--ch-border-plat); margin: 0 14px; flex-shrink: 0; }
+.topbarDivider {
+  width: 1px;
+  height: 16px;
+  background: var(--ch-border-plat);
+  margin: 0 14px;
+  flex-shrink: 0;
+}
 
 .topbarModule {
   font-size: 12px;
   font-weight: 700;
   color: var(--ch-plat-bright);
-  letter-spacing: .08em;
+  letter-spacing: 0.10em;
   text-transform: uppercase;
 }
 
@@ -76,33 +101,104 @@
 .sidebar {
   width: 210px;
   flex-shrink: 0;
-  height: calc(100dvh - 48px);
+  height: calc(100dvh - 50px);
   position: sticky;
-  top: 48px;
-  background: var(--ch-sidebar);
-  border-right: 1px solid var(--ch-border-plat);
+  top: 50px;
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  border-right: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
 }
 
-.logoWrap { padding: 20px 16px 16px; border-bottom: 1px solid var(--ch-border-plat); }
-.logoText { display: block; font-size: 16px; font-weight: 800; letter-spacing: 0.1em; color: var(--ch-plat-bright); text-transform: uppercase; }
-.logoSub { display: block; font-size: 9px; letter-spacing: 0.07em; color: var(--ch-text-muted); margin-top: 3px; text-transform: uppercase; }
+.logoWrap {
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.logoText {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--ch-plat-bright);
+  text-transform: uppercase;
+}
+.logoSub {
+  display: block;
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  color: var(--ch-text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+}
 
 .nav { flex: 1; padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
 
 .navItem {
-  display: flex; align-items: center; gap: 9px; padding: 8px 10px;
-  border-radius: 7px; font-size: 13px; font-weight: 450;
-  color: var(--ch-text-dim); text-decoration: none;
-  transition: background 120ms, color 120ms; border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--ch-text-dim);
+  text-decoration: none;
+  transition: all 140ms;
+  border: 1px solid transparent;
 }
-.navItem:hover { color: var(--ch-text); background: rgba(255,255,255,0.04); }
-.navActive { color: var(--ch-plat-bright); background: var(--ch-plat-soft); border-color: var(--ch-plat-border); }
+.navItem:hover {
+  color: var(--ch-text);
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+}
+.navActive {
+  background: var(--fill-accent-subtle);
+  border-color: var(--ch-plat-border);
+  animation: none;
+}
 
-.sidebarBottom { padding: 8px 8px 12px; border-top: 1px solid var(--ch-border-plat); }
+@keyframes chNavIridescent {
+  0%, 100% {
+    color: #00C8FF;
+    box-shadow: inset 3px 0 0 #00C8FF;
+    text-shadow: 0 0 12px rgba(0,200,255,0.35);
+  }
+  45% {
+    color: #C07840;
+    box-shadow: inset 3px 0 0 #7B3A14;
+    text-shadow: 0 0 14px rgba(110,52,16,0.50);
+  }
+  50% {
+    color: #A06030;
+    box-shadow: inset 3px 0 0 #5C2A0A;
+    text-shadow: 0 0 14px rgba(80,38,10,0.45);
+  }
+  55% {
+    color: #C07840;
+    box-shadow: inset 3px 0 0 #7B3A14;
+    text-shadow: 0 0 14px rgba(110,52,16,0.50);
+  }
+}
 
-.main { flex: 1; min-width: 0; height: calc(100dvh - 48px); overflow-y: auto; background: var(--ch-bg); overscroll-behavior: contain; }
+.sidebarBottom {
+  padding: 8px 8px 12px;
+  border-top: 1px solid var(--ch-border-plat);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  height: calc(100dvh - 50px);
+  overflow-y: auto;
+  background: transparent;
+  background-image:
+    linear-gradient(rgba(16,24,40,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16,24,40,0.03) 1px, transparent 1px);
+  background-size: 44px 44px;
+  overscroll-behavior: contain;
+}
 
 @media (max-width: 768px) {
   .body { flex-direction: column; }
@@ -114,4 +210,28 @@
   .navItem { padding: 6px 10px; white-space: nowrap; font-size: 12px; }
   .sidebarBottom { display: none; }
   .main { height: auto; }
+}
+
+/* ── Light Theme — cold steel bg, dark glass components ── */
+:global([data-theme="light"]) .root {
+  --ch-bg:          var(--bg-canvas);
+  --ch-sidebar:     color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  --ch-surface:     var(--bg-surface);
+  --ch-card:        var(--bg-surface-elevated);
+  --ch-card-hover:  var(--bg-hover);
+  --ch-border:      var(--border-subtle);
+  --ch-border-plat: color-mix(in srgb, var(--fill-accent) 18%, var(--border-default));
+  --ch-plat:        var(--fill-accent);
+  --ch-plat-bright: color-mix(in srgb, var(--fill-accent) 80%, #fff 20%);
+  --ch-plat-dim:    var(--text-tertiary);
+  --ch-plat-soft:   var(--fill-accent-subtle);
+  --ch-plat-border: color-mix(in srgb, var(--fill-accent) 22%, var(--border-default));
+  --ch-text:        var(--text-primary);
+  --ch-text-dim:    var(--text-secondary);
+  --ch-text-muted:  var(--text-tertiary);
+
+  background: var(--ch-bg);
+  background-image:
+    radial-gradient(ellipse 70% 50% at 15% -5%, rgba(154,74,27,0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 45% at 85% 105%, rgba(59,130,246,0.05) 0%, transparent 55%);
 }

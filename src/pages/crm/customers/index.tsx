@@ -125,7 +125,7 @@ export default function CustomersPage() {
           <input className={styles.fi} value={form.phone} onChange={sf('phone')} placeholder="Телефон" type="tel" />
           <input className={styles.fi} value={form.email} onChange={sf('email')} placeholder="Email" type="email" />
           <button type="submit" className={styles.quickOk} disabled={createCustomer.isPending}>Создать</button>
-          <button type="button" className={styles.quickCancel} onClick={() => setCreating(false)}>✕</button>
+          <button type="button" className={styles.quickCancel} onClick={() => setCreating(false)}><X size={13} /></button>
         </form>
       )}
 

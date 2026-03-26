@@ -2,7 +2,7 @@ import { api } from '../../shared/api/client';
 import type {
   WarehouseItem, WarehouseMovement, WarehouseAlert, WarehouseCategory,
   WarehouseSummary, PaginatedWarehouseItems, PaginatedMovements,
-  CreateItemDto, AddMovementDto,
+  CreateItemDto, AddMovementDto, ProductsAvailabilityMap,
 } from './types';
 
 export const warehouseApi = {
@@ -43,4 +43,8 @@ export const warehouseApi = {
   // Summary
   getSummary: () =>
     api.get<WarehouseSummary>('/warehouse/summary'),
+
+  // Chapan integration: check if finished products are in stock by name
+  checkProducts: (names: string[]) =>
+    api.post<ProductsAvailabilityMap>('/warehouse/products-availability', { names }),
 };

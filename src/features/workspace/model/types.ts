@@ -1,4 +1,6 @@
-export type WorkspaceWidgetKind = 'leads' | 'deals' | 'tasks' | 'customers' | 'warehouse' | 'chapan';
+import type { ShortcutNavItemId } from '../../../shared/navigation/appNavigation';
+
+export type WorkspaceWidgetKind = ShortcutNavItemId;
 export type WorkspaceSceneTheme = 'default' | 'morning' | 'overcast' | 'dusk' | 'night';
 export type WorkspaceSceneMode = 'surface' | 'flight';
 export type WorkspaceSceneTerrainMode = 'full' | 'calm' | 'void';

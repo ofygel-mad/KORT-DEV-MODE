@@ -8,6 +8,7 @@ import {
   Factory,
   KeyRound,
   ShieldCheck,
+  TrendingUp,
   Workflow,
   X,
 } from 'lucide-react';
@@ -41,7 +42,7 @@ import styles from './AuthModal.module.css';
  * (сотрудники регистрируются только через администратора в настройках)
  */
 type Step = 'login' | 'pin' | 'company' | 'set-password';
-type BrandScene = 'network' | 'briefing' | 'flow';
+type BrandScene = 'network' | 'briefing' | 'flow' | 'metrics';
 
 interface AuthModalProps {
   open: boolean;
@@ -74,6 +75,13 @@ const BRAND_CAROUSEL = [
     description: 'Интерфейс остаётся собранным даже при параллельной работе.',
     scene: 'briefing' as BrandScene,
   },
+  {
+    icon: TrendingUp,
+    label: 'Контроль',
+    title: 'Финансы и аналитика всегда под рукой',
+    description: 'Ключевые метрики, воронка и выручка — в одном рабочем пространстве.',
+    scene: 'metrics' as BrandScene,
+  },
 ] as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -82,7 +90,7 @@ function readAuthError(cause: unknown, fallback: string) {
   const message = readApiErrorMessage(cause, '').trim();
   const status = readApiErrorStatus(cause);
   if (!status && message.toLowerCase() === 'network error') {
-    return 'Сервис авторизации недоступен. Проверьте подключение frontend к backend.';
+    return 'Сервис авторизации временно недоступен. Сервер не отвечает.';
   }
   if (message) return message;
   if (status === 401) return 'Неверный логин или пароль.';
@@ -189,6 +197,35 @@ function BrandScenePreview({ scene }: { scene: BrandScene }) {
         <div className={styles.sceneBriefCard}>
           <span className={styles.sceneMiniLabel}>синхронизация</span>
           <strong>обсуждение и решения</strong>
+        </div>
+      </div>
+    );
+  }
+
+  if (scene === 'metrics') {
+    return (
+      <div className={`${styles.slideScene} ${styles.sceneMetrics}`} aria-hidden="true">
+        <span className={styles.sceneGlow} />
+        <div className={styles.sceneMetricGrid}>
+          <div className={styles.sceneMetricCard}>
+            <span className={styles.sceneMiniLabel}>выручка</span>
+            <strong className={styles.sceneMetricValue}>₸ 4.2М</strong>
+            <span className={`${styles.sceneMetricTrend} ${styles.sceneMetricTrendUp}`}>↑ 18%</span>
+          </div>
+          <div className={styles.sceneMetricCard}>
+            <span className={styles.sceneMiniLabel}>заказов</span>
+            <strong className={styles.sceneMetricValue}>147</strong>
+            <span className={`${styles.sceneMetricTrend} ${styles.sceneMetricTrendUp}`}>↑ 6%</span>
+          </div>
+        </div>
+        <div className={styles.sceneSparkline}>
+          <span className={`${styles.sceneSparkBar} ${styles.sceneSparkS1}`} />
+          <span className={`${styles.sceneSparkBar} ${styles.sceneSparkS2}`} />
+          <span className={`${styles.sceneSparkBar} ${styles.sceneSparkS3}`} />
+          <span className={`${styles.sceneSparkBar} ${styles.sceneSparkS4}`} />
+          <span className={`${styles.sceneSparkBar} ${styles.sceneSparkS5}`} />
+          <span className={`${styles.sceneSparkBar} ${styles.sceneSparkS6}`} />
+          <span className={`${styles.sceneSparkBar} ${styles.sceneSparkS7}`} />
         </div>
       </div>
     );
@@ -349,7 +386,7 @@ export function AuthModal({ open, onClose, onAuthSuccess, initialStep }: AuthMod
     setActiveBrandSlide(0);
     const timer = window.setInterval(() => {
       setActiveBrandSlide((c) => (c + 1) % BRAND_CAROUSEL.length);
-    }, 4600);
+    }, 5000);
     return () => window.clearInterval(timer);
   }, [open]);
 
@@ -498,15 +535,10 @@ export function AuthModal({ open, onClose, onAuthSuccess, initialStep }: AuthMod
           if (event.target === event.currentTarget) onClose();
         }}
       >
-        <motion.div
-          className={styles.panel}
-          initial={{ opacity: 0, scale: 0.96, y: 12 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.98, y: 8 }}
-          transition={{ duration: 0.2 }}
-        >
+        <div className={styles.panel}>
           {/* ── Brand side ── */}
           <div className={styles.brandSide}>
+            <span className={styles.brandTopAccent} aria-hidden="true" />
             <div className={styles.brandHero}>
               <div className={styles.brandDisplay}>KORT</div>
             </div>
@@ -755,7 +787,7 @@ export function AuthModal({ open, onClose, onAuthSuccess, initialStep }: AuthMod
             </div>
 
           </div>
-        </motion.div>
+        </div>
       </motion.div>
     </AnimatePresence>
   );
