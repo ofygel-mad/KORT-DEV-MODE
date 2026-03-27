@@ -10,6 +10,7 @@ import { useCommandPalette } from '../../shared/stores/commandPalette';
 import { useKeyboardShortcuts } from '../../shared/hooks/useKeyboardShortcuts';
 import { ShortcutsModal } from '../../shared/ui/ShortcutsModal';
 import { useIsMobile } from '../../shared/hooks/useIsMobile';
+import { useDevicePerformance } from '../../shared/hooks/useDevicePerformance';
 import { useAuthStore } from '../../shared/stores/auth';
 import { pageTransition } from '../../shared/motion/presets';
 import { addDocumentListener } from '../../shared/lib/browser';
@@ -38,6 +39,7 @@ export function AppShell() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
+  const performance = useDevicePerformance();
 
   // Reactively read the resolved data-theme attribute (kept in sync by applyTheme)
   const resolvedTheme = useSyncExternalStore(
@@ -93,18 +95,24 @@ export function AppShell() {
       <div className={styles.content}>
         <Topbar chromeTone={chromeTone} />
         <main className={styles.main}>
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={location.pathname}
-              initial={pageTransition.initial}
-              animate={pageTransition.animate}
-              exit={pageTransition.exit}
-              transition={pageTransition.transition}
-              className={styles.routeViewport}
-            >
+          {performance.preferMinimalMotion ? (
+            <div key={location.pathname} className={styles.routeViewport}>
               <Outlet />
-            </motion.div>
-          </AnimatePresence>
+            </div>
+          ) : (
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={location.pathname}
+                initial={pageTransition.initial}
+                animate={pageTransition.animate}
+                exit={pageTransition.exit}
+                transition={pageTransition.transition}
+                className={styles.routeViewport}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
+          )}
         </main>
       </div>
 

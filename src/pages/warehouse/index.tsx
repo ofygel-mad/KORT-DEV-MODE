@@ -1,4 +1,4 @@
-import { useState, useDeferredValue } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import {
   AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download,
   FileText, Package, PackageCheck, Phone, Plus, Search, Send, TrendingDown, User, X,
@@ -35,13 +35,16 @@ const PAY_COLOR: Record<string, string> = {
 };
 const PRIORITY_LABEL: Record<string, string> = { normal: 'Обычный', urgent: 'Срочно', vip: 'VIP' };
 const PRIORITY_COLOR: Record<string, string> = { normal: 'var(--text-tertiary)', urgent: '#D94F4F', vip: '#C9A84C' };
+const DATE_FORMATTER = new Intl.DateTimeFormat('ru-KZ', { day: '2-digit', month: 'short', year: 'numeric' });
+const NUMBER_FORMATTER = new Intl.NumberFormat('ru-KZ');
+const MONEY_FORMATTER = new Intl.NumberFormat('ru-KZ', { maximumFractionDigits: 0 });
 
 function fmtDate(s: string) {
-  return new Date(s).toLocaleDateString('ru-KZ', { day: '2-digit', month: 'short', year: 'numeric' });
+  return DATE_FORMATTER.format(new Date(s));
 }
-function fmtNum(n: number) { return new Intl.NumberFormat('ru-KZ').format(n); }
+function fmtNum(n: number) { return NUMBER_FORMATTER.format(n); }
 function fmtMoney(n: number) {
-  return new Intl.NumberFormat('ru-KZ', { maximumFractionDigits: 0 }).format(n) + ' ₸';
+  return MONEY_FORMATTER.format(n) + ' ₸';
 }
 
 // ── Invoice Detail Drawer ─────────────────────────────────────────────────────
@@ -467,22 +470,31 @@ export default function WarehousePage() {
 
   // Chapan handoff data
   const { data: invoicesData, isLoading: invoicesLoading } = useInvoices({ status: 'pending_confirmation', limit: 200 });
-  const pendingInvoices: ChapanInvoice[] = (invoicesData?.results ?? []).filter((inv) => !inv.warehouseConfirmed);
+  const pendingInvoices: ChapanInvoice[] = useMemo(
+    () => (invoicesData?.results ?? []).filter((inv) => !inv.warehouseConfirmed),
+    [invoicesData?.results],
+  );
   const { data: whOrdersData, isLoading: whOrdersLoading } = useOrders({ status: 'on_warehouse', limit: 200 });
-  const warehouseOrders: ChapanOrder[] = whOrdersData?.results ?? [];
-  const toShipOrders = warehouseOrders.filter((o) => o.paymentStatus === 'paid');
-  const unpaidOrders = warehouseOrders.filter((o) => o.paymentStatus !== 'paid');
+  const warehouseOrders: ChapanOrder[] = useMemo(() => whOrdersData?.results ?? [], [whOrdersData?.results]);
+  const toShipOrders = useMemo(
+    () => warehouseOrders.filter((o) => o.paymentStatus === 'paid'),
+    [warehouseOrders],
+  );
+  const unpaidOrders = useMemo(
+    () => warehouseOrders.filter((o) => o.paymentStatus !== 'paid'),
+    [warehouseOrders],
+  );
 
   // Partial warehouse orders
   const { data: partialWhData, isLoading: partialWhLoading } = useOrders({ hasWarehouseItems: true, limit: 200 });
-  const partialWarehouseOrders: ChapanOrder[] = partialWhData?.results ?? [];
+  const partialWarehouseOrders: ChapanOrder[] = useMemo(() => partialWhData?.results ?? [], [partialWhData?.results]);
 
-  const items = itemsData?.results ?? [];
-  const movements = movData?.results ?? [];
-  const alerts = alertsData?.results ?? [];
+  const items = useMemo(() => itemsData?.results ?? [], [itemsData?.results]);
+  const movements = useMemo(() => movData?.results ?? [], [movData?.results]);
+  const alerts = useMemo(() => alertsData?.results ?? [], [alertsData?.results]);
   const alertCount = alerts.length;
   const incomingCount = pendingInvoices.length;
-  const totalUnits = items.reduce((sum, i) => sum + i.qty, 0);
+  const totalUnits = useMemo(() => items.reduce((sum, i) => sum + i.qty, 0), [items]);
 
   function handleExportItems() {
     exportToCSV(items.map(i => ({

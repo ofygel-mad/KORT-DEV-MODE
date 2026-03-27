@@ -59,7 +59,7 @@ export interface SceneThemeControllerOptions {
   accentLight: THREE.DirectionalLight;
   // Renderer
   renderer: THREE.WebGLRenderer;
-  bloomPass: UnrealBloomPass;
+  bloomPass: UnrealBloomPass | null;
   sceneFog: THREE.FogExp2;
   // Dependencies
   getState: () => WorkspaceSceneRuntimeState;
@@ -115,7 +115,7 @@ export class SceneThemeController {
 
   // Renderer
   private readonly renderer: THREE.WebGLRenderer;
-  private readonly bloomPass: UnrealBloomPass;
+  private readonly bloomPass: UnrealBloomPass | null;
   private readonly host: HTMLElement;
 
   // Dependencies
@@ -397,9 +397,11 @@ export class SceneThemeController {
     this.accentLight.intensity = 0.2 + lightningFlash * 0.95;
 
     // ── Bloom & post ────────────────────────────────────────────────────────
-    this.bloomPass.strength += (
-      Math.min(theme.bloomStrength + bloomSpike + voidAura * 0.9, 1.2) - this.bloomPass.strength
-    ) * lerpSpeed;
+    if (this.bloomPass) {
+      this.bloomPass.strength += (
+        Math.min(theme.bloomStrength + bloomSpike + voidAura * 0.9, 1.2) - this.bloomPass.strength
+      ) * lerpSpeed;
+    }
     const nextLightningOpacity = denseFogTheme ? String(Math.min(0.82, lightningFlash * 0.44)) : '0';
     if (this.lightningOverlay.style.opacity !== nextLightningOpacity) {
       this.lightningOverlay.style.opacity = nextLightningOpacity;

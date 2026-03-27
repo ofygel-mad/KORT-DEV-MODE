@@ -46,8 +46,8 @@ export class WorkspaceSceneRuntime {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(54, 1, 0.1, 1800);
   private readonly renderer: THREE.WebGLRenderer;
-  private readonly composer: EffectComposer;
-  private readonly bloomPass: UnrealBloomPass;
+  private readonly composer: EffectComposer | null;
+  private readonly bloomPass: UnrealBloomPass | null;
   private readonly clock = new THREE.Clock();
   private readonly terrainGroup = new THREE.Group();
   private readonly raycaster = new THREE.Raycaster();
@@ -94,16 +94,18 @@ export class WorkspaceSceneRuntime {
   private mounted = true;
   private pendingDelta = 0;
   private paused = false;
+  private readonly qualityProfile: WorkspaceSceneRuntimeOptions['qualityProfile'];
 
   constructor(options: WorkspaceSceneRuntimeOptions) {
     this.canvas = options.canvas;
     this.host = options.host;
+    this.qualityProfile = options.qualityProfile;
     const initialTheme = WORKSPACE_SCENE_THEMES.default;
 
     // ── Renderer ───────────────────────────────────────────────────────────
     const renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
-      antialias: true,
+      antialias: options.qualityProfile.antialias,
       alpha: true,
       powerPreference: 'high-performance',
     });
@@ -113,12 +115,17 @@ export class WorkspaceSceneRuntime {
     renderer.setClearColor(0x000000, 0);
     this.renderer = renderer;
 
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), initialTheme.bloomStrength, 0.3, 0.6);
-    this.bloomPass = bloomPass;
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(this.scene, this.camera));
-    composer.addPass(bloomPass);
-    this.composer = composer;
+    if (options.qualityProfile.enableBloom) {
+      const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), initialTheme.bloomStrength, 0.3, 0.6);
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(this.scene, this.camera));
+      composer.addPass(bloomPass);
+      this.bloomPass = bloomPass;
+      this.composer = composer;
+    } else {
+      this.bloomPass = null;
+      this.composer = null;
+    }
 
     this.scene.fog = new THREE.FogExp2(initialTheme.fog, initialTheme.fogDensity);
 
@@ -282,11 +289,11 @@ export class WorkspaceSceneRuntime {
     this.inputController.updateCachedRect(this.canvas.getBoundingClientRect());
     this.camera.aspect = safeWidth / safeHeight;
     this.camera.updateProjectionMatrix();
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.qualityProfile.maxPixelRatio));
     this.renderer.setSize(safeWidth, safeHeight, false);
-    this.composer.setSize(safeWidth, safeHeight);
-    this.bloomPass.setSize(Math.ceil(safeWidth / 2), Math.ceil(safeHeight / 2));
-    this.composer.render();
+    this.composer?.setSize(safeWidth, safeHeight);
+    this.bloomPass?.setSize(Math.ceil(safeWidth / 2), Math.ceil(safeHeight / 2));
+    this.renderFrame();
   }
 
   setState(nextState: WorkspaceSceneRuntimeState) {
@@ -304,6 +311,9 @@ export class WorkspaceSceneRuntime {
     }
 
     this.flightTileController.syncAnchors(previous.tiles, nextState.tiles, themeChanged);
+    if (this.paused) {
+      this.renderFrame();
+    }
   }
 
   pause() {
@@ -355,7 +365,9 @@ export class WorkspaceSceneRuntime {
       && (terrainIdle.fullyCollapsed || terrainIdle.staticRest);
 
     if (sceneIdle) {
-      const skipInterval = terrainIdle.fullyCollapsed ? 3 : 2;
+      const skipInterval = terrainIdle.fullyCollapsed
+        ? (this.qualityProfile.tier === 'low' ? 8 : this.qualityProfile.tier === 'balanced' ? 5 : 3)
+        : (this.qualityProfile.tier === 'low' ? 4 : 2);
       if (this.frameCount % skipInterval !== 0) {
         this.pendingDelta += rawDelta;
         return;
@@ -381,7 +393,7 @@ export class WorkspaceSceneRuntime {
     this.atmosphericsController.update(delta, time);
     this.flightTileController.update(delta);
 
-    this.composer.render();
+    this.renderFrame();
   };
 
   // ── Private: flight mode ──────────────────────────────────────────────────
@@ -405,7 +417,7 @@ export class WorkspaceSceneRuntime {
   private disposeSceneResources() {
     this.softDotTexture.dispose();
     this.renderer.dispose();
-    this.composer.dispose();
+    this.composer?.dispose();
     this.surfaceLOD.geometry.dispose();
     this.flightLOD.geometry.dispose();
     disposeMeshes(
@@ -420,5 +432,13 @@ export class WorkspaceSceneRuntime {
       this.terrain.boundaryFog,
       this.terrain.terrainFogLayer,
     );
+  }
+
+  private renderFrame() {
+    if (this.composer) {
+      this.composer.render();
+      return;
+    }
+    this.renderer.render(this.scene, this.camera);
   }
 }

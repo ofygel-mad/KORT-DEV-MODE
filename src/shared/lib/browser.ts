@@ -14,6 +14,50 @@ export function getNavigator() {
   return hasWindow ? window.navigator : undefined;
 }
 
+export type DevicePerformanceTier = 'low' | 'balanced' | 'high';
+
+export interface DevicePerformanceProfile {
+  tier: DevicePerformanceTier;
+  reducedMotion: boolean;
+  hardwareConcurrency: number | null;
+  deviceMemory: number | null;
+  maxPixelRatio: number;
+  antialias: boolean;
+  enableBloom: boolean;
+  preferMinimalMotion: boolean;
+  flightProjectionIntervalMs: number;
+}
+
+export function getDevicePerformanceProfile(): DevicePerformanceProfile {
+  const nav = getNavigator() as (Navigator & { deviceMemory?: number }) | undefined;
+  const hardwareConcurrency = typeof nav?.hardwareConcurrency === 'number' ? nav.hardwareConcurrency : null;
+  const deviceMemory = typeof nav?.deviceMemory === 'number' ? nav.deviceMemory : null;
+  const reducedMotion = hasWindow && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+
+  const lowTier = reducedMotion
+    || (hardwareConcurrency !== null && hardwareConcurrency <= 4)
+    || (deviceMemory !== null && deviceMemory <= 4);
+  const balancedTier = !lowTier && (
+    (hardwareConcurrency !== null && hardwareConcurrency <= 8)
+    || (deviceMemory !== null && deviceMemory <= 8)
+  );
+  const tier: DevicePerformanceTier = lowTier ? 'low' : balancedTier ? 'balanced' : 'high';
+
+  return {
+    tier,
+    reducedMotion,
+    hardwareConcurrency,
+    deviceMemory,
+    maxPixelRatio: tier === 'low' ? 1 : tier === 'balanced' ? 1.25 : 1.5,
+    antialias: tier === 'high',
+    enableBloom: tier !== 'low',
+    preferMinimalMotion: reducedMotion || tier === 'low',
+    flightProjectionIntervalMs: tier === 'low' ? 96 : tier === 'balanced' ? 64 : 48,
+  };
+}
+
 export function addDocumentListener<K extends keyof DocumentEventMap>(
   type: K,
   listener: (event: DocumentEventMap[K]) => void,

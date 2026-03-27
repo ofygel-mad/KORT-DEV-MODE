@@ -59,9 +59,6 @@ export const WorkspaceTile = memo(function WorkspaceTile({ tile, presentation = 
   const dragStart = useRef<{ mx: number; my: number; tx: number; ty: number; draggable: boolean } | null>(null);
   const hasDragged = useRef(false);
 
-  const zoom = useWorkspaceStore((s) => s.zoom);
-  const viewport = useWorkspaceStore((s) => s.viewport);
-  const viewportSize = useWorkspaceStore((s) => s.viewportSize);
   const setTilePosition = useWorkspaceStore((s) => s.setTilePosition);
   const bringToFront = useWorkspaceStore((s) => s.bringToFront);
   const markTileActive = useWorkspaceStore((s) => s.markTileActive);
@@ -124,6 +121,7 @@ export const WorkspaceTile = memo(function WorkspaceTile({ tile, presentation = 
       }
     }
     if (hasDragged.current && dragStart.current.draggable) {
+      const { zoom, viewport, viewportSize } = useWorkspaceStore.getState();
       const proposedX = dragStart.current.tx + dx / zoom;
       const proposedY = dragStart.current.ty + dy / zoom;
       const insets = resolveInteractiveInsets();

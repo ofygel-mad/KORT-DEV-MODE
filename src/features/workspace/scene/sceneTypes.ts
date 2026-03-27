@@ -1,4 +1,5 @@
 import type * as THREE from 'three';
+import type { DevicePerformanceProfile } from '../../../shared/lib/browser';
 import type {
   WorkspaceTileDistance,
   WorkspaceTileStatus,
@@ -33,6 +34,7 @@ export interface WorkspaceSceneRuntimeState {
 export interface WorkspaceSceneRuntimeOptions {
   canvas: HTMLCanvasElement;
   host: HTMLElement;
+  qualityProfile: DevicePerformanceProfile;
   onFlightTileProjection?: (tiles: WorkspaceSceneFlightTileProjection[]) => void;
 }
 

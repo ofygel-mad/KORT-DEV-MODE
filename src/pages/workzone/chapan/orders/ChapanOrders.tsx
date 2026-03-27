@@ -1,4 +1,4 @@
-import { useState, useDeferredValue, useEffect, useRef } from 'react';
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Check, LayoutGrid, Layers, List, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useOrders } from '../../../../entities/order/queries';
@@ -34,6 +34,9 @@ function fmtDate(d: string | null) {
   if (!d) return '';
   return new Date(d).toLocaleDateString('ru-KZ', { day: '2-digit', month: 'short' });
 }
+
+const ORDER_MONEY_FORMATTER = new Intl.NumberFormat('ru-KZ', { maximumFractionDigits: 0 });
+const ORDER_DATE_FORMATTER = new Intl.DateTimeFormat('ru-KZ', { day: '2-digit', month: 'short' });
 
 type ViewMode = 'grid' | 'list';
 
@@ -113,8 +116,8 @@ export default function ChapanOrdersPage() {
   const viewPickerRef = useRef<HTMLDivElement>(null);
 
   const { data: alertsData } = useUnpaidAlerts();
-  const alerts = alertsData?.results ?? [];
-  const activeAlertOrderIds = new Set(alerts.map(a => a.orderId));
+  const alerts = useMemo(() => alertsData?.results ?? [], [alertsData?.results]);
+  const activeAlertOrderIds = useMemo(() => new Set(alerts.map((a) => a.orderId)), [alerts]);
 
   const deferred = useDeferredValue(search);
   const hasActiveFilters = Boolean(search || statusFilter || payFilter);
@@ -164,24 +167,30 @@ export default function ChapanOrdersPage() {
     archived: false,
     limit: 100,
   });
-  const orders: ChapanOrder[] = data?.results ?? [];
+  const orders: ChapanOrder[] = useMemo(() => data?.results ?? [], [data?.results]);
 
-  const newProductNames = [
+  const newProductNames = useMemo(() => [
     ...new Set(
       orders
         .filter((o) => o.status === 'new' || o.status === 'confirmed')
         .flatMap((o) => (o.items ?? []).map((i) => i.productName).filter((n): n is string => !!n)),
     ),
-  ];
+  ], [orders]);
   const { data: stockMap } = useProductsAvailability(newProductNames);
 
   const showToolbarCreateButton =
     isLoading || isError || hasActiveFilters || (data?.count ?? 0) > 0;
 
-  const displayGroups: DisplayGroup[] = grouped ? buildGroups(orders) : orders.map(o => ({ kind: 'single', order: o }));
-  const batchCount = displayGroups.filter(g => g.kind === 'batch').length;
+  const displayGroups: DisplayGroup[] = useMemo(
+    () => (grouped ? buildGroups(orders) : orders.map((order) => ({ kind: 'single', order }))),
+    [grouped, orders],
+  );
+  const batchCount = useMemo(
+    () => displayGroups.filter((group) => group.kind === 'batch').length,
+    [displayGroups],
+  );
 
-  const currentView = VIEW_OPTIONS.find(v => v.key === viewMode)!;
+  const currentView = useMemo(() => VIEW_OPTIONS.find((v) => v.key === viewMode)!, [viewMode]);
 
   return (
     <div className={styles.root}>
@@ -324,7 +333,7 @@ export default function ChapanOrdersPage() {
             <div className={styles.grid}>
               {displayGroups.map((g, i) =>
                 g.kind === 'single'
-                  ? <OrderCard key={g.order.id} order={g.order} onClick={() => setSelectedOrderId(g.order.id)} hasAlert={activeAlertOrderIds.has(g.order.id)} stockMap={stockMap} />
+                  ? <OrderCard key={g.order.id} order={g.order} onSelectOrder={setSelectedOrderId} hasAlert={activeAlertOrderIds.has(g.order.id)} stockMap={stockMap} />
                   : <BatchCard key={`batch-${i}`} group={g} onSelectOrder={setSelectedOrderId} />
               )}
             </div>
@@ -332,7 +341,7 @@ export default function ChapanOrdersPage() {
             <div className={styles.list}>
               {displayGroups.map((g, i) =>
                 g.kind === 'single'
-                  ? <OrderRow key={g.order.id} order={g.order} onClick={() => setSelectedOrderId(g.order.id)} hasAlert={activeAlertOrderIds.has(g.order.id)} stockMap={stockMap} />
+                  ? <OrderRow key={g.order.id} order={g.order} onSelectOrder={setSelectedOrderId} hasAlert={activeAlertOrderIds.has(g.order.id)} stockMap={stockMap} />
                   : <BatchRow key={`batch-${i}`} group={g} onSelectOrder={setSelectedOrderId} />
               )}
             </div>
@@ -430,7 +439,7 @@ export default function ChapanOrdersPage() {
 
 // ── Single grid card ──────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick, hasAlert, stockMap }: { order: ChapanOrder; onClick: () => void; hasAlert?: boolean; stockMap?: ProductsAvailabilityMap }) {
+const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stockMap }: { order: ChapanOrder; onSelectOrder: (id: string) => void; hasAlert?: boolean; stockMap?: ProductsAvailabilityMap }) {
   const overdue = isOverdue(order.dueDate);
   const first = order.items?.[0];
   const more = (order.items?.length ?? 0) - 1;
@@ -441,7 +450,7 @@ function OrderCard({ order, onClick, hasAlert, stockMap }: { order: ChapanOrder;
     <button
       className={`${styles.card} ${hasAlert ? styles.cardAlert : ''}`}
       style={{ '--status-color': STATUS_COLOR[order.status] } as React.CSSProperties}
-      onClick={onClick}
+      onClick={() => onSelectOrder(order.id)}
     >
       <div className={styles.cardHead}>
         <span className={styles.cardNum}>#{order.orderNumber}</span>
@@ -480,11 +489,11 @@ function OrderCard({ order, onClick, hasAlert, stockMap }: { order: ChapanOrder;
       </div>
     </button>
   );
-}
+});
 
 // ── Batch grid card ───────────────────────────────────────────────────────────
 
-function BatchCard({ group, onSelectOrder }: { group: { orders: ChapanOrder[] }; onSelectOrder: (id: string) => void }) {
+const BatchCard = memo(function BatchCard({ group, onSelectOrder }: { group: { orders: ChapanOrder[] }; onSelectOrder: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const { orders } = group;
   const first = orders[0];
@@ -598,11 +607,11 @@ function BatchCard({ group, onSelectOrder }: { group: { orders: ChapanOrder[] };
       )}
     </div>
   );
-}
+});
 
 // ── Single list row ───────────────────────────────────────────────────────────
 
-function OrderRow({ order, onClick, hasAlert, stockMap }: { order: ChapanOrder; onClick: () => void; hasAlert?: boolean; stockMap?: ProductsAvailabilityMap }) {
+const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockMap }: { order: ChapanOrder; onSelectOrder: (id: string) => void; hasAlert?: boolean; stockMap?: ProductsAvailabilityMap }) {
   const overdue = isOverdue(order.dueDate);
   const first = order.items?.[0];
   const more = (order.items?.length ?? 0) - 1;
@@ -613,7 +622,7 @@ function OrderRow({ order, onClick, hasAlert, stockMap }: { order: ChapanOrder; 
     <button
       className={`${styles.row} ${hasAlert ? styles.rowAlert : ''}`}
       style={{ '--status-color': STATUS_COLOR[order.status] } as React.CSSProperties}
-      onClick={onClick}
+      onClick={() => onSelectOrder(order.id)}
     >
       <span className={styles.rowStripe} />
       <div className={styles.rowNum}>
@@ -664,11 +673,11 @@ function OrderRow({ order, onClick, hasAlert, stockMap }: { order: ChapanOrder; 
       </div>
     </button>
   );
-}
+});
 
 // ── Batch list row ────────────────────────────────────────────────────────────
 
-function BatchRow({ group, onSelectOrder }: { group: { orders: ChapanOrder[] }; onSelectOrder: (id: string) => void }) {
+const BatchRow = memo(function BatchRow({ group, onSelectOrder }: { group: { orders: ChapanOrder[] }; onSelectOrder: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const { orders } = group;
   const first = orders[0];
@@ -736,10 +745,10 @@ function BatchRow({ group, onSelectOrder }: { group: { orders: ChapanOrder[] }; 
       {expanded && (
         <div className={styles.batchRowExpanded}>
           {orders.map(o => (
-            <OrderRow key={o.id} order={o} onClick={() => onSelectOrder(o.id)} />
+            <OrderRow key={o.id} order={o} onSelectOrder={onSelectOrder} />
           ))}
         </div>
       )}
     </div>
   );
-}
+});

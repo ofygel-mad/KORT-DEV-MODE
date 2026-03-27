@@ -1,6 +1,7 @@
 import type { PointerEvent as ReactPointerEvent, WheelEvent } from 'react';
-import { memo, useEffect, useRef, useCallback, useState } from 'react';
+import { memo, startTransition, useEffect, useRef, useCallback, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { useDevicePerformance } from '../../../shared/hooks/useDevicePerformance';
 import { useWorkspaceStore, ZOOM_MIN, ZOOM_MAX } from '../model/store';
 import type { WorkspaceTile as WorkspaceTileType } from '../model/types';
 import type { WorkspaceSceneFlightTileProjection } from '../scene/sceneRuntime';
@@ -52,6 +53,8 @@ export const WorkspaceCanvas = memo(function WorkspaceCanvas() {
   const setHoveredTile     = useWorkspaceStore((s) => s.setHoveredTile);
 
   const [flightTileLayouts, setFlightTileLayouts] = useState<Record<string, WorkspaceFlightTileLayout>>({});
+  const lastFlightProjectionAtRef = useRef(0);
+  const performanceProfile = useDevicePerformance();
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -138,12 +141,18 @@ export const WorkspaceCanvas = memo(function WorkspaceCanvas() {
 
   const flightFrameCounter = useRef(0);
   const handleFlightTileProjection = useCallback((projectedTiles: WorkspaceSceneFlightTileProjection[]) => {
+    if (useWorkspaceStore.getState().sceneMode !== 'flight') return;
     flightFrameCounter.current += 1;
     if (flightFrameCounter.current % 3 !== 0) return;
-    setFlightTileLayouts(() => Object.fromEntries(
-      projectedTiles.map((t) => [t.id, { left: t.left, top: t.top, scale: t.scale, opacity: t.opacity, blur: t.blur, zIndex: t.zIndex, visible: t.visible }]),
-    ));
-  }, []);
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - lastFlightProjectionAtRef.current < performanceProfile.flightProjectionIntervalMs) return;
+    lastFlightProjectionAtRef.current = now;
+    startTransition(() => {
+      setFlightTileLayouts(() => Object.fromEntries(
+        projectedTiles.map((t) => [t.id, { left: t.left, top: t.top, scale: t.scale, opacity: t.opacity, blur: t.blur, zIndex: t.zIndex, visible: t.visible }]),
+      ));
+    });
+  }, [performanceProfile.flightProjectionIntervalMs]);
 
   const startPan = (e: ReactPointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;

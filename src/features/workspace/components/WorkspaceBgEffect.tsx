@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { ChevronLeft, Clock, CloudMoon, Plane, Sparkles } from 'lucide-react';
 import { readStorage } from '../../../shared/lib/browser';
+import { useDevicePerformance } from '../../../shared/hooks/useDevicePerformance';
 import { useWorkspaceStore, WORLD_FACTOR } from '../model/store';
 import { WorkspaceSceneRuntime, type WorkspaceSceneFlightTileProjection, type WorkspaceSceneTileDescriptor } from '../scene/sceneRuntime';
 import { WORKSPACE_SCENE_THEMES, WORKSPACE_SCENE_THEME_OPTIONS } from '../scene/sceneConfig';
@@ -66,7 +67,9 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<WorkspaceSceneRuntime | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
+  const offscreenRef = useRef(false);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const performance = useDevicePerformance();
 
   const tiles = useWorkspaceStore((state) => state.tiles);
   const viewportSize = useWorkspaceStore((state) => state.viewportSize);
@@ -111,6 +114,7 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
     const runtime = new WorkspaceSceneRuntime({
       canvas: canvasRef.current,
       host: layerRef.current,
+      qualityProfile: performance,
       onFlightTileProjection,
     });
     runtimeRef.current = runtime;
@@ -119,7 +123,7 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
       runtime.dispose();
       runtimeRef.current = null;
     };
-  }, [onFlightTileProjection]);
+  }, [onFlightTileProjection, performance]);
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -207,7 +211,7 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
     const runtime = runtimeRef.current;
     if (!runtime) return;
 
-    const shouldPause = tabHiddenRef.current;
+    const shouldPause = tabHiddenRef.current || offscreenRef.current;
     if (shouldPause) {
       runtime.pause();
     } else {
@@ -221,7 +225,7 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
       const runtime = runtimeRef.current;
       if (!runtime) return;
 
-      const shouldPause = document.hidden;
+      const shouldPause = document.hidden || offscreenRef.current;
       if (shouldPause) {
         runtime.pause();
       } else {
@@ -231,6 +235,31 @@ export const WorkspaceBgEffect = memo(function WorkspaceBgEffect({ onFlightTileP
 
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
+  useEffect(() => {
+    const node = layerRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        offscreenRef.current = !entry?.isIntersecting;
+        const runtime = runtimeRef.current;
+        if (!runtime) return;
+
+        if (tabHiddenRef.current || offscreenRef.current) {
+          runtime.pause();
+        } else {
+          runtime.resume();
+        }
+      },
+      { threshold: 0.01 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
 
   // Push hoveredTileId focus to scene without causing React re-renders.
