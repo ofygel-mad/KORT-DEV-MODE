@@ -10,6 +10,7 @@ server/.env.*
 coverage
 playwright-report
 test-results
+*.tsbuildinfo
 npm-debug.log
 pnpm-debug.log
 *.log

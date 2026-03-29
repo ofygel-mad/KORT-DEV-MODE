@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { createRequire } from 'module';
+
+const _require = createRequire(import.meta.url);
 
 function getPackageName(id: string) {
   const parts = id.split('node_modules/');
@@ -121,7 +124,12 @@ function getVendorChunkName(id: string, pkg: string) {
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: { '@': path.resolve(__dirname, 'src') },
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+      'react': path.dirname(_require.resolve('react/package.json')),
+      'react-dom': path.dirname(_require.resolve('react-dom/package.json')),
+    },
+    dedupe: ['react', 'react-dom', 'react-router-dom'],
   },
   build: {
     // The dashboard ships a dedicated Three.js runtime chunk, so keep the warning
@@ -158,5 +166,15 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['tests/e2e/**', '**/node_modules/**', 'dist/**'],
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
+    server: {
+      deps: {
+        inline: [/./],
+      },
+    },
   },
 });

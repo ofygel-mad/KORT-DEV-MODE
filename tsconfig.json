@@ -22,6 +22,11 @@
   "exclude": [
     "node_modules",
     "dist",
+    "src/test",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
     // ── Obsolete SPA layers (replaced by src/entities + src/pages/crm/) ──────
     "src/features/accounting-spa",
     "src/features/chapan-spa",
