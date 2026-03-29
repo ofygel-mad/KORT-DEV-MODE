@@ -281,7 +281,7 @@ function ToShipTab({ paidOrders, unpaidOrders }: { paidOrders: ChapanOrder[]; un
                   <button
                     type="button"
                     className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-                    onClick={(e) => { e.stopPropagation(); shipOrder.mutate(order.id); }}
+                    onClick={(e) => { e.stopPropagation(); shipOrder.mutate({ id: order.id }); }}
                     disabled={shipOrder.isPending}
                   >
                     <Send size={12} />
