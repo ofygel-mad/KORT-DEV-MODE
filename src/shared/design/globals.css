@@ -520,7 +520,7 @@
    RESET + BASE
    ═══════════════════════════════════════════════════════════════════════ */
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
-html { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility; }
+html { -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 body {
   background: var(--bg-canvas);
   color: var(--text-primary);
@@ -528,6 +528,7 @@ body {
   font-size: var(--text-size-md);
   line-height: 1.5;
   min-height: 100vh;
+  overflow-x: clip;
 }
 
 /* ── Mobile / touch base ────────────────────────────────────────── */

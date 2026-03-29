@@ -29,7 +29,7 @@ const VALID_SCENE_THEMES = new Set<WorkspaceSceneTheme>(['default', 'morning', '
 const VALID_SCENE_TERRAIN_MODES = new Set<WorkspaceSceneTerrainMode>(['full', 'calm', 'void']);
 const VALID_TILE_STATUSES = new Set<WorkspaceTileStatus>(['floating', 'drifting', 'idle']);
 
-const TILE_SIZE = { width: 260, height: 168 };
+const TILE_SIZE = { width: 260, height: 170 };
 
 const DEFAULT_TILE_SIZE: Record<WorkspaceWidgetKind, { width: number; height: number }> = {
   leads: TILE_SIZE,

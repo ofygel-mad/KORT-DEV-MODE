@@ -7,13 +7,21 @@ import ChapanOrdersPage from './ChapanOrders';
 const navigateMock = vi.fn();
 const useOrdersMock = vi.fn();
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => navigateMock,
-  };
-});
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => navigateMock,
+}));
+
+vi.mock('@/shared/stores/auth', () => ({
+  useAuthStore: (selector: (s: { user: { id: string } | null; membership: { role: string } }) => unknown) =>
+    selector({ user: { id: 'user-1' }, membership: { role: 'owner' } }),
+}));
+
+vi.mock('../../../../features/workzone/chapan/store', () => ({
+  useChapanUiStore: () => ({
+    selectedOrderId: null,
+    setSelectedOrderId: vi.fn(),
+  }),
+}));
 
 vi.mock('../../../../entities/order/queries', () => ({
   useOrders: (params: unknown) => useOrdersMock(params),
@@ -21,6 +29,10 @@ vi.mock('../../../../entities/order/queries', () => ({
 
 vi.mock('../../../../entities/warehouse/queries', () => ({
   useProductsAvailability: () => ({ data: undefined }),
+}));
+
+vi.mock('../../../../entities/alert/queries', () => ({
+  useUnpaidAlerts: () => ({ data: undefined }),
 }));
 
 function buildOrder(): ChapanOrder {

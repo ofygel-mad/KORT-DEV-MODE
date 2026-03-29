@@ -9,7 +9,7 @@ import styles from './AddEmployeeModal.module.css';
 
 // ─── Константы ───────────────────────────────────────────────────────────────
 
-const PERMISSION_OPTIONS: Array<{ key: EmployeePermission; label: string; description: string }> = [
+const PERMISSION_OPTIONS: Array<{ key: EmployeePermission; label: string; description: string; group?: string }> = [
   {
     key: 'full_access',
     label: 'Полный доступ',
@@ -32,13 +32,68 @@ const PERMISSION_OPTIONS: Array<{ key: EmployeePermission; label: string; descri
   },
   {
     key: 'warehouse_manager',
-    label: 'Завсклад',
+    label: 'Склад',
     description: 'Приёмка товара, хранение на складе, отгрузка клиентам.',
   },
   {
     key: 'observer',
     label: 'Наблюдатель',
     description: 'Просмотр всех разделов без права редактирования.',
+  },
+  // ─── Чапан ───
+  {
+    key: 'chapan_full_access',
+    label: 'Чапан: полный доступ',
+    description: 'Все разделы модуля Чапан без ограничений.',
+    group: 'Чапан',
+  },
+  {
+    key: 'chapan_access_orders',
+    label: 'Чапан: Заказы',
+    description: 'Просмотр списка заказов, создание и редактирование заказов.',
+    group: 'Чапан',
+  },
+  {
+    key: 'chapan_access_production',
+    label: 'Чапан: Производство',
+    description: 'Доступ к производственным задачам и ходу выполнения заказов.',
+    group: 'Чапан',
+  },
+  {
+    key: 'chapan_access_ready',
+    label: 'Чапан: Готово',
+    description: 'Работа с готовыми заказами, передачей и выдачей.',
+    group: 'Чапан',
+  },
+  {
+    key: 'chapan_access_archive',
+    label: 'Чапан: Архив',
+    description: 'Просмотр архивных заказов и возврат из архива.',
+    group: 'Чапан',
+  },
+  {
+    key: 'chapan_access_warehouse_nav',
+    label: 'Чапан: Ссылка на Склад',
+    description: 'Видит кнопку перехода на Склад из модуля Чапан.',
+    group: 'Чапан',
+  },
+  {
+    key: 'chapan_manage_production',
+    label: 'Чапан: Управление производством',
+    description: 'Назначение исполнителей и управление этапами производства.',
+    group: 'Чапан',
+  },
+  {
+    key: 'chapan_confirm_invoice',
+    label: 'Чапан: Подтверждение накладных',
+    description: 'Подтверждение отгрузок по накладным со стороны Чапана.',
+    group: 'Чапан',
+  },
+  {
+    key: 'chapan_manage_settings',
+    label: 'Чапан: Настройки модуля',
+    description: 'Изменение настроек рабочего модуля Чапан.',
+    group: 'Чапан',
   },
 ];
 

@@ -26,6 +26,11 @@ export interface ChapanOrder {
   paidAmount: number;
   dueDate: string | null;          // was: deadline
   streetAddress: string | null;
+  city: string | null;
+  deliveryType: string | null;
+  source: string | null;
+  expectedPaymentMethod: string | null;
+  shippingNote: string | null;
   cancelReason: string | null;
   completedAt: string | null;
   cancelledAt: string | null;
@@ -140,7 +145,10 @@ export interface CreateOrderDto {
   orderDate?: string;
   dueDate?: string;            // ISO date: '2026-03-25'
   streetAddress?: string;
-  postalCode?: string;
+  city?: string;
+  deliveryType?: string;
+  source?: string;
+  expectedPaymentMethod?: string;
   totalAmount?: number;
   orderDiscount?: number;
   prepayment?: number;
@@ -246,7 +254,7 @@ export interface ListResponse<T> {
 
 // ── Invoice (Накладная) types ────────────────────────────────────────────────
 
-export type InvoiceStatus = 'pending_confirmation' | 'confirmed' | 'rejected';
+export type InvoiceStatus = 'pending_confirmation' | 'confirmed' | 'rejected' | 'archived';
 
 export interface InvoiceDocumentColumns {
   itemNumber: string;

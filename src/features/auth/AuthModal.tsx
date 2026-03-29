@@ -42,7 +42,7 @@ import styles from './AuthModal.module.css';
  * Намеренно удалены: 'choose-type' и 'employee'
  * (сотрудники регистрируются только через администратора в настройках)
  */
-type Step = 'login' | 'pin' | 'company' | 'set-password';
+type Step = 'login' | 'pin' | 'company' | 'set-password' | 'forgot';
 type BrandScene = 'network' | 'briefing' | 'flow' | 'metrics';
 
 interface AuthModalProps {
@@ -367,6 +367,10 @@ export function AuthModal({ open, onClose, onAuthSuccess, initialStep }: AuthMod
   const [firstLoginTempToken, setFirstLoginTempToken] = useState('');
   const [firstLoginUserName, setFirstLoginUserName] = useState('');
 
+  // ── Forgot password state ─────────────────────────────────────────────────
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+
   // ── Company registration state ────────────────────────────────────────────
   const [companyName, setCompanyName] = useState('');
   const [companyOwnerName, setCompanyOwnerName] = useState('');
@@ -515,9 +519,26 @@ export function AuthModal({ open, onClose, onAuthSuccess, initialStep }: AuthMod
     }
   }
 
+  // ── Forgot password submit ─────────────────────────────────────────────────
+  async function submitForgotPassword() {
+    const email = forgotEmail.trim();
+    if (!email) { setError('Введите email.'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      await api.post('/auth/forgot-password/', { email: email.toLowerCase() });
+      setForgotSent(true);
+    } catch (cause) {
+      setError(readAuthError(cause, 'Не удалось отправить письмо. Попробуйте позже.'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const backTarget: Partial<Record<Step, Step>> = {
     company: 'login',
     pin: 'login',
+    forgot: 'login',
     // set-password намеренно не имеет кнопки «Назад» — нельзя вернуться
     // к состоянию до первого входа без повторной авторизации
   };
@@ -690,7 +711,13 @@ export function AuthModal({ open, onClose, onAuthSuccess, initialStep }: AuthMod
                   )}
 
                   <div className={styles.footerRow}>
-                    <span>Регистрируете компанию?</span>
+                    <button
+                      type="button"
+                      className={styles.linkButton}
+                      onClick={() => { setError(''); setForgotSent(false); setForgotEmail(''); setStep('forgot'); }}
+                    >
+                      Забыли пароль?
+                    </button>
                     <button
                       type="button"
                       className={styles.linkButton}
@@ -784,6 +811,48 @@ export function AuthModal({ open, onClose, onAuthSuccess, initialStep }: AuthMod
                     onSuccess={applySession}
                   />
                 </div>
+              )}
+
+              {/* ── Forgot password step ── */}
+              {step === 'forgot' && (
+                <form
+                  className={styles.stepContent}
+                  onSubmit={(e) => { e.preventDefault(); void submitForgotPassword(); }}
+                >
+                  <div className={styles.stepHeader}>
+                    <h2 className={styles.title}>Восстановление пароля</h2>
+                    <p className={styles.subtitle}>
+                      Введите email, указанный при регистрации компании. Пришлём ссылку для сброса пароля.
+                    </p>
+                  </div>
+
+                  {!forgotSent ? (
+                    <>
+                      <div className={styles.formFields}>
+                        <input
+                          className={styles.input}
+                          type="email"
+                          inputMode="email"
+                          autoComplete="email"
+                          value={forgotEmail}
+                          onChange={(e) => { setForgotEmail(e.target.value); setError(''); }}
+                          placeholder="Email *"
+                          autoFocus
+                        />
+                      </div>
+                      {error && <div className={styles.errorMessage}>{error}</div>}
+                      <button type="submit" className={styles.primaryButton} disabled={loading}>
+                        <KeyRound size={16} />
+                        {loading ? 'Отправляем...' : 'Отправить ссылку'}
+                      </button>
+                    </>
+                  ) : (
+                    <div className={styles.pinInfo}>
+                      Письмо отправлено на <strong>{forgotEmail}</strong>.<br />
+                      Проверьте входящие (и папку «Спам»). Ссылка действительна 1 час.
+                    </div>
+                  )}
+                </form>
               )}
             </div>
 

@@ -1,31 +1,45 @@
-import type { InviteContext, Membership, MembershipRole, Org, OrgSummary, User } from '../stores/auth';
+import type {
+  InviteContext,
+  Membership,
+  MembershipRole,
+  Org,
+  OrgSummary,
+  User,
+} from '../stores/auth';
 
-// ─── Employee permissions ────────────────────────────────────────────────────
-/** Права доступа сотрудника, назначаемые администратором через чекбоксы */
 export type EmployeePermission =
-  | 'full_access'         // Полный доступ — эквивалент прав руководителя
-  | 'financial_report'    // Финансовый отчёт — Excel-импорт/экспорт, аналитика
-  | 'sales'               // Продажи — лиды, сделки, заявки, сводки
-  | 'production'          // Производство — раздел производства
-  | 'warehouse_manager'   // Завсклад — приёмка, хранение, отгрузка
-  | 'observer';           // Наблюдатель — просмотр без права редактирования
+  | 'full_access'
+  | 'financial_report'
+  | 'sales'
+  | 'production'
+  | 'warehouse_manager'
+  | 'observer'
+  | 'chapan_full_access'
+  | 'chapan_access_orders'
+  | 'chapan_access_production'
+  | 'chapan_access_ready'
+  | 'chapan_access_archive'
+  | 'chapan_access_warehouse_nav'
+  | 'chapan_manage_production'
+  | 'chapan_confirm_invoice'
+  | 'chapan_manage_settings';
 
 export type EmployeeAccountStatus = 'active' | 'pending_first_login' | 'dismissed';
 
 export interface EmployeeRecord {
   id: string;
   full_name: string;
-  phone: string;               // нормализованный +7XXXXXXXXXX
+  phone: string;
   department: string;
   permissions: EmployeePermission[];
   account_status: EmployeeAccountStatus;
   added_by_id: string;
-  added_by_name: string;       // имя администратора, добавившего сотрудника
-  created_at: string;          // ISO timestamp
+  added_by_name: string;
+  created_at: string;
 }
 
 export interface CreateEmployeePayload {
-  phone: string;               // нормализованный +7XXXXXXXXXX
+  phone: string;
   full_name: string;
   department: string;
   permissions: EmployeePermission[];
@@ -36,15 +50,9 @@ export interface UpdateEmployeePayload {
   permissions?: EmployeePermission[];
 }
 
-// ─── First-login flow ────────────────────────────────────────────────────────
-/**
- * Бэкенд возвращает этот ответ вместо полной сессии, когда сотрудник
- * авторизуется через phone+phone (первый вход без пароля).
- * Фронтенд обязан перенаправить пользователя на SetPasswordStep.
- */
 export interface FirstLoginResponse {
   requires_password_setup: true;
-  temp_token: string;          // короткоживущий токен для /auth/set-password/
+  temp_token: string;
   user: {
     id: string;
     full_name: string;
@@ -52,15 +60,12 @@ export interface FirstLoginResponse {
   };
 }
 
-/** Объединённый тип ответа на POST /auth/login/ */
 export type LoginApiResponse = AuthSessionResponse | FirstLoginResponse;
 
-/** Type guard для определения first-login ответа */
 export function isFirstLoginResponse(value: LoginApiResponse | null): value is FirstLoginResponse {
   return Boolean(value && (value as FirstLoginResponse).requires_password_setup === true);
 }
 
-// ─── Auth session ────────────────────────────────────────────────────────────
 export interface AuthSessionResponse {
   access: string;
   refresh: string;

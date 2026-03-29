@@ -120,6 +120,23 @@
   background: var(--ch-accent-soft);
 }
 
+.archiveToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--ch-surface);
+  border: 1px solid var(--ch-border);
+  border-radius: 8px;
+  color: var(--ch-text-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 140ms, background 140ms, color 140ms;
+}
+.archiveToggle:hover { border-color: var(--ch-plat-border); color: var(--ch-text); }
+
 /* ── Select mode toggle ── */
 .selectToggleActive {
   color: #4FC999;
@@ -180,6 +197,21 @@
   font-weight: 700;
   color: var(--ch-text);
   letter-spacing: .04em;
+}
+
+.workshopBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #E5922A 14%, transparent);
+  border: 1px solid color-mix(in srgb, #E5922A 30%, transparent);
+  color: #E5922A;
+  white-space: nowrap;
 }
 
 .statusBadge {

@@ -159,6 +159,30 @@
     padding-bottom: calc(var(--bottom-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + var(--space-4));
   }
 
+  .listHeader,
+  .detailHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .listTitle {
+    font-size: clamp(24px, 7vw, var(--text-size-2xl));
+  }
+
+  .listSubtitle {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .listActions {
+    width: 100%;
+  }
+
+  .listActions > * {
+    max-width: 100%;
+  }
+
   .settingsPage {
     grid-template-columns: 1fr;
   }
@@ -168,9 +192,17 @@
     flex-direction: row;
     overflow-x: auto;
     padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .settingsNav::-webkit-scrollbar,
+  .detailTabs::-webkit-scrollbar {
+    display: none;
   }
 
   .detailTabs {
     top: calc(var(--topbar-height) + 20px);
+    overflow-x: auto;
+    scrollbar-width: none;
   }
 }

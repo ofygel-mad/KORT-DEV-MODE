@@ -1,16 +1,17 @@
-import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Briefcase,
   CheckSquare,
-  Layers,
+  Home,
   LogOut,
-  MoreHorizontal,
+  Menu,
   Users,
   X,
 } from 'lucide-react';
 import { useAuthStore } from '../../shared/stores/auth';
 import {
+  CANVAS_NAV_ITEM,
   CHAPAN_NAV_ITEM,
   SETTINGS_NAV_ITEM,
   SIDEBAR_NAV_SECTIONS,
@@ -19,17 +20,33 @@ import { usePlan, planIncludes } from '../../shared/hooks/usePlan';
 import styles from './MobileNav.module.css';
 
 const PRIMARY_TABS = [
-  { to: '/',          icon: Layers,       label: 'Канвас',  end: true },
-  { to: '/crm/leads', icon: Users,        label: 'Лиды' },
-  { to: '/crm/deals', icon: Briefcase,    label: 'Сделки' },
-  { to: '/crm/tasks', icon: CheckSquare,  label: 'Задачи' },
+  { to: '/', icon: Home, label: 'Главная', end: true },
+  { to: '/crm/leads', icon: Users, label: 'Лиды' },
+  { to: '/crm/deals', icon: Briefcase, label: 'Сделки' },
+  { to: '/crm/tasks', icon: CheckSquare, label: 'Задачи' },
 ];
 
 export function MobileNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const plan = usePlan();
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    if (moreOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [moreOpen]);
 
   function handleLogout() {
     setMoreOpen(false);
@@ -61,11 +78,11 @@ export function MobileNav() {
         <button
           className={`${styles.navItem} ${moreOpen ? styles.navItemActive : ''}`}
           onClick={() => setMoreOpen(true)}
-          aria-label="Ещё"
+          aria-label="Меню"
           aria-expanded={moreOpen}
         >
-          <MoreHorizontal size={20} />
-          <span>Ещё</span>
+          <Menu size={20} />
+          <span>Меню</span>
         </button>
       </nav>
 
@@ -73,7 +90,7 @@ export function MobileNav() {
         <>
           <div className={styles.backdrop} onClick={closeDrawer} aria-hidden="true" />
 
-          <div className={styles.drawer} role="dialog" aria-label="Главное меню">
+          <div className={styles.drawer} role="dialog" aria-modal="true" aria-label="Главное меню">
             <div className={styles.drawerHandle} aria-hidden="true" />
 
             <div className={styles.drawerHeader}>
@@ -88,6 +105,23 @@ export function MobileNav() {
             </div>
 
             <div className={styles.drawerBody}>
+              <div className={styles.drawerSection}>
+                <div className={styles.drawerSectionLabel}>Главная</div>
+                <NavLink
+                  to={CANVAS_NAV_ITEM.to}
+                  end
+                  className={({ isActive }) =>
+                    `${styles.drawerItem} ${isActive ? styles.drawerItemActive : ''}`
+                  }
+                  onClick={closeDrawer}
+                >
+                  <span className={styles.drawerItemIcon}>
+                    <CANVAS_NAV_ITEM.icon size={16} />
+                  </span>
+                  Главное меню
+                </NavLink>
+              </div>
+
               {SIDEBAR_NAV_SECTIONS.map((section) => {
                 const visibleItems = section.items.filter((item) =>
                   planIncludes(plan, item.planTier),

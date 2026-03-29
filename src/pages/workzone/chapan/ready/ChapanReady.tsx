@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useRef, useState, type CSSProperties, type ElementType } from 'react';
-import { AlertTriangle, Bell, Check, CheckCheck, CheckCircle2, CheckSquare, Download, Eye, FileText, LayoutGrid, Layers, List, Plus, Search, Warehouse, X } from 'lucide-react';
+import { AlertTriangle, Archive, Bell, Check, CheckCheck, CheckCircle2, CheckSquare, Clock, Download, Eye, FileText, LayoutGrid, Layers, List, Plus, Search, Warehouse, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useChangeOrderStatus, useCloseOrder, useCreateInvoice, useOrders, usePreviewInvoiceDocument } from '../../../../entities/order/queries';
+import { useArchiveOrder, useChangeOrderStatus, useCloseOrder, useCreateInvoice, useOrders, usePreviewInvoiceDocument } from '../../../../entities/order/queries';
 import type { ChapanOrder, InvoiceDocumentPayload, OrderStatus, Priority } from '../../../../entities/order/types';
 import { useAuthStore } from '@/shared/stores/auth';
 import { useCreateUnpaidAlert } from '../../../../entities/alert/queries';
@@ -72,6 +72,10 @@ function getOrderBalance(order: Pick<ChapanOrder, 'totalAmount' | 'paidAmount'>)
 
 function isOverdue(date: string | null) {
   return !!date && new Date(date) < new Date();
+}
+
+function hasPendingProduction(order: ReadyOrder): boolean {
+  return (order.productionTasks ?? []).some(task => task.status !== 'done');
 }
 
 function buildItemSignature(orderItem: ChapanOrder['items'][number]) {
@@ -167,11 +171,12 @@ export default function ChapanReadyPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [closeUnpaidTarget, setCloseUnpaidTarget] = useState<{ ids: string[]; labels: string[]; balance: number } | null>(null);
-  const [transferBlockedOrders, setTransferBlockedOrders] = useState<string[] | null>(null);
+  const [workshopBlockedOrders, setWorkshopBlockedOrders] = useState<string[] | null>(null);
   const [batchPreviewOpen, setBatchPreviewOpen] = useState(false);
   const [batchPreviewDocument, setBatchPreviewDocument] = useState<InvoiceDocumentPayload | null>(null);
   const [batchPreviewSelectionKey, setBatchPreviewSelectionKey] = useState('');
   const setInvoicesDrawerOpen = useChapanUiStore((s) => s.setInvoicesDrawerOpen);
+  const openInvoicesDrawer = useChapanUiStore((s) => s.openInvoicesDrawer);
   const viewPickerRef = useRef<HTMLDivElement>(null);
 
   const deferredSearch = useDeferredValue(search);
@@ -224,6 +229,7 @@ export default function ChapanReadyPage() {
 
   const changeStatus = useChangeOrderStatus();
   const closeOrder = useCloseOrder();
+  const archiveOrder = useArchiveOrder();
   const notifyManager = useCreateUnpaidAlert();
   const createInvoice = useCreateInvoice();
   const previewInvoiceDocument = usePreviewInvoiceDocument();
@@ -236,25 +242,20 @@ export default function ChapanReadyPage() {
     ? buildGroups(orders)
     : orders.map((order) => ({ kind: 'single' as const, order }));
 
-  function getUnpaidTransferLabels(targetOrders: ReadyOrder[]) {
-    return targetOrders
-      .filter((order) => order.paymentStatus !== 'paid')
-      .map((order) => `#${order.orderNumber} — остаток: ${formatMoney(getOrderBalance(order))}`);
-  }
-
-  async function advancePaidOrders(targetOrders: ReadyOrder[]) {
+  async function advanceOrders(targetOrders: ReadyOrder[]) {
     for (const order of targetOrders) {
       const nextStatus = getNextStage(order.status);
       if (nextStatus) {
         await changeStatus.mutateAsync({ id: order.id, status: nextStatus });
+        await archiveOrder.mutateAsync(order.id);
       }
     }
   }
 
   async function dispatchReadyOrders(targetOrders: ReadyOrder[], onSuccess?: () => void) {
-    const unpaidLabels = getUnpaidTransferLabels(targetOrders);
-    if (unpaidLabels.length > 0) {
-      setTransferBlockedOrders(unpaidLabels);
+    const pendingWorkshop = targetOrders.filter(o => hasPendingProduction(o));
+    if (pendingWorkshop.length > 0) {
+      setWorkshopBlockedOrders(pendingWorkshop.map(o => `#${o.orderNumber}`));
       return;
     }
 
@@ -268,7 +269,7 @@ export default function ChapanReadyPage() {
       });
       setInvoicesDrawerOpen(true);
     } else {
-      await advancePaidOrders(targetOrders);
+      await advanceOrders(targetOrders);
     }
 
     onSuccess?.();
@@ -464,7 +465,15 @@ export default function ChapanReadyPage() {
             onClick={() => setInvoicesDrawerOpen(true)}
           >
             <FileText size={13} />
-            <span>Накладные</span>
+            <span>Накладная Ожидает приёмки</span>
+          </button>
+
+          <button
+            className={styles.archiveToggle}
+            onClick={() => openInvoicesDrawer('archived')}
+          >
+            <Archive size={13} />
+            <span>Архив накладных</span>
           </button>
         </div>
       </div>
@@ -579,10 +588,10 @@ export default function ChapanReadyPage() {
             <button
               className={`${styles.floatingAction} ${styles.floatingActionPrimary}`}
               onClick={handleTransferToWarehouse}
-              disabled={createInvoice.isPending}
+              disabled={createInvoice.isPending || selectedOrders.some(hasPendingProduction)}
             >
               <Warehouse size={13} />
-              {createInvoice.isPending ? 'Создание...' : `На склад (${selectedIds.size})`}
+              {selectedOrders.some(hasPendingProduction) ? 'Ждём цех' : createInvoice.isPending ? 'Создание...' : `На склад (${selectedIds.size})`}
             </button>
           </div>
         </div>
@@ -600,21 +609,21 @@ export default function ChapanReadyPage() {
         }}
       />
 
-      {transferBlockedOrders && (
-        <div className={styles.confirmOverlay} onClick={() => setTransferBlockedOrders(null)}>
+      {workshopBlockedOrders && (
+        <div className={styles.confirmOverlay} onClick={() => setWorkshopBlockedOrders(null)}>
           <div className={styles.confirmDialog} onClick={(e) => e.stopPropagation()}>
             <div className={styles.confirmTitle}>
-              <AlertTriangle size={16} />
-              Заказ не полностью оплачен
+              <Clock size={16} />
+              Ждём цех
             </div>
             <div className={styles.confirmText}>
-              Передача на склад невозможна, пока остаток не внесён полностью:
-              {transferBlockedOrders.map((label) => (
+              Передача на склад невозможна — производство ещё не завершено:
+              {workshopBlockedOrders.map((label) => (
                 <div key={label} className={styles.unpaidLine}>{label}</div>
               ))}
             </div>
             <div className={styles.confirmActions}>
-              <button className={styles.confirmSecondary} onClick={() => setTransferBlockedOrders(null)}>
+              <button className={styles.confirmSecondary} onClick={() => setWorkshopBlockedOrders(null)}>
                 Понятно
               </button>
             </div>
@@ -691,6 +700,7 @@ function ReadyCard({
   const firstItem = order.items?.[0];
   const moreItems = (order.items?.length ?? 0) - 1;
   const nextStageLabel = getStageActionLabel(order.status);
+  const isPendingWorkshop = hasPendingProduction(order);
 
   const handleClick = selectMode && onToggleSelect ? onToggleSelect : onOpen;
 
@@ -711,19 +721,18 @@ function ReadyCard({
       {isSelected && <span className={styles.selectCheckmark}><Check size={14} /></span>}
 
       <div className={styles.cardHead}>
-        <span className={styles.orderNumber}>#{order.orderNumber}</span>
         <span className={styles.statusBadge}>{STATUS_LABEL[order.status]}</span>
+        {isPendingWorkshop && (
+          <span className={styles.workshopBadge}><Clock size={10} /> Ждём цех</span>
+        )}
         {order.priority !== 'normal' && (
           <span className={styles.priorityBadge}>{PRIORITY_LABEL[order.priority]}</span>
         )}
       </div>
 
-      <div className={styles.clientName}>{order.clientName}</div>
-      <div className={styles.phone}>{order.clientPhone}</div>
-
       {firstItem && (
         <div className={styles.itemBlock}>
-          <span className={styles.itemName}>{firstItem.productName}</span>
+          <span className={styles.itemName}>{firstItem.productName} <span className={styles.orderNumber}>(#{order.orderNumber})</span></span>
           <span className={styles.itemMeta}>
             {[firstItem.fabric, firstItem.size].filter(Boolean).join(' · ')}
             {firstItem.quantity > 1 && ` × ${firstItem.quantity}`}
@@ -731,6 +740,9 @@ function ReadyCard({
           {moreItems > 0 && <span className={styles.itemMore}>+ еще {moreItems}</span>}
         </div>
       )}
+
+      <div className={styles.clientName}>{order.clientName}</div>
+      <div className={styles.phone}>{order.clientPhone}</div>
 
       <div className={styles.cardFoot}>
         <span className={styles.amount}>{formatMoney(order.totalAmount)}</span>
@@ -744,8 +756,8 @@ function ReadyCard({
 
       {!selectMode && (
         <div className={styles.actions} onClick={(event) => event.stopPropagation()}>
-          <button className={styles.primaryAction} onClick={onAdvance}>
-            На склад
+          <button className={styles.primaryAction} onClick={onAdvance} disabled={isPendingWorkshop}>
+            {isPendingWorkshop ? 'Ждём цех' : nextStageLabel}
           </button>
         </div>
       )}
@@ -779,6 +791,7 @@ function ReadyBatchCard({
   );
   const nextStageLabel = getStageActionLabel(firstOrder.status);
   const allSelected = selectedIds ? orders.every((o) => selectedIds.has(o.id)) : false;
+  const anyPendingWorkshop = orders.some(hasPendingProduction);
 
   const handleSummaryClick = selectMode && onToggleSelectMany
     ? onToggleSelectMany
@@ -803,6 +816,16 @@ function ReadyBatchCard({
           </div>
         )}
 
+        {orders.length <= 3 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+            {orders.map((o) => (
+              <span key={o.id} style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.7 }}>
+                #{o.orderNumber}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className={styles.batchMeta}>
           <span>{totalQuantity} шт.</span>
           <span>{formatDate(firstOrder.dueDate)}</span>
@@ -811,8 +834,8 @@ function ReadyBatchCard({
 
       {!selectMode && (
         <div className={styles.actions}>
-          <button className={styles.primaryAction} onClick={onAdvance}>
-            На склад ×{orders.length}
+          <button className={styles.primaryAction} onClick={onAdvance} disabled={anyPendingWorkshop}>
+            {anyPendingWorkshop ? 'Ждём цех' : `На склад ×${orders.length}`}
           </button>
         </div>
       )}
@@ -851,6 +874,7 @@ function ReadyRow({
 }) {
   const firstItem = order.items?.[0];
   const nextStageLabel = getStageActionLabel(order.status);
+  const isPendingWorkshop = hasPendingProduction(order);
 
   const handleClick = selectMode && onToggleSelect ? onToggleSelect : onOpen;
 
@@ -874,6 +898,9 @@ function ReadyRow({
           {isSelected && <Check size={13} className={styles.rowCheckmark} />}
           <span className={styles.orderNumber}>#{order.orderNumber}</span>
           <span className={styles.statusBadge}>{STATUS_LABEL[order.status]}</span>
+          {isPendingWorkshop && (
+            <span className={styles.workshopBadge}><Clock size={10} /> Ждём цех</span>
+          )}
           <span className={styles.payBadge} style={{ color: PAY_COLOR[order.paymentStatus] }}>
             {PAY_LABEL[order.paymentStatus]}
           </span>
@@ -888,8 +915,8 @@ function ReadyRow({
 
       {!selectMode && (
         <div className={styles.actions} onClick={(event) => event.stopPropagation()}>
-          <button className={styles.primaryAction} onClick={onAdvance}>
-            На склад
+          <button className={styles.primaryAction} onClick={onAdvance} disabled={isPendingWorkshop}>
+            {isPendingWorkshop ? 'Ждём цех' : nextStageLabel}
           </button>
         </div>
       )}
@@ -919,6 +946,7 @@ function ReadyBatchRow({
   const firstItem = firstOrder.items?.[0];
   const nextStageLabel = getStageActionLabel(firstOrder.status);
   const allSelected = selectedIds ? orders.every((o) => selectedIds.has(o.id)) : false;
+  const anyPendingWorkshop = orders.some(hasPendingProduction);
 
   const handleClick = selectMode && onToggleSelectMany
     ? onToggleSelectMany
@@ -955,8 +983,8 @@ function ReadyBatchRow({
 
         {!selectMode && (
           <div className={styles.actions} onClick={(event) => event.stopPropagation()}>
-            <button className={styles.primaryAction} onClick={onAdvance}>
-              На склад ×{orders.length}
+            <button className={styles.primaryAction} onClick={onAdvance} disabled={anyPendingWorkshop}>
+              {anyPendingWorkshop ? 'Ждём цех' : `На склад ×${orders.length}`}
             </button>
           </div>
         )}

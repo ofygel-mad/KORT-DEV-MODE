@@ -36,9 +36,10 @@ const SettingsPage   = makePage(() => import('../../pages/settings'));
 const OnboardingPage = makePage(() => import('../../pages/onboarding'));
 
 // Auth pages
-const LoginPage       = makePage(() => import('../../pages/auth/login'));
-const RegisterPage    = makePage(() => import('../../pages/auth/register'));
-const AcceptInvitePage = makePage(() => import('../../pages/auth/accept-invite'));
+const LoginPage         = makePage(() => import('../../pages/auth/login'));
+const RegisterPage      = makePage(() => import('../../pages/auth/register'));
+const AcceptInvitePage  = makePage(() => import('../../pages/auth/accept-invite'));
+const ResetPasswordPage = makePage(() => import('../../pages/auth/reset-password'));
 
 // Chapan Workzone — own layout
 const ChapanShell        = makePage(() => import('../../pages/workzone/chapan/ChapanShell'));
@@ -48,7 +49,6 @@ const ChapanOrderDetailPage = makePage(() => import('../../pages/workzone/chapan
 const ChapanEditOrderPage   = makePage(() => import('../../pages/workzone/chapan/orders/ChapanEditOrder'));
 const ChapanProductionPage  = makePage(() => import('../../pages/workzone/chapan/production/ChapanProduction'));
 const ChapanReadyPage       = makePage(() => import('../../pages/workzone/chapan/ready/ChapanReady'));
-const ChapanSettingsPage    = makePage(() => import('../../pages/workzone/chapan/settings/ChapanSettings'));
 const ChapanInvoicesPage    = makePage(() => import('../../pages/workzone/chapan/invoices/ChapanInvoices'));
 const ChapanArchivePage     = makePage(() => import('../../pages/workzone/chapan/archive/ChapanArchive'));
 
@@ -255,7 +255,7 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: 'settings',
-        element: <ChapanSettingsPage />,
+        element: <Navigate to="../orders" replace />,
       },
     ],
   },
@@ -264,6 +264,7 @@ export const appRouter = createBrowserRouter([
   { path: '/auth/login',         element: <LoginPage /> },
   { path: '/auth/register',      element: <RegisterPage /> },
   { path: '/auth/accept-invite', element: <AcceptInvitePage /> },
+  { path: '/reset-password',     element: <ResetPasswordPage /> },
 
   // ── Fallback ───────────────────────────────────────────
   { path: '*', element: <Navigate to="/" replace /> },

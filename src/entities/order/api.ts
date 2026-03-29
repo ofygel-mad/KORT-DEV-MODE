@@ -54,8 +54,13 @@ export const ordersApi = {
       notes: dto.note,
     }),
 
-  ship: (id: string) =>
-    api.post<{ ok: boolean }>(`/chapan/orders/${id}/ship`, {}),
+  ship: (id: string, data?: {
+    courierType?: string;
+    recipientName?: string;
+    recipientAddress?: string;
+    shippingNote?: string;
+  }) =>
+    api.post<{ ok: boolean }>(`/chapan/orders/${id}/ship`, data ?? {}),
 
   fulfillFromStock: (id: string) =>
     api.post<{ ok: boolean }>(`/chapan/orders/${id}/fulfill-from-stock`, {}),
@@ -141,6 +146,9 @@ export const invoicesApi = {
 
   reject: (id: string, reason: string) =>
     api.post<{ ok: boolean }>(`/chapan/invoices/${id}/reject`, { reason }),
+
+  archive: (id: string) =>
+    api.post<{ ok: boolean }>(`/chapan/invoices/${id}/archive`, {}),
 };
 
 // ── Change Requests ───────────────────────────────────────────────────────────

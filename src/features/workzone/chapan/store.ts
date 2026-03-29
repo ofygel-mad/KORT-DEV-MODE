@@ -4,7 +4,9 @@ interface ChapanUiState {
   selectedOrderId: string | null;
   setSelectedOrderId: (id: string | null) => void;
   invoicesDrawerOpen: boolean;
+  invoicesDrawerFilter: string;
   setInvoicesDrawerOpen: (open: boolean) => void;
+  openInvoicesDrawer: (filter?: string) => void;
 }
 
 export const useChapanUiStore = create<ChapanUiState>((set) => {
@@ -22,6 +24,8 @@ export const useChapanUiStore = create<ChapanUiState>((set) => {
       set({ selectedOrderId: id });
     },
     invoicesDrawerOpen: false,
+    invoicesDrawerFilter: 'all',
     setInvoicesDrawerOpen: (open) => set({ invoicesDrawerOpen: open }),
+    openInvoicesDrawer: (filter = 'all') => set({ invoicesDrawerOpen: true, invoicesDrawerFilter: filter }),
   };
 });

@@ -31,6 +31,7 @@ export type Org = {
   slug: string;
   mode: 'basic' | 'advanced' | 'industrial';
   currency: string;
+  is_demo?: boolean;
   onboarding_completed?: boolean;
 };
 
@@ -64,6 +65,7 @@ export type OrgSummary = {
   slug: string;
   mode: 'basic' | 'advanced' | 'industrial';
   currency: string;
+  is_demo?: boolean;
   onboarding_completed?: boolean;
   role: MembershipRole | 'viewer';
 };
@@ -96,6 +98,7 @@ function buildOrgFromMembership(membership: Membership, currentOrg: Org | null):
     slug: membership.companySlug ?? currentOrg?.slug ?? 'company',
     mode: currentOrg?.mode ?? 'basic',
     currency: currentOrg?.currency ?? 'KZT',
+    is_demo: currentOrg?.is_demo,
     onboarding_completed: currentOrg?.onboarding_completed,
   };
 }

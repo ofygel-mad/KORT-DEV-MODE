@@ -156,7 +156,6 @@
   .detailPage,
   .settingsPage {
     padding: var(--space-4);
-    /* Reserve space for the bottom nav bar */
     padding-bottom: calc(var(--bottom-nav-height, 60px) + env(safe-area-inset-bottom, 0px) + var(--space-4));
   }
 

@@ -2,6 +2,7 @@
   position: relative;
   display: flex;
   min-height: 100dvh;
+  overflow: clip;
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--fill-accent) 8%, transparent) 0%, transparent 28%),
     radial-gradient(circle at bottom right, color-mix(in srgb, var(--fill-info) 7%, transparent) 0%, transparent 30%),
@@ -105,7 +106,26 @@
 
 /* ── Mobile: make room for bottom nav bar ──────────────────── */
 @media (max-width: 767px) {
+  .ambientGlow {
+    opacity: 0.22;
+    filter: blur(28px);
+  }
+
+  .ambientGrid {
+    display: none;
+  }
+
   .main {
     padding-bottom: calc(var(--bottom-nav-height, 60px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .offlineBanner {
+    left: 12px;
+    right: 12px;
+    transform: none;
+    width: auto;
+    min-height: 40px;
+    padding: 0 14px;
+    justify-content: flex-start;
   }
 }

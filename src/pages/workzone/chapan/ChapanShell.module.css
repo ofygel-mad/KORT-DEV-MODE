@@ -79,6 +79,34 @@
   color: var(--ch-text);
 }
 
+.kortBackGreen {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px 7px 10px;
+  background: rgba(16, 185, 129, 0.10);
+  border: 1px solid rgba(16, 185, 129, 0.30);
+  border-radius: 8px;
+  color: #10B981;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 140ms;
+  white-space: nowrap;
+}
+.kortBackGreen:hover {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.50);
+}
+
+@media (max-width: 768px) {
+  .kortBackGreen {
+    padding: 7px 10px 7px 8px;
+    font-size: 12px;
+  }
+}
+
 .topbarDivider {
   width: 1px;
   height: 16px;

@@ -146,9 +146,13 @@ export function EmployeePanel() {
   const resetPasswordMutation = useMutation({
     mutationFn: (id: string) =>
       api.post(`/company/employees/${id}/reset-password/`),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['company/employees'] });
       toast.success('Пароль сброшен. Сотрудник войдёт через номер телефона.');
+      // Сразу обновляем статус в открытой модалке
+      setSelectedEmployee((prev) =>
+        prev?.id === id ? { ...prev, account_status: 'pending_first_login' } : prev,
+      );
     },
     onError: (err: any) => {
       toast.error(err?.message ?? 'Не удалось сбросить пароль.');

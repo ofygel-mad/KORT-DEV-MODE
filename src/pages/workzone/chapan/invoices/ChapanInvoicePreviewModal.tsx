@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, PencilLine, Save, X } from 'lucide-react';
+import { Download, Eye, PencilLine, Save, X } from 'lucide-react';
 import { useInvoice, useSaveInvoiceDocument } from '../../../../entities/order/queries';
+import { apiClient } from '../../../../shared/api/client';
 import type {
   InvoiceDocumentPayload,
   InvoiceDocumentRow,
@@ -124,6 +125,7 @@ export default function ChapanInvoicePreviewModal({
   const [savedSnapshot, setSavedSnapshot] = useState('');
   const [editing, setEditing] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string>(ALL_ORDERS_FILTER);
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
 
@@ -235,6 +237,30 @@ export default function ChapanInvoicePreviewModal({
     return true;
   }
 
+  async function handleDownload() {
+    if (!invoiceMode || !invoiceId || downloading) return;
+    setDownloading(true);
+    try {
+      const response = await apiClient.get(`/chapan/invoices/${invoiceId}/download`, {
+        params: { style: 'branded' },
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nakladnaya-${invoice?.invoiceNumber ?? invoiceId.slice(0, 8)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   async function attemptClose() {
     if (saveDocument.isPending) return;
     if (dirty) {
@@ -253,23 +279,6 @@ export default function ChapanInvoicePreviewModal({
     setEditing(false);
     setActiveOrderId(ALL_ORDERS_FILTER);
     setActiveRowId(next.rows[0]?.id ?? null);
-  }
-
-  function updateColumn(key: keyof InvoiceDocumentPayload['columns'], value: string) {
-    setDraft((prev) => prev ? {
-      ...prev,
-      columns: {
-        ...prev.columns,
-        [key]: value,
-      },
-    } : prev);
-  }
-
-  function updateMetaField(key: 'invoiceDate' | 'route', value: string) {
-    setDraft((prev) => prev ? {
-      ...prev,
-      [key]: value,
-    } : prev);
   }
 
   function updateRow(rowId: string, key: keyof InvoiceDocumentRow, value: string) {
@@ -303,6 +312,17 @@ export default function ChapanInvoicePreviewModal({
           </div>
 
           <div className={styles.headerActions}>
+            {invoiceMode && (
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={() => void handleDownload()}
+                disabled={downloading || !invoice}
+              >
+                <Download size={14} />
+                {downloading ? 'Скачивание...' : 'Скачать'}
+              </button>
+            )}
             {!editing ? (
               <button type="button" className={styles.secondaryBtn} onClick={() => setEditing(true)} disabled={!draft}>
                 <PencilLine size={14} />
@@ -386,29 +406,11 @@ export default function ChapanInvoicePreviewModal({
                 <div className={styles.summaryGrid}>
                   <div className={styles.summaryCard}>
                     <span>Дата накладной</span>
-                    {editing ? (
-                      <input
-                        type="date"
-                        value={draft.invoiceDate || ''}
-                        onChange={(event) => updateMetaField('invoiceDate', event.target.value)}
-                        className={styles.summaryInput}
-                      />
-                    ) : (
-                      <strong>{draft.invoiceDate || '-'}</strong>
-                    )}
+                    <strong>{draft.invoiceDate || '-'}</strong>
                   </div>
                   <div className={styles.summaryCard}>
                     <span>Рейс</span>
-                    {editing ? (
-                      <input
-                        value={draft.route || ''}
-                        onChange={(event) => updateMetaField('route', event.target.value)}
-                        className={styles.summaryInput}
-                        placeholder="Например: 1"
-                      />
-                    ) : (
-                      <strong>{draft.route || '-'}</strong>
-                    )}
+                    <strong>{draft.route || '-'}</strong>
                   </div>
                   <div className={styles.summaryCard}>
                     <span>Сводных строк</span>
@@ -456,17 +458,7 @@ export default function ChapanInvoicePreviewModal({
                       <thead>
                         <tr>
                           {Object.entries(draft.columns).map(([key, label]) => (
-                            <th key={key}>
-                              {editing ? (
-                                <input
-                                  value={label}
-                                  onChange={(event) => updateColumn(key as keyof InvoiceDocumentPayload['columns'], event.target.value)}
-                                  className={styles.headInput}
-                                />
-                              ) : (
-                                label
-                              )}
-                            </th>
+                            <th key={key}>{label}</th>
                           ))}
                         </tr>
                       </thead>
@@ -483,10 +475,10 @@ export default function ChapanInvoicePreviewModal({
                             >
                               {TABLE_KEYS.map((key) => (
                                 <td key={key}>
-                                  {editing && key !== 'orders' ? (
+                                  {editing && key === 'unitPrice' ? (
                                     <input
-                                      type={key === 'quantity' || key === 'unitPrice' ? 'number' : 'text'}
-                                      step={key === 'unitPrice' ? 'any' : undefined}
+                                      type="number"
+                                      step="any"
                                       value={String(row[key] ?? '')}
                                       onChange={(event) => updateRow(row.id, key, event.target.value)}
                                       className={styles.cellInput}
@@ -527,64 +519,6 @@ export default function ChapanInvoicePreviewModal({
                   </div>
                 </div>
 
-                <div className={styles.structureSection}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <div className={styles.sectionTitle}>Структура накладной</div>
-                      <div className={styles.sectionSubtitle}>
-                        Выберите строку или заказ, чтобы быстро проверить состав документа
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={styles.structureList}>
-                    {visibleRows.map((row) => (
-                      <div
-                        key={`${row.id}-sources`}
-                        className={`${styles.structureCard} ${row.id === activeRowId ? styles.structureCardActive : ''}`}
-                        onClick={() => setActiveRowId(row.id)}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            setActiveRowId(row.id);
-                          }
-                        }}
-                      >
-                        <div className={styles.structureCardHead}>
-                          <strong>Строка {row.itemNumber}</strong>
-                          <span>{row.productName}</span>
-                        </div>
-                        <div className={styles.structureMeta}>
-                          <span>Размер: {row.size || '-'}</span>
-                          <span>Цвет: {row.color || '-'}</span>
-                          <span>Кол-во: {row.quantity}</span>
-                        </div>
-                        <div className={styles.structureOrders}>
-                          {(row.sourceOrders ?? []).length > 0 ? (
-                            row.sourceOrders!.map((sourceOrder) => (
-                              <button
-                                key={sourceOrder.orderId}
-                                type="button"
-                                className={`${styles.structureChip} ${activeOrderId === sourceOrder.orderId ? styles.structureChipActive : ''}`}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setActiveOrderId(sourceOrder.orderId);
-                                  setActiveRowId(row.id);
-                                }}
-                              >
-                                #{sourceOrder.orderNumber}
-                              </button>
-                            ))
-                          ) : (
-                            <span className={styles.structureEmpty}>Нет связки с карточками заказов</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </section>
             </div>
           )}

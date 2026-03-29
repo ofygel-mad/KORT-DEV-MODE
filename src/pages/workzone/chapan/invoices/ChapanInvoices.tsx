@@ -7,18 +7,21 @@ import {
   useRejectInvoice,
 } from '../../../../entities/order/queries';
 import type { ChapanInvoice, InvoiceStatus } from '../../../../entities/order/types';
+import { useChapanPermissions } from '../../../../shared/hooks/useChapanPermissions';
 import styles from './ChapanInvoices.module.css';
 
 const STATUS_LABEL: Record<InvoiceStatus, string> = {
   pending_confirmation: 'Ожидает',
   confirmed: 'Подтверждена',
   rejected: 'Отклонена',
+  archived: 'Архив',
 };
 
 const STATUS_COLOR: Record<InvoiceStatus, string> = {
   pending_confirmation: '#F59E0B',
   confirmed: '#10B981',
   rejected: '#EF4444',
+  archived: '#6B7280',
 };
 
 type TabKey = '' | 'pending_confirmation' | 'confirmed' | 'rejected';
@@ -46,6 +49,7 @@ export default function ChapanInvoicesPage() {
   const [tab, setTab] = useState<TabKey>('');
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const { canConfirmInvoice } = useChapanPermissions();
 
   const { data, isLoading, isError } = useInvoices({
     status: tab || undefined,
@@ -147,6 +151,7 @@ export default function ChapanInvoicesPage() {
               onReject={() => { setRejectTarget(inv.id); setRejectReason(''); }}
               onDownload={() => handleDownload(inv.id, inv.invoiceNumber)}
               isConfirming={confirmSeamstress.isPending || confirmWarehouse.isPending}
+              canConfirmInvoice={canConfirmInvoice}
             />
           ))}
         </div>
@@ -196,6 +201,7 @@ function InvoiceRow({
   onReject,
   onDownload,
   isConfirming,
+  canConfirmInvoice,
 }: {
   invoice: ChapanInvoice;
   onConfirmSeamstress: () => void;
@@ -203,6 +209,7 @@ function InvoiceRow({
   onReject: () => void;
   onDownload: () => void;
   isConfirming: boolean;
+  canConfirmInvoice: boolean;
 }) {
   const orderCount = invoice.items?.length ?? 0;
   const isPending = invoice.status === 'pending_confirmation';
@@ -256,7 +263,7 @@ function InvoiceRow({
           <Download size={13} />
         </button>
 
-        {isPending && !invoice.seamstressConfirmed && (
+        {isPending && !invoice.seamstressConfirmed && canConfirmInvoice && (
           <button
             type="button"
             className={`${styles.actionBtn} ${styles.actionBtnSuccess}`}

@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Archive, CheckCheck, ChevronLeft, Factory, Package, Settings, Warehouse } from 'lucide-react';
+import { Archive, CheckCheck, ChevronLeft, Factory, Package, Warehouse } from 'lucide-react';
 import { useAuthStore } from '../../../shared/stores/auth';
-import { useEmployeePermissions } from '../../../shared/hooks/useEmployeePermissions';
+import { useChapanPermissions } from '../../../shared/hooks/useChapanPermissions';
 import { ThemeSwitcher } from '../../../shared/ui/ThemeSwitcher';
 import { useChapanUiStore } from '../../../features/workzone/chapan/store';
 import ChapanInvoicesDrawer from './invoices/ChapanInvoicesDrawer';
@@ -11,17 +11,26 @@ export default function ChapanShell() {
   const navigate = useNavigate();
   const role = useAuthStore((state) => state.membership.role);
   const isAdmin = role === 'owner' || role === 'admin';
-  const { canAccessWarehouse } = useEmployeePermissions();
+  const { canAccessWarehouseNav } = useChapanPermissions();
+  const selectedOrderId = useChapanUiStore((s) => s.selectedOrderId);
   const invoicesDrawerOpen = useChapanUiStore((s) => s.invoicesDrawerOpen);
+  const invoicesDrawerFilter = useChapanUiStore((s) => s.invoicesDrawerFilter);
   const setInvoicesDrawerOpen = useChapanUiStore((s) => s.setInvoicesDrawerOpen);
 
   return (
     <div className={styles.root}>
       <div className={styles.topbar}>
-        <button className={styles.kortBack} onClick={() => navigate('/')}>
-          <ChevronLeft size={14} />
-          <span>На главную</span>
-        </button>
+        {selectedOrderId ? (
+          <button className={styles.kortBackGreen} onClick={() => navigate(-1)}>
+            <ChevronLeft size={14} />
+            <span>Назад</span>
+          </button>
+        ) : (
+          <button className={styles.kortBack} onClick={() => navigate('/')}>
+            <ChevronLeft size={14} />
+            <span>На главную</span>
+          </button>
+        )}
         <div className={styles.topbarRight}>
           <ThemeSwitcher />
         </div>
@@ -59,7 +68,7 @@ export default function ChapanShell() {
               <span>Готово</span>
             </NavLink>
 
-            {(isAdmin || canAccessWarehouse) && (
+            {(isAdmin || canAccessWarehouseNav) && (
               <NavLink
                 to="/warehouse"
                 className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
@@ -76,16 +85,6 @@ export default function ChapanShell() {
               <Archive size={14} />
               <span>Архив</span>
             </NavLink>
-
-            {isAdmin && (
-              <NavLink
-                to="/workzone/chapan/settings"
-                className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
-              >
-                <Settings size={14} />
-                <span>Настройки</span>
-              </NavLink>
-            )}
           </nav>
 
           <div className={styles.sidebarBottom} />
@@ -96,7 +95,7 @@ export default function ChapanShell() {
         </main>
       </div>
 
-      <ChapanInvoicesDrawer open={invoicesDrawerOpen} onClose={() => setInvoicesDrawerOpen(false)} />
+      <ChapanInvoicesDrawer open={invoicesDrawerOpen} onClose={() => setInvoicesDrawerOpen(false)} initialFilter={invoicesDrawerFilter as 'all' | 'pending_confirmation' | 'confirmed' | 'rejected' | 'archived'} />
     </div>
   );
 }

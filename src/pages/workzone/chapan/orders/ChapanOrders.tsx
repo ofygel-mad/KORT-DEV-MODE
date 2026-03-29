@@ -56,13 +56,23 @@ type DisplayGroup =
   | { kind: 'single'; order: ChapanOrder }
   | { kind: 'batch'; orders: ChapanOrder[] };
 
+function itemSignature(item: ChapanOrder['items'][number]) {
+  return [
+    item.productName?.toLowerCase().trim() ?? '',
+    item.fabric?.toLowerCase().trim() ?? '',
+    item.size?.toLowerCase().trim() ?? '',
+    String(item.quantity ?? 0),
+    String(item.unitPrice ?? 0),
+  ].join('|');
+}
+
 function groupSignature(order: ChapanOrder): string {
-  const first = order.items?.[0];
-  if (!first) return `@@${order.id}`;
-  const p = first.productName?.toLowerCase().trim() ?? '';
-  const f = first.fabric?.toLowerCase().trim() ?? '';
-  const s = first.size?.toLowerCase().trim() ?? '';
-  return `${p}|${f}|${s}|${order.status}|${order.priority}`;
+  if (!order.items?.length) return `@@${order.id}`;
+  return [
+    ...(order.items).map(itemSignature).sort(),
+    order.status,
+    order.priority,
+  ].join('||');
 }
 
 function buildGroups(orders: ChapanOrder[]): DisplayGroup[] {
@@ -453,7 +463,6 @@ const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stoc
       onClick={() => onSelectOrder(order.id)}
     >
       <div className={styles.cardHead}>
-        <span className={styles.cardNum}>#{order.orderNumber}</span>
         <span className={styles.statusBadge}>{STATUS_LABEL[order.status]}</span>
         {order.priority !== 'normal' && (
           <span className={`${styles.priorityBadge} ${order.priority === 'vip' ? styles.vip : styles.urgent}`}>
@@ -466,17 +475,17 @@ const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stoc
           </span>
         )}
       </div>
-      <div className={styles.cardClient}>{order.clientName}</div>
-      <span className={styles.cardPhone}>{order.clientPhone}</span>
       {first && (
         <div className={styles.cardItems}>
-          <span className={styles.cardItemName}>{first.productName}</span>
+          <span className={styles.cardItemName}>{first.productName} <span className={styles.cardNum}>(#{order.orderNumber})</span></span>
           {(first.fabric || first.size) && (
             <span className={styles.cardItemMeta}>{[first.fabric, first.size].filter(Boolean).join(' · ')}{first.quantity > 1 && ` × ${first.quantity}`}</span>
           )}
           {more > 0 && <span className={styles.cardMoreItems}>+ещё {more}</span>}
         </div>
       )}
+      <div className={styles.cardClient}>{order.clientName}</div>
+      <span className={styles.cardPhone}>{order.clientPhone}</span>
       <div className={styles.cardDivider} />
       <div className={styles.cardFoot}>
         <span className={styles.cardAmount}>{fmt(order.totalAmount)}</span>
@@ -626,7 +635,6 @@ const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockM
     >
       <span className={styles.rowStripe} />
       <div className={styles.rowNum}>
-        <span className={styles.cardNum}>#{order.orderNumber}</span>
         <span className={styles.statusBadge}>{STATUS_LABEL[order.status]}</span>
         {order.priority !== 'normal' && (
           <span className={`${styles.priorityBadge} ${order.priority === 'vip' ? styles.vip : styles.urgent}`}>
@@ -646,7 +654,7 @@ const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockM
       <div className={styles.rowProduct}>
         {first ? (
           <>
-            <span className={styles.cardItemName}>{first.productName}</span>
+            <span className={styles.cardItemName}>{first.productName} <span className={styles.cardNum}>(#{order.orderNumber})</span></span>
             {(first.fabric || first.size) && (
               <span className={styles.cardItemMeta}>
                 {[first.fabric, first.size].filter(Boolean).join(' · ')}

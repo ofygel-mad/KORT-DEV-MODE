@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { X, FileText, Check, Clock, Download } from 'lucide-react';
-import { useInvoices, useConfirmSeamstress, useConfirmWarehouse } from '../../../../entities/order/queries';
+import { useInvoices, useConfirmSeamstress, useConfirmWarehouse, useArchiveInvoice } from '../../../../entities/order/queries';
 import type { ChapanInvoice, InvoiceStatus } from '../../../../entities/order/types';
+import { useChapanPermissions } from '../../../../shared/hooks/useChapanPermissions';
 import ChapanInvoicePreviewModal from './ChapanInvoicePreviewModal';
 import styles from './ChapanInvoicesDrawer.module.css';
 
@@ -9,20 +10,32 @@ const STATUS_LABEL: Record<InvoiceStatus, string> = {
   pending_confirmation: 'Ожидает',
   confirmed: 'Подтверждена',
   rejected: 'Отклонена',
+  archived: 'Архив',
 };
 
 const STATUS_COLOR: Record<InvoiceStatus, string> = {
   pending_confirmation: '#F59E0B',
   confirmed: '#10B981',
   rejected: '#EF4444',
+  archived: '#6B7280',
 };
+
+type FilterTab = 'all' | InvoiceStatus;
+
+const FILTER_TABS: { key: FilterTab; label: string }[] = [
+  { key: 'all', label: 'Все' },
+  { key: 'pending_confirmation', label: 'Ожидает' },
+  { key: 'confirmed', label: 'Подтверждено' },
+  { key: 'rejected', label: 'Отклонено' },
+  { key: 'archived', label: 'Архив' },
+];
 
 function fmtDate(d: string | null) {
   if (!d) return '';
   return new Date(d).toLocaleDateString('ru-KZ', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-async function downloadInvoice(invoiceId: string, invoiceNumber: string) {
+async function downloadInvoice(invoiceId: string, invoiceNumber: string, onSuccess?: () => void) {
   const { apiClient } = await import('../../../../shared/api/client');
   try {
     const response = await apiClient.get(`/chapan/invoices/${invoiceId}/download`, {
@@ -40,6 +53,7 @@ async function downloadInvoice(invoiceId: string, invoiceNumber: string) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+    onSuccess?.();
   } catch {
     // silent
   }
@@ -48,15 +62,27 @@ async function downloadInvoice(invoiceId: string, invoiceNumber: string) {
 interface Props {
   open: boolean;
   onClose: () => void;
+  initialFilter?: FilterTab;
 }
 
-export default function ChapanInvoicesDrawer({ open, onClose }: Props) {
+export default function ChapanInvoicesDrawer({ open, onClose, initialFilter = 'all' }: Props) {
   const { data, isLoading } = useInvoices({ limit: 100 });
-  const invoices: ChapanInvoice[] = data?.results ?? [];
+  const allInvoices: ChapanInvoice[] = data?.results ?? [];
 
   const confirmSeamstress = useConfirmSeamstress();
   const confirmWarehouse = useConfirmWarehouse();
+  const archiveInvoice = useArchiveInvoice();
+  const { canConfirmInvoice } = useChapanPermissions();
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterTab>(initialFilter);
+
+  const invoices = filter === 'all'
+    ? allInvoices
+    : allInvoices.filter((inv) => inv.status === filter);
+
+  useEffect(() => {
+    if (open) setFilter(initialFilter);
+  }, [open, initialFilter]);
 
   useEffect(() => {
     if (!open) return;
@@ -68,9 +94,7 @@ export default function ChapanInvoicesDrawer({ open, onClose }: Props) {
   }, [open, onClose, previewInvoiceId]);
 
   useEffect(() => {
-    if (!open) {
-      setPreviewInvoiceId(null);
-    }
+    if (!open) setPreviewInvoiceId(null);
   }, [open]);
 
   if (!open) return null;
@@ -92,6 +116,19 @@ export default function ChapanInvoicesDrawer({ open, onClose }: Props) {
             </button>
           </div>
 
+          <div className={styles.filterBar}>
+            {FILTER_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={`${styles.filterTab} ${filter === tab.key ? styles.filterTabActive : ''}`}
+                onClick={() => setFilter(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           <div className={styles.body}>
             {isLoading && (
               <div className={styles.loading}>
@@ -104,10 +141,14 @@ export default function ChapanInvoicesDrawer({ open, onClose }: Props) {
             {!isLoading && invoices.length === 0 && (
               <div className={styles.empty}>
                 <div className={styles.emptyIcon}>📋</div>
-                <div>Накладных пока нет</div>
-                <div className={styles.emptyHint}>
-                  Создаются при отправке готовых заказов на склад
+                <div>
+                  {filter === 'all' ? 'Накладных пока нет' : 'Нет накладных в этом разделе'}
                 </div>
+                {filter === 'all' && (
+                  <div className={styles.emptyHint}>
+                    Создаются при отправке готовых заказов на склад
+                  </div>
+                )}
               </div>
             )}
 
@@ -127,7 +168,9 @@ export default function ChapanInvoicesDrawer({ open, onClose }: Props) {
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
-                      void downloadInvoice(inv.id, inv.invoiceNumber);
+                      void downloadInvoice(inv.id, inv.invoiceNumber, () => {
+                        archiveInvoice.mutate(inv.id);
+                      });
                     }}
                     title="Скачать XLSX"
                   >
@@ -153,7 +196,7 @@ export default function ChapanInvoicesDrawer({ open, onClose }: Props) {
                     Склад
                   </span>
 
-                  {inv.status === 'pending_confirmation' && !inv.seamstressConfirmed && (
+                  {inv.status === 'pending_confirmation' && !inv.seamstressConfirmed && canConfirmInvoice && (
                     <button
                       type="button"
                       className={styles.confirmBtn}

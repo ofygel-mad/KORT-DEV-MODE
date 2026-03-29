@@ -67,6 +67,32 @@
 }
 .closeBtn:hover { background: var(--ch-hover, var(--bg-hover)); }
 
+.filterBar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ch-border, var(--border-subtle));
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.filterTab {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ch-text-muted, var(--text-secondary));
+  cursor: pointer;
+}
+.filterTab:hover { background: var(--ch-hover, var(--bg-hover)); }
+.filterTabActive {
+  background: var(--ch-hover, var(--bg-hover));
+  color: var(--ch-text, var(--text-primary));
+  border-color: var(--ch-border, var(--border-subtle));
+}
+
 .body {
   flex: 1;
   overflow-y: auto;

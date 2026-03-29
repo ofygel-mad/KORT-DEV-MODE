@@ -1,14 +1,15 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
-  AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Download,
-  FileText, Package, PackageCheck, Phone, Plus, Search, Send, TrendingDown, User, X,
+  AlertCircle, AlertTriangle, Archive, CheckCircle2, ChevronRight, Download,
+  FileText, Package, PackageCheck, Phone, Plus, Search, Send, TrendingDown, User, X, CheckSquare,
 } from 'lucide-react';
 import {
   useWarehouseItems, useWarehouseMovements, useWarehouseAlerts,
   useWarehouseCategories, useCreateItem, useAddMovement, useDeleteItem, useResolveAlert,
 } from '../../entities/warehouse/queries';
 import {
-  useInvoices, useConfirmWarehouse, useOrders, useShipOrder, useOrder,
+  useInvoices, useConfirmWarehouse, useOrders, useShipOrder, useOrder, useArchiveInvoice,
+  useCloseOrder,
 } from '../../entities/order/queries';
 import type { WarehouseItem, MovementType, CreateItemDto, AddMovementDto } from '../../entities/warehouse/types';
 import type { ChapanInvoice, ChapanOrder } from '../../entities/order/types';
@@ -17,7 +18,7 @@ import { Skeleton } from '../../shared/ui/Skeleton';
 import { exportToCSV } from '../../shared/lib/export';
 import styles from './Warehouse.module.css';
 
-type Tab = 'incoming' | 'orders_wh' | 'to_ship' | 'items' | 'movements' | 'alerts';
+type Tab = 'incoming' | 'invoice_archive' | 'orders_wh' | 'to_ship' | 'shipped' | 'items' | 'movements' | 'alerts';
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
   in: 'Приход', out: 'Расход', adjustment: 'Корректировка', write_off: 'Списание', return: 'Возврат',
@@ -51,7 +52,35 @@ function fmtMoney(n: number) {
 
 function InvoiceDetailDrawer({ invoice, onClose }: { invoice: ChapanInvoice; onClose: () => void }) {
   const confirmWarehouse = useConfirmWarehouse();
+  const archiveInvoice = useArchiveInvoice();
+  const [downloading, setDownloading] = useState(false);
   const alreadyConfirmed = invoice.warehouseConfirmed;
+
+  async function handleDownload() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const { apiClient } = await import('../../shared/api/client');
+      const response = await apiClient.get(`/chapan/invoices/${invoice.id}/download`, {
+        params: { style: 'branded' },
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `nakladnaya-${invoice.invoiceNumber}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      archiveInvoice.mutate(invoice.id);
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   const orders = invoice.items?.map((it) => it.order).filter(Boolean) ?? [];
 
@@ -144,6 +173,14 @@ function InvoiceDetailDrawer({ invoice, onClose }: { invoice: ChapanInvoice; onC
         </div>
 
         <div className={styles.drawerFooter}>
+          <button
+            className={styles.drawerActionBtn}
+            onClick={() => void handleDownload()}
+            disabled={downloading}
+          >
+            <Download size={15} />
+            {downloading ? 'Скачивание...' : 'Скачать накладную'}
+          </button>
           {alreadyConfirmed ? (
             <div className={styles.drawerConfirmedNotice}>
               <CheckCircle2 size={16} />
@@ -170,6 +207,15 @@ function InvoiceDetailDrawer({ invoice, onClose }: { invoice: ChapanInvoice; onC
 function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClose: () => void }) {
   const { data: order, isLoading } = useOrder(orderId);
   const shipOrder = useShipOrder();
+  const closeOrder = useCloseOrder();
+  const [closeUnpaidWarning, setCloseUnpaidWarning] = useState(false);
+  const [showShipForm, setShowShipForm] = useState(false);
+  const [shipFormData, setShipFormData] = useState({
+    courierType: '',
+    recipientName: '',
+    recipientAddress: '',
+    shippingNote: '',
+  });
 
   return (
     <div className={styles.drawerOverlay} onClick={onClose}>
@@ -249,6 +295,11 @@ function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClose: () 
                     )}
                   </div>
                 </div>
+                {order.expectedPaymentMethod && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+                    Ожидаемый способ доплаты: <strong style={{ color: 'var(--text-primary)' }}>{order.expectedPaymentMethod}</strong>
+                  </div>
+                )}
               </div>
 
               {/* Invoice link */}
@@ -269,15 +320,98 @@ function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClose: () 
             </div>
 
             <div className={styles.drawerFooter}>
-              {order.paymentStatus === 'paid' ? (
-                <button
-                  className={`${styles.drawerActionBtn} ${styles.drawerActionBtnSuccess}`}
-                  onClick={() => { shipOrder.mutate(order.id); onClose(); }}
-                  disabled={shipOrder.isPending}
-                >
-                  <Send size={16} />
-                  {shipOrder.isPending ? 'Отправка...' : 'Отправить клиенту'}
-                </button>
+              {order.status === 'shipped' ? (
+                <>
+                  <button
+                    className={`${styles.drawerActionBtn} ${styles.drawerActionBtnSuccess}`}
+                    onClick={() => {
+                      if (order.paymentStatus !== 'paid') setCloseUnpaidWarning(true);
+                      else { closeOrder.mutate(order.id); onClose(); }
+                    }}
+                    disabled={closeOrder.isPending}
+                  >
+                    <CheckSquare size={16} />
+                    {closeOrder.isPending ? 'Закрытие...' : 'Завершить сделку'}
+                  </button>
+                  {closeUnpaidWarning && (
+                    <div className={styles.drawerUnpaidNote}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                        <strong>Остаток: {fmtMoney(order.totalAmount - order.paidAmount)}</strong>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <button className={styles.drawerActionBtn} style={{ flex: 1, fontSize: 12 }} onClick={() => setCloseUnpaidWarning(false)}>Отмена</button>
+                        <button className={`${styles.drawerActionBtn} ${styles.drawerActionBtnSuccess}`} style={{ flex: 1, fontSize: 12 }} onClick={() => { closeOrder.mutate(order.id); onClose(); }}>Закрыть всё равно</button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : order.paymentStatus === 'paid' ? (
+                <>
+                  {showShipForm ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 2 }}>
+                        Пометки к отгрузке
+                      </div>
+                      {[
+                        { key: 'courierType',      label: 'Способ доставки',         placeholder: 'Курьер, самовывоз, СДЭК…' },
+                        { key: 'recipientName',    label: 'ФИО получателя',          placeholder: 'Иванов Иван Иванович' },
+                        { key: 'recipientAddress', label: 'Адрес доставки',          placeholder: 'ул. Абая 10, кв. 5' },
+                        { key: 'shippingNote',     label: 'Комментарий по доставке', placeholder: 'Любые дополнительные пометки' },
+                      ].map(({ key, label, placeholder }) => (
+                        <div key={key}>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 3 }}>{label}</div>
+                          <input
+                            style={{
+                              width: '100%', boxSizing: 'border-box',
+                              padding: '7px 10px', fontSize: 13,
+                              background: 'var(--bg-surface-inset)',
+                              border: '1px solid var(--border-default)',
+                              borderRadius: 6, color: 'var(--text-primary)',
+                            }}
+                            placeholder={placeholder}
+                            value={shipFormData[key as keyof typeof shipFormData]}
+                            onChange={(e) => setShipFormData((prev) => ({ ...prev, [key]: e.target.value }))}
+                          />
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                        <button
+                          className={styles.drawerActionBtn}
+                          style={{ flex: 1, fontSize: 12 }}
+                          onClick={() => setShowShipForm(false)}
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          className={`${styles.drawerActionBtn} ${styles.drawerActionBtnSuccess}`}
+                          style={{ flex: 2, fontSize: 12 }}
+                          disabled={shipOrder.isPending}
+                          onClick={() => {
+                            shipOrder.mutate({
+                              id: order.id,
+                              courierType:      shipFormData.courierType.trim()      || undefined,
+                              recipientName:    shipFormData.recipientName.trim()    || undefined,
+                              recipientAddress: shipFormData.recipientAddress.trim() || undefined,
+                              shippingNote:     shipFormData.shippingNote.trim()     || undefined,
+                            }, { onSuccess: onClose });
+                          }}
+                        >
+                          <Send size={14} />
+                          {shipOrder.isPending ? 'Отправка...' : 'Подтвердить отгрузку'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      className={`${styles.drawerActionBtn} ${styles.drawerActionBtnSuccess}`}
+                      onClick={() => setShowShipForm(true)}
+                    >
+                      <Send size={16} />
+                      Отправить клиенту
+                    </button>
+                  )}
+                </>
               ) : (
                 <div className={styles.drawerUnpaidNote}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -470,6 +604,8 @@ export default function WarehousePage() {
 
   // Chapan handoff data
   const { data: invoicesData, isLoading: invoicesLoading } = useInvoices({ status: 'pending_confirmation', limit: 200 });
+  const { data: archivedInvoicesData, isLoading: archivedInvoicesLoading } = useInvoices({ status: 'archived', limit: 200 });
+  const archivedInvoices: ChapanInvoice[] = useMemo(() => archivedInvoicesData?.results ?? [], [archivedInvoicesData?.results]);
   const pendingInvoices: ChapanInvoice[] = useMemo(
     () => (invoicesData?.results ?? []).filter((inv) => !inv.warehouseConfirmed),
     [invoicesData?.results],
@@ -488,6 +624,8 @@ export default function WarehousePage() {
   // Partial warehouse orders
   const { data: partialWhData, isLoading: partialWhLoading } = useOrders({ hasWarehouseItems: true, limit: 200 });
   const partialWarehouseOrders: ChapanOrder[] = useMemo(() => partialWhData?.results ?? [], [partialWhData?.results]);
+  const { data: shippedOrdersData, isLoading: shippedOrdersLoading } = useOrders({ status: 'shipped', limit: 200 });
+  const shippedOrders: ChapanOrder[] = useMemo(() => shippedOrdersData?.results ?? [], [shippedOrdersData?.results]);
 
   const items = useMemo(() => itemsData?.results ?? [], [itemsData?.results]);
   const movements = useMemo(() => movData?.results ?? [], [movData?.results]);
@@ -532,11 +670,17 @@ export default function WarehousePage() {
             <button className={`${styles.tab} ${tab === 'incoming' ? styles.tabActive : ''}`} onClick={() => setTab('incoming')}>
               <FileText size={13} /> Приёмка {incomingCount > 0 && <span className={styles.alertBadge}>{incomingCount}</span>}
             </button>
+            <button className={`${styles.tab} ${tab === 'invoice_archive' ? styles.tabActive : ''}`} onClick={() => setTab('invoice_archive')}>
+              <Archive size={13} /> Архив накладных
+            </button>
             <button className={`${styles.tab} ${tab === 'orders_wh' ? styles.tabActive : ''}`} onClick={() => setTab('orders_wh')}>
               <Package size={13} /> Заказы {(warehouseOrders.length + partialWarehouseOrders.length) > 0 && <span className={styles.alertBadge}>{warehouseOrders.length + partialWarehouseOrders.length}</span>}
             </button>
             <button className={`${styles.tab} ${tab === 'to_ship' ? styles.tabActive : ''}`} onClick={() => setTab('to_ship')}>
               <Send size={13} /> К отправке {toShipOrders.length > 0 && <span className={styles.alertBadge}>{toShipOrders.length}</span>}
+            </button>
+            <button className={`${styles.tab} ${tab === 'shipped' ? styles.tabActive : ''}`} onClick={() => setTab('shipped')}>
+              <CheckSquare size={13} /> Отгружено {shippedOrders.length > 0 && <span className={styles.alertBadge}>{shippedOrders.length}</span>}
             </button>
           </div>
         </div>
@@ -603,6 +747,44 @@ export default function WarehousePage() {
                         className={styles.incomBtn}
                         onClick={() => setSelectedInvoice(inv)}
                       >
+                        <FileText size={12} /> Открыть
+                      </button>
+                    </td>
+                  </ClickRow>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {/* ── Архив накладных tab ── */}
+      {tab === 'invoice_archive' && (
+        archivedInvoicesLoading ? (
+          <div className={styles.skeletons}>{[...Array(4)].map((_, i) => <Skeleton key={i} height={56} radius={8} />)}</div>
+        ) : archivedInvoices.length === 0 ? (
+          <div className={styles.empty}>
+            <Archive size={32} className={styles.emptyIcon} />
+            <p>Архив пуст</p>
+            <span className={styles.emptyNote}>Накладные появятся здесь после скачивания</span>
+          </div>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Накладная</th><th>Дата</th><th>Заказов</th><th>Создал</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {archivedInvoices.map((inv) => (
+                  <ClickRow key={inv.id} onClick={() => setSelectedInvoice(inv)}>
+                    <td className={styles.tdName}>#{inv.invoiceNumber}</td>
+                    <td className={styles.tdDate}>{fmtDate(inv.createdAt)}</td>
+                    <td className={styles.tdNum}>{inv.items?.length ?? 0} заказ(а)</td>
+                    <td className={styles.tdSecondary}>{inv.createdByName}</td>
+                    <td className={styles.tdActions} onClick={(e) => e.stopPropagation()}>
+                      <button className={styles.incomBtn} onClick={() => setSelectedInvoice(inv)}>
                         <FileText size={12} /> Открыть
                       </button>
                     </td>
@@ -762,6 +944,47 @@ export default function WarehousePage() {
                     <td><span style={{ color: 'var(--fill-negative)', fontWeight: 500, fontSize: 12 }}>Не оплачен</span></td>
                     <td className={styles.tdActions} style={{ color: 'var(--text-tertiary)' }}>
                       <ChevronRight size={14} />
+                    </td>
+                  </ClickRow>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {/* ── Отгружено tab ── */}
+      {tab === 'shipped' && (
+        shippedOrdersLoading ? (
+          <div className={styles.skeletons}>{[...Array(4)].map((_, i) => <Skeleton key={i} height={52} radius={8} />)}</div>
+        ) : shippedOrders.length === 0 ? (
+          <div className={styles.empty}>
+            <CheckSquare size={32} className={styles.emptyIcon} />
+            <p>Отгрузок пока нет</p>
+            <span className={styles.emptyNote}>Отправленные клиентам заказы появятся здесь</span>
+          </div>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr><th>Заказ</th><th>Клиент</th><th>Телефон</th><th>Позиции</th><th>Сумма</th><th>Оплата</th><th></th></tr>
+              </thead>
+              <tbody>
+                {shippedOrders.map((order) => (
+                  <ClickRow key={order.id} onClick={() => setSelectedOrderId(order.id)}>
+                    <td className={styles.tdMono}>#{order.orderNumber}</td>
+                    <td className={styles.tdName}>{order.clientName}</td>
+                    <td className={styles.tdSecondary} style={{ fontSize: 12 }}>{order.clientPhone}</td>
+                    <td className={styles.tdSecondary}>
+                      {(order.items ?? []).slice(0, 2).map((i) => i.productName).join(', ')}
+                      {(order.items ?? []).length > 2 ? ` +${(order.items ?? []).length - 2}` : ''}
+                    </td>
+                    <td className={styles.tdNum}>{fmtMoney(order.totalAmount)}</td>
+                    <td><span style={{ color: PAY_COLOR[order.paymentStatus], fontWeight: 500, fontSize: 12 }}>{PAY_LABEL[order.paymentStatus]}</span></td>
+                    <td className={styles.tdActions} onClick={(e) => e.stopPropagation()}>
+                      <button className={styles.incomBtn} onClick={() => setSelectedOrderId(order.id)}>
+                        <CheckSquare size={12} /> Завершить
+                      </button>
                     </td>
                   </ClickRow>
                 ))}

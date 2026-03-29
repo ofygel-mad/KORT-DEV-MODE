@@ -181,10 +181,16 @@ export const useAddPayment = () => {
 export const useShipOrder = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => ordersApi.ship(id),
-    onSuccess: (_data, id) => {
+    mutationFn: ({ id, ...data }: {
+      id: string;
+      courierType?: string;
+      recipientName?: string;
+      recipientAddress?: string;
+      shippingNote?: string;
+    }) => ordersApi.ship(id, data),
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: orderKeys.all });
-      qc.invalidateQueries({ queryKey: orderKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: orderKeys.detail(vars.id) });
       toast.success('Заказ отправлен клиенту');
     },
     onError: (error) => toast.error(readApiErrorMessage(error, 'Не удалось отправить заказ')),
@@ -369,6 +375,17 @@ export const useConfirmWarehouse = () => {
       toast.success('Получение подтверждено');
     },
     onError: (error) => toast.error(readApiErrorMessage(error, 'Не удалось подтвердить')),
+  });
+};
+
+export const useArchiveInvoice = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => invoicesApi.archive(id),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: orderKeys.invoices });
+      qc.invalidateQueries({ queryKey: orderKeys.invoiceDetail(id) });
+    },
   });
 };
 

@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes } from 'react';
-import { useEffect, useRef, useState, useDeferredValue } from 'react';
+import { useRef, useState, useDeferredValue } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -61,7 +61,6 @@ const schema = z
     priority:     z.enum(['normal', 'urgent', 'vip']),
     orderDate:    z.string(),
     dueDate:      z.string().optional(),
-    totalAmount:  z.coerce.number().min(0).optional(),
     orderDiscount: z.coerce.number().min(0).optional(),
     prepayment:   z.coerce.number().min(0).optional(),
     paymentMethod: z.enum(['cash', 'kaspi_qr', 'kaspi_terminal', 'transfer', 'mixed']).optional(),
@@ -69,11 +68,17 @@ const schema = z
     mixedKaspiQr:       z.coerce.number().min(0).optional(),
     mixedKaspiTerminal: z.coerce.number().min(0).optional(),
     mixedTransfer:      z.coerce.number().min(0).optional(),
+    expectedPaymentMethod: z.string().optional(),
     items:        z.array(itemSchema).min(1, 'Добавьте хотя бы одну позицию'),
     managerNote:  z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    const finalTotal = Math.max(0, (data.totalAmount ?? 0) - (data.orderDiscount ?? 0));
+    const itemsSubtotal = data.items.reduce((sum, item) => {
+      return sum + Math.max(0,
+        (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) - (Number(item.itemDiscount) || 0),
+      );
+    }, 0);
+    const finalTotal = Math.max(0, itemsSubtotal - (data.orderDiscount ?? 0));
 
     if ((data.prepayment ?? 0) > 0 && !data.paymentMethod) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Укажите способ оплаты', path: ['paymentMethod'] });
@@ -169,6 +174,8 @@ export default function ChapanNewOrderPage() {
   const createOrder = useCreateOrder();
   const { data: catalogs } = useChapanCatalogs();
 
+  const [discountPercent, setDiscountPercent] = useState('');
+
   // File state (UI only — upload endpoint TBD)
   const [itemPhotos, setItemPhotos] = useState<Record<number, File | null>>({});
   const [receipts, setReceipts]     = useState<File[]>([]);
@@ -196,7 +203,6 @@ export default function ChapanNewOrderPage() {
   );
   const { data: stockMap } = useProductsAvailability(deferredProductNames);
   const paymentMethod    = watch('paymentMethod');
-  const totalAmountRaw   = watch('totalAmount');
   const orderDiscountRaw = watch('orderDiscount');
   const prepaymentRaw    = watch('prepayment');
   const mixedCash          = Number(watch('mixedCash'))          || 0;
@@ -204,22 +210,16 @@ export default function ChapanNewOrderPage() {
   const mixedKaspiTerminal = Number(watch('mixedKaspiTerminal')) || 0;
   const mixedTransfer      = Number(watch('mixedTransfer'))      || 0;
 
-  const totalAmount   = Number.isFinite(totalAmountRaw)   ? (totalAmountRaw   ?? 0) : 0;
-  const orderDiscount = Number.isFinite(orderDiscountRaw) ? (orderDiscountRaw ?? 0) : 0;
-  const prepayment    = Number.isFinite(prepaymentRaw)    ? (prepaymentRaw    ?? 0) : 0;
-  const finalTotal    = Math.max(0, totalAmount - orderDiscount);
-  const debt          = Math.max(0, finalTotal - prepayment);
-  const mixedSum      = mixedCash + mixedKaspiQr + mixedKaspiTerminal + mixedTransfer;
-
   const itemsTotal = items.reduce((sum, item) => {
     const line = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
     return sum + Math.max(0, line - (Number(item.itemDiscount) || 0));
   }, 0);
 
-  // Автоматически подставляем итог позиций как базовую сумму заказа
-  useEffect(() => {
-    setValue('totalAmount', itemsTotal);
-  }, [itemsTotal, setValue]);
+  const orderDiscount = Number.isFinite(orderDiscountRaw) ? (orderDiscountRaw ?? 0) : 0;
+  const prepayment    = Number.isFinite(prepaymentRaw)    ? (prepaymentRaw    ?? 0) : 0;
+  const finalTotal    = Math.max(0, itemsTotal - orderDiscount);
+  const debt          = Math.max(0, finalTotal - prepayment);
+  const mixedSum      = mixedCash + mixedKaspiQr + mixedKaspiTerminal + mixedTransfer;
 
   function fmt(n: number) {
     return `${new Intl.NumberFormat('ru-KZ', { maximumFractionDigits: 0 }).format(n)} ₸`;
@@ -234,7 +234,10 @@ export default function ChapanNewOrderPage() {
       clientName:    formatPersonNameInput(data.clientName).trim(),
       clientPhone:   formatKazakhPhoneInput(data.clientPhone),
       streetAddress: data.streetAddress?.trim() || undefined,
-      postalCode:    data.postalCode || undefined,
+      city:          data.city?.trim() || undefined,
+      deliveryType:  data.deliveryType?.trim() || undefined,
+      source:        data.source?.trim() || undefined,
+      expectedPaymentMethod: data.expectedPaymentMethod?.trim() || undefined,
       priority:      data.priority as Priority,
       orderDate:     data.orderDate || undefined,
       dueDate:       data.dueDate   || undefined,
@@ -619,18 +622,46 @@ export default function ChapanNewOrderPage() {
                 </div>
               </div>
               <div className={styles.field}>
-                <label className={styles.label}>Скидка на заказ (₸)</label>
-                <Controller control={control} name="orderDiscount" render={({ field }) => (
-                  <input
-                    type="number" min="0" inputMode="numeric"
-                    className={styles.input}
-                    placeholder="0"
-                    value={field.value ?? ''}
-                    onChange={(e) => field.onChange(parseOptionalAmount(e.target.value))}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onFocus={(e) => e.target.select()}
-                  />
-                )} />
+                <label className={styles.label}>Скидка на заказ</label>
+                <div className={styles.discountCompound}>
+                  <Controller control={control} name="orderDiscount" render={({ field }) => (
+                    <input
+                      type="number" min="0" inputMode="numeric"
+                      className={`${styles.input} ${styles.discountAmtInput}`}
+                      placeholder="0 ₸"
+                      value={field.value ?? ''}
+                      onChange={(e) => {
+                        field.onChange(parseOptionalAmount(e.target.value));
+                        setDiscountPercent('');
+                      }}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onFocus={(e) => e.target.select()}
+                    />
+                  )} />
+                  <div className={styles.discountPctWrap}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      className={styles.discountPctInput}
+                      placeholder="0"
+                      value={discountPercent}
+                      onChange={(e) => {
+                        setDiscountPercent(e.target.value);
+                        const pct = parseFloat(e.target.value);
+                        if (Number.isFinite(pct) && itemsTotal > 0) {
+                          setValue('orderDiscount', Math.round(itemsTotal * pct / 100));
+                        } else if (!e.target.value) {
+                          setValue('orderDiscount', 0);
+                        }
+                      }}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <span className={styles.discountPctSymbol}>%</span>
+                  </div>
+                </div>
               </div>
               <div className={styles.field}>
                 <label className={styles.label}>Итого к оплате (₸)</label>
@@ -691,6 +722,20 @@ export default function ChapanNewOrderPage() {
                 ))}
               </div>
               {errors.paymentMethod && <span className={styles.fieldError}>{errors.paymentMethod.message}</span>}
+            </div>
+
+            {/* Ожидаемый способ доплаты */}
+            <div className={styles.field}>
+              <label className={styles.label}>Ожидаемый способ доплаты</label>
+              <Controller control={control} name="expectedPaymentMethod" render={({ field }) => (
+                <SelectOrText
+                  {...field}
+                  value={field.value ?? ''}
+                  options={['Наличные', 'Kaspi QR', 'Kaspi Терминал', 'Перевод', 'Смешанный']}
+                  placeholder="Как клиент заплатит остаток..."
+                  className={styles.input}
+                />
+              )} />
             </div>
 
             {/* Смешанный — разбивка */}

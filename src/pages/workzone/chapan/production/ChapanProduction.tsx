@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { AlertTriangle, CheckCircle2, Factory, FileText, Flag, Layers, User, X } from 'lucide-react';
+import { useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { AlertTriangle, CheckCircle2, Factory, FileText, Flag, Layers, Search, User, X } from 'lucide-react';
 import {
   useAssignWorker,
   useChapanCatalogs,
@@ -138,9 +138,10 @@ export default function ChapanProductionPage() {
 
   const [view, setView] = useState<ProductionMode>(workshopDefault ? 'workshop' : 'manager');
   const [grouped, setGroupedState] = useState(true);
+  const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [flagModal, setFlagModal] = useState<{ taskId: string } | null>(null);
   const [flagReason, setFlagReason] = useState('');
-  const [assignModal, setAssignModal] = useState<{ taskId: string; currentWorker: string | null } | null>(null);
   const [rejectModal, setRejectModal] = useState<{ crId: string; orderNumber: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const setInvoicesDrawerOpen = useChapanUiStore((s) => s.setInvoicesDrawerOpen);
@@ -178,10 +179,20 @@ export default function ChapanProductionPage() {
 
 
   const rawTasks = view === 'manager' ? (managerData?.results ?? []) : (workshopData?.results ?? []);
-  const tasks = useMemo(
+  const filteredByView = useMemo(
     () => view === 'workshop' ? filterWorkshopTasks(rawTasks, currentWorkerName) : rawTasks,
     [currentWorkerName, rawTasks, view],
   );
+  const tasks = useMemo(() => {
+    if (!deferredSearch.trim()) return filteredByView;
+    const q = deferredSearch.toLowerCase().trim();
+    return filteredByView.filter((task) =>
+      task.order.orderNumber.toLowerCase().includes(q) ||
+      (task.productName?.toLowerCase() ?? '').includes(q) ||
+      (task.fabric?.toLowerCase() ?? '').includes(q) ||
+      (task.size?.toLowerCase() ?? '').includes(q),
+    );
+  }, [deferredSearch, filteredByView]);
 
   const isLoading = view === 'manager' ? managerLoading : workshopLoading;
   const workers = catalogs?.workers ?? [];
@@ -200,12 +211,6 @@ export default function ChapanProductionPage() {
     await flagTask.mutateAsync({ taskId: flagModal.taskId, reason: flagReason.trim() });
     setFlagModal(null);
     setFlagReason('');
-  }
-
-  async function handleAssign(worker: string | null) {
-    if (!assignModal) return;
-    await assignWorker.mutateAsync({ taskId: assignModal.taskId, worker });
-    setAssignModal(null);
   }
 
   async function handleClaim(taskId: string) {
@@ -240,12 +245,30 @@ export default function ChapanProductionPage() {
         </div>
 
         <div className={styles.headerRight}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--text-secondary)', pointerEvents: 'none' }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ЧП-номер или товар..."
+              style={{
+                padding: '6px 10px 6px 28px',
+                background: 'rgba(255,255,255,.05)',
+                border: '1px solid rgba(255,255,255,.1)',
+                borderRadius: 8,
+                color: 'var(--text-primary)',
+                fontSize: 12,
+                width: 180,
+                fontFamily: 'inherit',
+              }}
+            />
+          </div>
           <button
             className={styles.groupToggle}
             onClick={() => setInvoicesDrawerOpen(true)}
           >
             <FileText size={13} />
-            <span>Накладные</span>
+            <span>Накладная Ожидает приёмки</span>
           </button>
 
           <button
@@ -383,7 +406,6 @@ export default function ChapanProductionPage() {
                         onClaim={handleClaim}
                         onDone={handleMarkDone}
                         onReturnToQueue={handleReturnToQueue}
-                        onAssign={(task) => setAssignModal({ taskId: task.id, currentWorker: task.assignedTo })}
                         onFlag={(task) => {
                           setFlagModal({ taskId: task.id });
                           setFlagReason('');
@@ -400,7 +422,6 @@ export default function ChapanProductionPage() {
                         onClaim={handleClaim}
                         onDone={handleMarkDone}
                         onReturnToQueue={handleReturnToQueue}
-                        onAssign={(task) => setAssignModal({ taskId: task.id, currentWorker: task.assignedTo })}
                         onFlag={(task) => {
                           setFlagModal({ taskId: task.id });
                           setFlagReason('');
@@ -493,52 +514,6 @@ export default function ChapanProductionPage() {
         </div>
       )}
 
-      {assignModal && (
-        <div className={styles.modalOverlay} onClick={() => setAssignModal(null)}>
-          <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <span>Назначить исполнителя</span>
-              <button className={styles.modalClose} onClick={() => setAssignModal(null)}>
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              {assignModal.currentWorker && (
-                <div className={styles.currentWorker}>
-                  Сейчас назначена: <strong>{assignModal.currentWorker}</strong>
-                </div>
-              )}
-
-              <div className={styles.workerList}>
-                {workers.length === 0 ? (
-                  <div className={styles.noWorkers}>Добавьте швей в настройках Чапан</div>
-                ) : (
-                  workers.map((worker) => (
-                    <button
-                      key={worker}
-                      className={styles.workerBtn}
-                      onClick={() => handleAssign(worker)}
-                    >
-                      <User size={13} />
-                      {worker}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className={styles.modalFooter}>
-              <button className={styles.modalCancel} onClick={() => setAssignModal(null)}>
-                Отмена
-              </button>
-              <button className={styles.modalGhost} onClick={() => handleAssign(null)}>
-                Снять исполнителя
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -551,7 +526,6 @@ interface TaskCardProps {
   onClaim: (taskId: string) => Promise<void>;
   onDone: (taskId: string) => Promise<void>;
   onReturnToQueue: (taskId: string) => Promise<void>;
-  onAssign: (task: ProductionTask) => void;
   onFlag: (task: ProductionTask) => void;
   onUnflag: (task: ProductionTask) => void;
 }
@@ -564,7 +538,6 @@ function TaskCard({
   onClaim,
   onDone,
   onReturnToQueue,
-  onAssign,
   onFlag,
   onUnflag,
 }: TaskCardProps) {
@@ -599,10 +572,12 @@ function TaskCard({
       </div>
 
       <div className={styles.infoRow}>
-        <span className={styles.workerChip}>
-          <User size={11} />
-          {task.assignedTo ?? 'Не назначена'}
-        </span>
+        {task.assignedTo && (
+          <span className={styles.workerChip}>
+            <User size={11} />
+            {task.assignedTo}
+          </span>
+        )}
         {deadline && <span className={styles.deadline}>{deadline}</span>}
       </div>
 
@@ -614,12 +589,6 @@ function TaskCard({
             disabled={!canClaim}
           >
             Взять в работу
-          </button>
-        )}
-
-        {column === 'queued' && mode === 'manager' && (
-          <button className={styles.secondaryAction} onClick={() => onAssign(task)}>
-            {task.assignedTo ? 'Сменить швею' : 'Назначить'}
           </button>
         )}
 
@@ -665,7 +634,6 @@ interface BatchTaskCardProps {
   onClaim: (taskId: string) => Promise<void>;
   onDone: (taskId: string) => Promise<void>;
   onReturnToQueue: (taskId: string) => Promise<void>;
-  onAssign: (task: ProductionTask) => void;
   onFlag: (task: ProductionTask) => void;
   onUnflag: (task: ProductionTask) => void;
 }
@@ -678,7 +646,6 @@ function BatchTaskCard({
   onClaim,
   onDone,
   onReturnToQueue,
-  onAssign,
   onFlag,
   onUnflag,
 }: BatchTaskCardProps) {
@@ -744,7 +711,6 @@ function BatchTaskCard({
 
         <div className={styles.batchMeta}>
           {dateRange && <span>{dateRange}</span>}
-          <span>{tasks.filter((task) => task.assignedTo).length} назначено</span>
         </div>
 
         {column === 'queued' && mode === 'workshop' && (
@@ -773,7 +739,6 @@ function BatchTaskCard({
               onClaim={onClaim}
               onDone={onDone}
               onReturnToQueue={onReturnToQueue}
-              onAssign={onAssign}
               onFlag={onFlag}
               onUnflag={onUnflag}
             />
