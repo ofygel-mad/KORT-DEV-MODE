@@ -1,19 +1,11 @@
 import { expect, type Page } from '@playwright/test';
 
 async function setInputValue(page: Page, placeholder: string, value: string) {
-  await page.getByPlaceholder(placeholder).evaluate((element, nextValue) => {
-    const input = element as HTMLInputElement;
-    const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-    descriptor?.set?.call(input, nextValue);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  }, value);
+  await page.getByPlaceholder(placeholder).fill(value);
 }
 
 async function triggerClickByRole(page: Page, name: string) {
-  await page.getByRole('button', { name, exact: true }).evaluate((element) => {
-    (element as HTMLButtonElement).click();
-  });
+  await page.getByRole('button', { name, exact: true }).click();
 }
 
 export async function preparePage(page: Page) {
@@ -36,5 +28,5 @@ export async function loginAs(page: Page, email: string, password = 'demo') {
   await setInputValue(page, 'Email или номер телефона', email);
   await setInputValue(page, 'Пароль', password);
   await triggerClickByRole(page, 'Войти');
-  await expect(page).not.toHaveURL(/\/auth\/login/);
+  await page.waitForURL((url) => !url.pathname.includes('/auth/login'), { timeout: 10000 });
 }
