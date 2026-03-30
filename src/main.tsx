@@ -48,8 +48,19 @@ function hasSeenIntro(): boolean {
   }
 }
 
+function isMobileDevice(): boolean {
+  try {
+    return window.matchMedia('(max-width: 768px)').matches ||
+      /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+  } catch {
+    return false;
+  }
+}
+
 function shouldSkipIntro(): boolean {
   try {
+    // H1 fix: на мобильных устройствах intro не показываем совсем
+    if (isMobileDevice()) return true;
     return window.location.pathname === '/workzone/request';
   } catch {
     return false;

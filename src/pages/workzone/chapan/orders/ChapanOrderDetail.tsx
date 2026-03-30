@@ -1,9 +1,9 @@
-﻿import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, CheckCircle2, Clock, CreditCard, MessageSquare, AlertTriangle, Pencil, ArchiveIcon, RotateCcw, Download, Package, XCircle, FileText } from 'lucide-react';
+import { CheckCircle2, Clock, CreditCard, MessageSquare, AlertTriangle, Pencil, ArchiveIcon, RotateCcw, Download, Package, XCircle, FileText } from 'lucide-react';
 import { useOrder, useFulfillFromStock, useConfirmOrder, useChangeOrderStatus, useAddPayment, useAddOrderActivity, useRestoreOrder, useCloseOrder, useCreateInvoice, useSetRequiresInvoice, useConfirmSeamstress, useRouteSingleItem } from '../../../../entities/order/queries';
 import { useProductsAvailability } from '../../../../entities/warehouse/queries';
-import type { OrderItem, OrderItemFulfillmentMode, OrderStatus, Priority } from '../../../../entities/order/types';
+import type { OrderItem, OrderItemFulfillmentMode, OrderStatus, Priority, Urgency } from '../../../../entities/order/types';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -62,11 +62,11 @@ const PROD_STATUS_LABEL: Record<string, string> = {
   done: 'Готово',
 };
 
-const PRIORITY_LABEL: Record<Priority, string> = {
-  normal: 'Обычный',
-  urgent: 'Срочно',
-  vip: 'VIP',
+const URGENCY_LABEL: Record<Urgency, string> = {
+  normal: '',
+  urgent: '🔴 Срочно',
 };
+const DEMANDING_LABEL = '⭐ Требовательный';
 
 const ROUTE_LABEL: Record<OrderItemFulfillmentMode, string> = {
   unassigned: 'Не выбран',
@@ -135,6 +135,12 @@ export default function ChapanOrderDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const setSelectedOrderId = useChapanUiStore((state) => state.setSelectedOrderId);
+
+  // A1 fix: очищаем selectedOrderId при входе в карточку,
+  // чтобы возврат на список заказов не вызывал повторный редирект.
+  useEffect(() => {
+    setSelectedOrderId(null);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const detailContext = (() => {
     if (location.pathname.startsWith('/workzone/chapan/ready/')) {
@@ -257,6 +263,10 @@ export default function ChapanOrderDetailPage() {
 
   const warehouseItems = orderItems.filter((item) => currentRoutes[item.id] === 'warehouse');
   const productionItems = orderItems.filter((item) => currentRoutes[item.id] === 'production');
+  const hasUnfinishedProduction = productionItems.some((pItem) => {
+    const pTask = productionTaskByItemId.get(pItem.id);
+    return !pTask || pTask.status !== 'done';
+  });
   const allInStock = orderItems.length > 0 && orderItems.every((item) => {
     const stock = stockMap?.[item.productName];
     return (stock?.qty ?? 0) >= item.quantity;
@@ -265,14 +275,15 @@ export default function ChapanOrderDetailPage() {
   return (
     <div className={styles.root}>
       <div className={styles.pageHeader}>
-        <button className={styles.backLink} onClick={() => { setSelectedOrderId(null); navigate(detailContext.backPath); }}>
-          <ChevronLeft size={14} />
-          <span>{detailContext.backLabel}</span>
-        </button>
         <div className={styles.orderMeta}>
           <h1 className={styles.orderNum}>#{order.orderNumber}</h1>
           <span className={styles.statusChip} style={{ '--sc': STATUS_COLOR[order.status] } as React.CSSProperties}>{STATUS_LABEL[order.status]}</span>
-          {order.priority !== 'normal' && <span className={styles.priorityChip}>{PRIORITY_LABEL[order.priority]}</span>}
+          {(order.urgency ?? order.priority) === 'urgent' && (
+            <span className={styles.priorityChip} data-urgency="urgent">🔴 Срочно</span>
+          )}
+          {(order.isDemandingClient ?? (order.priority === 'vip')) && (
+            <span className={styles.priorityChip} data-urgency="demanding">⭐ Требовательный</span>
+          )}
           {isOverdue && <span className={styles.overdueChip}>Просрочен</span>}
         </div>
       </div>
@@ -283,24 +294,38 @@ export default function ChapanOrderDetailPage() {
             <div className={styles.cardLabel}>Клиент</div>
             <div className={styles.clientName}>{order.clientName}</div>
             <a href={`tel:${order.clientPhone}`} className={styles.clientPhone}>{order.clientPhone}</a>
-            {order.city && (
-              <div className={styles.clientDeadline} style={{ color: 'rgba(240,232,212,.65)' }}>
-                🏙 {order.city}
-              </div>
-            )}
-            {(order as any).deliveryType && (
-              <div className={styles.clientDeadline} style={{ color: 'rgba(240,232,212,.65)' }}>
-                📦 {(order as any).deliveryType}
-              </div>
-            )}
-            {(order as any).source && (
-              <div className={styles.clientDeadline} style={{ color: 'rgba(240,232,212,.45)' }}>
-                Источник: {(order as any).source}
-              </div>
-            )}
-            {order.dueDate && (
-              <div className={styles.clientDeadline} style={{ color: isOverdue ? '#D94F4F' : 'rgba(240,232,212,.45)' }}>
-                Дедлайн: {new Date(order.dueDate).toLocaleDateString('ru-KZ', { day: '2-digit', month: 'long', year: 'numeric' })}
+            {(order.city || (order as any).deliveryType || (order as any).source || order.dueDate) && (
+              <div className={styles.clientMeta}>
+                {order.city && (
+                  <div className={styles.clientMetaRow}>
+                    <span className={styles.clientMetaIcon}>🏙</span>
+                    <span className={styles.clientMetaLabel}>Город</span>
+                    <span className={styles.clientMetaValue}>{order.city}</span>
+                  </div>
+                )}
+                {(order as any).deliveryType && (
+                  <div className={styles.clientMetaRow}>
+                    <span className={styles.clientMetaIcon}>📦</span>
+                    <span className={styles.clientMetaLabel}>Доставка</span>
+                    <span className={styles.clientMetaValue}>{(order as any).deliveryType}</span>
+                  </div>
+                )}
+                {(order as any).source && (
+                  <div className={styles.clientMetaRow}>
+                    <span className={styles.clientMetaIcon}>📣</span>
+                    <span className={styles.clientMetaLabel}>Источник</span>
+                    <span className={styles.clientMetaValue}>{(order as any).source}</span>
+                  </div>
+                )}
+                {order.dueDate && (
+                  <div className={styles.clientMetaRow}>
+                    <span className={styles.clientMetaIcon}>📅</span>
+                    <span className={styles.clientMetaLabel}>Дедлайн</span>
+                    <span className={`${styles.clientMetaValue} ${isOverdue ? styles.clientMetaOverdue : ''}`}>
+                      {new Date(order.dueDate).toLocaleDateString('ru-KZ', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -317,27 +342,39 @@ export default function ChapanOrderDetailPage() {
                 const badgeLabel = route === 'production' && task && order.status !== 'new'
                   ? (PROD_STATUS_LABEL[task.status] ?? ROUTE_LABEL[route])
                   : ROUTE_LABEL[route];
-                const badgeClass = route === 'warehouse'
-                  ? styles.routeBadgeWarehouse
-                  : route === 'production'
-                    ? (task?.status === 'done' ? styles.routeBadgeDone : styles.routeBadgeProduction)
-                    : styles.routeBadgePending;
-
                 const isRouteable = ['new', 'confirmed', 'in_production'].includes(order.status);
                 const isTerminal = ['ready', 'transferred', 'on_warehouse', 'shipped', 'completed', 'cancelled'].includes(order.status);
+
+                // For warehouse items that are waiting for production items to finish
+                const isWaiting = route === 'warehouse' && order.status === 'in_production' && hasUnfinishedProduction;
+                const effectiveBadgeLabel = isWaiting ? 'Ожидает цех' : badgeLabel;
+                const badgeClass = isWaiting
+                  ? styles.routeBadgeWaiting
+                  : route === 'warehouse'
+                    ? styles.routeBadgeWarehouse
+                    : route === 'production'
+                      ? (task?.status === 'done' ? styles.routeBadgeDone : styles.routeBadgeProduction)
+                      : styles.routeBadgePending;
+
+                const showBadge = isTerminal || (order.status !== 'new' && route !== 'unassigned');
 
                 return (
                   <div key={item.id} className={styles.itemRow}>
                     <div className={styles.itemInfo}>
                       <div className={styles.itemHead}>
                         <span className={styles.itemName}>{item.productName}</span>
-                        {isTerminal && (
+                        {showBadge && (
                           <span className={`${styles.routeBadge} ${badgeClass}`}>
-                            {badgeLabel}
+                            {effectiveBadgeLabel}
                           </span>
                         )}
                       </div>
                       <span className={styles.itemMeta}>{formatItemMeta(item)}</span>
+                      {(item.color || item.gender || item.length) && (
+                        <span className={styles.itemMeta} style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>
+                          {[item.color, item.gender, item.length ? `дл. ${item.length}` : null].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
                       {item.workshopNotes && <span className={styles.itemNote}>↳ {item.workshopNotes}</span>}
                       {order.status === 'new' && stock !== undefined && (
                         <span className={hasEnoughStock ? styles.stockBadgeIn : styles.stockBadgeOut}>
@@ -371,18 +408,43 @@ export default function ChapanOrderDetailPage() {
               })}
               {(order.items ?? []).length === 0 && <div className={styles.noItems}>Позиции не указаны</div>}
             </div>
-            <div className={styles.itemsTotal}><span>Итого:</span><strong>{fmt(order.totalAmount)}</strong></div>
+            <div className={styles.itemsTotal}>
+              <span>
+                Итого
+                <span style={{ color: 'var(--text-tertiary)', fontWeight: 400, fontSize: 11, marginLeft: 6 }}>
+                  {orderItems.length} {orderItems.length === 1 ? 'позиция' : orderItems.length < 5 ? 'позиции' : 'позиций'}
+                  {' · '}
+                  {orderItems.reduce((s, i) => s + (i.quantity ?? 1), 0)} шт.
+                </span>
+              </span>
+              <strong>{fmt(order.totalAmount)}</strong>
+            </div>
           </div>
 
           <div className={styles.card}>
             <div className={styles.cardLabel}>Финансы</div>
             <div className={styles.finTable}>
-              <div className={styles.finRow}><span>Сумма заказа</span><strong>{fmt(order.totalAmount)}</strong></div>
+              {order.deliveryFee > 0 && (
+                <div className={styles.finRow}><span>Доставка</span><strong>{fmt(order.deliveryFee)}</strong></div>
+              )}
+              {order.bankCommissionAmount > 0 && (
+                <div className={styles.finRow}><span>Комиссия банка{order.bankCommissionPercent > 0 ? ` (${order.bankCommissionPercent}%)` : ''}</span><strong>{fmt(order.bankCommissionAmount)}</strong></div>
+              )}
+              {order.orderDiscount > 0 && (
+                <div className={styles.finRow}><span>Скидка</span><strong style={{ color: '#4FC999' }}>−{fmt(order.orderDiscount)}</strong></div>
+              )}
+              <div className={styles.finRow}><span>Итого к оплате</span><strong>{fmt(order.totalAmount)}</strong></div>
               <div className={styles.finRow}><span>Оплачено</span><strong style={{ color: '#4FC999' }}>{fmt(order.paidAmount)}</strong></div>
               <div className={`${styles.finRow} ${styles.finRowBalance}`}><span>Остаток</span><strong style={{ color: balance > 0 ? '#E8C97A' : '#4FC999' }}>{fmt(balance)}</strong></div>
               <div className={styles.finRow}><span>Статус оплаты</span><span style={{ color: PAY_COLOR[order.paymentStatus], fontWeight: 500, fontSize: 12 }}>{PAY_LABEL[order.paymentStatus]}</span></div>
               {(order as any).expectedPaymentMethod && (
                 <div className={styles.finRow}><span>Ожидаемый способ доплаты</span><span style={{ fontWeight: 500 }}>{(order as any).expectedPaymentMethod}</span></div>
+              )}
+              {order.postalCode && (
+                <div className={styles.finRow}><span>Индекс</span><span style={{ fontWeight: 500 }}>{order.postalCode}</span></div>
+              )}
+              {order.orderDate && (
+                <div className={styles.finRow}><span>Дата заказа</span><span style={{ fontWeight: 500 }}>{new Date(order.orderDate).toLocaleDateString('ru-KZ', { day: '2-digit', month: 'long', year: 'numeric' })}</span></div>
               )}
             </div>
 

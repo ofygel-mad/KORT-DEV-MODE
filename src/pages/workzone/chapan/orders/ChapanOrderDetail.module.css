@@ -55,6 +55,14 @@
 .clientPhone:hover { color:var(--ch-plat-bright); }
 .clientDeadline { font-size:12px; color:var(--ch-text-dim); }
 
+.clientMeta { display:flex; flex-direction:column; gap:0; border:1px solid var(--ch-border); border-radius:8px; overflow:hidden; margin-top:2px; }
+.clientMetaRow { display:flex; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--ch-border); font-size:12px; }
+.clientMetaRow:last-child { border-bottom:none; }
+.clientMetaIcon { font-size:13px; flex-shrink:0; width:18px; text-align:center; }
+.clientMetaLabel { color:var(--ch-text-muted); font-size:11px; min-width:64px; flex-shrink:0; }
+.clientMetaValue { color:var(--ch-text-dim); font-weight:500; flex:1; }
+.clientMetaOverdue { color:var(--ch-red) !important; font-weight:600; }
+
 .itemsList { display:flex; flex-direction:column; gap:8px; }
 .itemRow { display:flex; align-items:flex-start; gap:10px; padding:10px 12px; background:var(--ch-card); border-radius:8px; border:1px solid var(--ch-border); }
 .itemInfo { flex:1; display:flex; flex-direction:column; gap:2px; }
@@ -252,6 +260,7 @@
 .routeBadgeProduction { background:rgba(229,146,42,.12); border-color:rgba(229,146,42,.28); color:#E8B15D; }
 .routeBadgePending { background:rgba(255,255,255,.04); border-color:var(--ch-border); color:var(--ch-text-muted); }
 .routeBadgeDone { background:rgba(16,185,129,.10); border-color:rgba(16,185,129,.25); color:#10B981; }
+.routeBadgeWaiting { background:rgba(99,102,241,.10); border-color:rgba(99,102,241,.28); color:#818CF8; }
 .routeActions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
 .routeActionBtn { border-radius:8px; border:1px solid var(--ch-border); background:var(--ch-surface); color:var(--ch-text-dim); padding:7px 10px; font:inherit; font-size:12px; cursor:pointer; transition:border-color 140ms, color 140ms, background 140ms; }
 .routeActionBtn:hover:not(:disabled) { border-color:var(--ch-border-plat); color:var(--ch-text); }

@@ -71,12 +71,14 @@ function CatalogsTab() {
     return current?.[key] ?? [];
   }
 
-  function addItem(key: CatalogKey, value: string) {
+  function addItem(key: CatalogKey, value: string): boolean {
     const trimmed = value.trim();
-    if (!trimmed || getList(key).includes(trimmed)) return;
+    if (!trimmed) return false;
+    if (getList(key).map(v => v.toLowerCase()).includes(trimmed.toLowerCase())) return false; // дубль
     const next = { ...(current ?? { productCatalog: [], fabricCatalog: [], sizeCatalog: [], workers: [] }) };
     next[key] = [...(next[key] ?? []), trimmed];
     setDraft(next);
+    return true;
   }
 
   function removeItem(key: CatalogKey, value: string) {
@@ -156,26 +158,36 @@ function CatalogSection({
   title: string;
   items: string[];
   placeholder: string;
-  onAdd: (v: string) => void;
+  onAdd: (v: string) => boolean;
   onRemove: (v: string) => void;
 }) {
   const [input, setInput] = useState('');
+  const [dupError, setDupError] = useState(false);
 
   function handleAdd() {
     if (!input.trim()) return;
-    onAdd(input.trim());
-    setInput('');
+    const added = onAdd(input.trim());
+    if (added) {
+      setInput('');
+      setDupError(false);
+    } else {
+      setDupError(true);
+      setTimeout(() => setDupError(false), 2000);
+    }
   }
 
   return (
     <div className={styles.catalogSection}>
-      <div className={styles.catalogTitle}>{title}</div>
+      <div className={styles.catalogTitleRow}>
+        <span className={styles.catalogTitle}>{title}</span>
+        {items.length > 0 && <span className={styles.catalogCount}>{items.length}</span>}
+      </div>
       <div className={styles.catalogAddRow}>
         <input
-          className={styles.catalogInput}
+          className={`${styles.catalogInput} ${dupError ? styles.catalogInputError : ''}`}
           value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder={placeholder}
+          onChange={e => { setInput(e.target.value); setDupError(false); }}
+          placeholder={dupError ? '⚠ Уже есть в списке' : placeholder}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
         />
         <button className={styles.catalogAddBtn} onClick={handleAdd} disabled={!input.trim()}>

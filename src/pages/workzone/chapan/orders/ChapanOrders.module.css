@@ -131,8 +131,8 @@
 .emptyIcon { font-size: 42px; opacity: .4; }
 .emptyTitle { font-size: 16px; font-weight: 600; color: var(--ch-text); }
 .emptyText { font-size: 13px; color: var(--ch-text-muted); }
-.emptyAction { margin-top: 4px; padding: 9px 20px; background: var(--ch-plat-soft); border: 1px solid var(--ch-plat-border); border-radius: 8px; color: var(--ch-plat-bright); font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 120ms; }
-.emptyAction:hover { background: rgba(180,192,210,0.16); }
+.emptyAction { margin-top: 4px; padding: 10px 22px; background: var(--fill-accent); border: none; border-radius: 8px; color: var(--text-on-accent); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 120ms; box-shadow: var(--shadow-accent); }
+.emptyAction:hover { background: color-mix(in srgb, var(--fill-accent) 88%, white); }
 
 /* ── View content transition ── */
 @keyframes viewFadeIn {
@@ -176,19 +176,19 @@
 }
 .row:hover .rowStripe { opacity: 1; }
 
-.rowNum { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 12px 14px; min-width: 0; }
-.rowClient { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-left: 1px solid var(--ch-border); min-width: 0; }
-.rowProduct { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-left: 1px solid var(--ch-border); min-width: 0; overflow: hidden; }
+.rowNum { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px; min-width: 0; }
+.rowClient { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-left: 1px solid var(--ch-border); min-width: 0; }
+.rowProduct { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-left: 1px solid var(--ch-border); min-width: 0; overflow: hidden; }
 .rowProduct .cardItemName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rowFin { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-left: 1px solid var(--ch-border); min-width: 0; }
-.rowDate { padding: 12px 14px; border-left: 1px solid var(--ch-border); font-size: 11px; text-align: right; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.rowFin { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-left: 1px solid var(--ch-border); min-width: 0; }
+.rowDate { padding: 10px 14px; border-left: 1px solid var(--ch-border); font-size: 11px; text-align: right; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .rowDateEmpty { color: var(--ch-text-muted); }
 
 /* ── Card (grid view) ── */
 .card {
   background: var(--ch-surface); border: 1px solid var(--ch-border); border-radius: 12px;
-  padding: 16px; cursor: pointer; text-align: left; width: 100%; font-family: inherit;
-  color: inherit; display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 14px; cursor: pointer; text-align: left; width: 100%; font-family: inherit;
+  color: inherit; display: flex; flex-direction: column; gap: 7px;
   position: relative; overflow: hidden;
   transition: border-color 150ms, background 150ms, box-shadow 150ms, transform 100ms;
 }
@@ -255,6 +255,28 @@
 .priorityBadge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap; }
 .urgent { background: rgba(239,68,68,.12); color: var(--ch-red); border: 1px solid rgba(239,68,68,.25); }
 .vip    { background: rgba(180,192,210,.12); color: var(--ch-plat-bright); border: 1px solid var(--ch-plat-border); }
+
+/* ── D1: urgent card/row — отдельно от финансового alert ── */
+.cardUrgent {
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  background: linear-gradient(160deg, rgba(239,68,68,0.07) 0%, var(--ch-surface) 60%) !important;
+}
+.cardUrgent::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #EF4444 0%, #F97316 50%, #EF4444 100%);
+  border-radius: 12px 12px 0 0;
+}
+.rowUrgent {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  background: linear-gradient(90deg, rgba(239,68,68,0.07) 0%, var(--ch-surface) 35%) !important;
+}
+.rowUrgent .rowStripe {
+  background: #EF4444 !important;
+  opacity: 0.85 !important;
+}
 
 .cardClient { font-size: 14px; font-weight: 600; color: var(--ch-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cardPhone { font-size: 11px; color: var(--ch-plat-dim); font-family: 'JetBrains Mono', monospace; margin-top: -6px; }
@@ -677,4 +699,62 @@
   .filterGroup { min-width: 110px; }
   /* Cards already responsive via auto-fill; ensure single column on smallest screens */
   .grid { grid-template-columns: 1fr; }
+}
+
+/* ── D2: Unified order number + item line ─────────────────────────────────── */
+.cardOrderNum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: .04em;
+  margin-bottom: -2px;
+}
+
+.rowOrderNum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: .04em;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+
+.itemMetaSub { font-size: 10px; color: var(--text-tertiary); letter-spacing: 0.01em; }
+
+/* ── Sprint 12: Mobile optimizations ── */
+@media (max-width: 768px) {
+  .root {
+    padding: 12px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .card {
+    padding: 10px 12px;
+    gap: 6px;
+    /* Disable costly hover transform on touch */
+    transform: none !important;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+
+  .row {
+    grid-template-columns: auto 1fr auto auto;
+  }
+
+  .toolbar {
+    gap: 6px;
+  }
+
+  .searchWrap {
+    flex: 1;
+    min-width: 0;
+  }
 }

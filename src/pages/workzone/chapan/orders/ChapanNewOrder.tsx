@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes } from 'react';
-import { useRef, useState, useDeferredValue } from 'react';
+import { useEffect, useRef, useState, useDeferredValue } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,10 +8,34 @@ import { ChevronLeft, Plus, Trash2, Calculator, AlertCircle, Paperclip, X, Image
 import { useId } from 'react';
 import { useCreateOrder, useChapanCatalogs } from '../../../../entities/order/queries';
 import { useProductsAvailability } from '../../../../entities/warehouse/queries';
-import type { Priority } from '../../../../entities/order/types';
+import type { Urgency } from '../../../../entities/order/types';
 import { formatPersonNameInput } from '../../../../shared/utils/person';
 import { formatKazakhPhoneInput, isKazakhPhoneComplete } from '../../../../shared/utils/kz';
 import styles from './ChapanNewOrder.module.css';
+
+// ─── Draft autosave ───────────────────────────────────────────────────────────
+const DRAFT_KEY = 'chapan_new_order_draft_v1';
+
+function loadDraft(): Partial<FormData> | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(data: Partial<FormData>) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  } catch { /* ignore */ }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch { /* ignore */ }
+}
 
 // ─── Payment methods ──────────────────────────────────────────────────────────
 type PaymentMethodValue = 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'mixed';
@@ -58,10 +82,13 @@ const schema = z
     postalCode:    z.string().optional(),
     deliveryType:  z.string().optional(),
     source:       z.string().optional(),
-    priority:     z.enum(['normal', 'urgent', 'vip']),
+    urgency:      z.enum(['normal', 'urgent']).default('normal'),
+    isDemandingClient: z.boolean().default(false),
     orderDate:    z.string(),
     dueDate:      z.string().optional(),
     orderDiscount: z.coerce.number().min(0).optional(),
+    deliveryFee:   z.coerce.number().min(0).optional(),
+    bankCommissionPercent: z.coerce.number().min(0).max(100).optional(),
     prepayment:   z.coerce.number().min(0).optional(),
     paymentMethod: z.enum(['cash', 'kaspi_qr', 'kaspi_terminal', 'transfer', 'mixed']).optional(),
     mixedCash:          z.coerce.number().min(0).optional(),
@@ -103,6 +130,13 @@ const schema = z
 type FormData = z.infer<typeof schema>;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+// F3: Автоматическая сумма доставки по типу
+const DELIVERY_FEE_MAP: Record<string, number> = {
+  'Казпочта': 2000,
+  'Жд': 3000,
+  'Авиа': 5000,
+};
+
 const CITIES   = ['Алматы', 'Астана', 'Шымкент', 'Атырау', 'Актобе', 'Тараз', 'Павлодар', 'Другой город'];
 const DELIVERY = ['Самовывоз', 'Курьер по городу', 'Казпочта', 'СДЭК', 'Другое'];
 const SOURCES  = ['Instagram', 'WhatsApp', 'Telegram', 'Звонок', 'Рекомендация', 'Сайт', 'Другое'];
@@ -149,7 +183,10 @@ function buildPayloadItems(items: FormData['items'], orderDiscount: number) {
 
     return {
       productName: line.item.productName,
-      fabric: line.item.color?.trim() || undefined,
+      fabric: line.item.color?.trim() || undefined,  // color goes to fabric for invoice compat
+      color: line.item.color?.trim() || undefined,
+      gender: line.item.gender?.trim() || undefined,
+      length: line.item.length?.trim() || undefined,
       size: line.item.size,
       quantity: line.quantity,
       unitPrice: effectiveUnitPrice,
@@ -175,19 +212,24 @@ export default function ChapanNewOrderPage() {
   const { data: catalogs } = useChapanCatalogs();
 
   const [discountPercent, setDiscountPercent] = useState('');
+  const [draftRestored, setDraftRestored] = useState(false);
 
-  // File state (UI only — upload endpoint TBD)
+  // File state — UI selection only; server upload endpoint not yet implemented.
+  // receiptFileNames sends file names to order metadata; actual bytes are not persisted yet.
   const [itemPhotos, setItemPhotos] = useState<Record<number, File | null>>({});
   const [receipts, setReceipts]     = useState<File[]>([]);
   const receiptInputRef = useRef<HTMLInputElement>(null);
 
+  const savedDraft = useRef(loadDraft());
+
   const {
-    register, control, handleSubmit, watch, setValue,
+    register, control, handleSubmit, watch, setValue, reset,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      priority:  'normal',
+    defaultValues: savedDraft.current ?? {
+      urgency:  'normal',
+      isDemandingClient: false,
       orderDate: todayIso(),
       items: [{ productName: '', gender: '', length: '', color: '', size: '', quantity: 1, unitPrice: undefined, itemDiscount: undefined, workshopNotes: '' }],
     },
@@ -195,9 +237,43 @@ export default function ChapanNewOrderPage() {
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
 
+  // Draft autosave — дебаунс 800 мс, не сохраняем пустой стартовый стейт
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      const snapshot = watch();
+      const isEmpty =
+        !snapshot.clientName &&
+        !snapshot.clientPhone &&
+        (snapshot.items ?? []).every((i) => !i.productName && !i.size);
+      if (!isEmpty) saveDraft(snapshot);
+    }, 800);
+    return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(watch())]);
+
+  // F3: Автоматически проставляем сумму доставки при выборе типа
+  useEffect(() => {
+    const autoFee = DELIVERY_FEE_MAP[deliveryType ?? ''];
+    if (autoFee !== undefined) {
+      setValue('deliveryFee', autoFee);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryType]);
+
+  // Показываем тост один раз, если черновик был восстановлен
+  useEffect(() => {
+    if (savedDraft.current && !draftRestored) {
+      setDraftRestored(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Derived values
   const items            = watch('items');
-  const priority         = watch('priority');
+  const urgency          = watch('urgency');
+  const isDemandingClient = watch('isDemandingClient');
   const deferredProductNames = useDeferredValue(
     items.map((i) => i.productName).filter(Boolean),
   );
@@ -215,10 +291,20 @@ export default function ChapanNewOrderPage() {
     return sum + Math.max(0, line - (Number(item.itemDiscount) || 0));
   }, 0);
 
-  const orderDiscount = Number.isFinite(orderDiscountRaw) ? (orderDiscountRaw ?? 0) : 0;
-  const prepayment    = Number.isFinite(prepaymentRaw)    ? (prepaymentRaw    ?? 0) : 0;
-  const finalTotal    = Math.max(0, itemsTotal - orderDiscount);
-  const debt          = Math.max(0, finalTotal - prepayment);
+  const deliveryFeeRaw        = watch('deliveryFee');
+  const bankCommissionPctRaw  = watch('bankCommissionPercent');
+  const deliveryType          = watch('deliveryType');
+
+  const orderDiscount       = Number.isFinite(orderDiscountRaw)       ? (orderDiscountRaw       ?? 0) : 0;
+  const prepayment          = Number.isFinite(prepaymentRaw)          ? (prepaymentRaw          ?? 0) : 0;
+  const deliveryFee         = Number.isFinite(deliveryFeeRaw)         ? (deliveryFeeRaw         ?? 0) : 0;
+  const bankCommissionPct   = Number.isFinite(bankCommissionPctRaw)   ? (bankCommissionPctRaw   ?? 0) : 0;
+
+  // F1: правильный порядок вычислений
+  const subtotalAfterDiscount = Math.max(0, itemsTotal - orderDiscount);
+  const bankCommissionAmount  = Math.round(subtotalAfterDiscount * bankCommissionPct / 100);
+  const finalTotal            = Math.max(0, subtotalAfterDiscount + deliveryFee + bankCommissionAmount);
+  const debt                  = Math.max(0, finalTotal - prepayment);
   const mixedSum      = mixedCash + mixedKaspiQr + mixedKaspiTerminal + mixedTransfer;
 
   function fmt(n: number) {
@@ -238,8 +324,15 @@ export default function ChapanNewOrderPage() {
       deliveryType:  data.deliveryType?.trim() || undefined,
       source:        data.source?.trim() || undefined,
       expectedPaymentMethod: data.expectedPaymentMethod?.trim() || undefined,
-      priority:      data.priority as Priority,
+      priority:      data.urgency === 'urgent' ? 'urgent' : data.isDemandingClient ? 'vip' : 'normal',
+      urgency:       data.urgency as Urgency,
+      isDemandingClient: data.isDemandingClient,
+      postalCode:    data.postalCode?.trim() || undefined,
       orderDate:     data.orderDate || undefined,
+      orderDiscount: orderDiscount > 0 ? orderDiscount : undefined,
+      deliveryFee:   deliveryFee > 0 ? deliveryFee : undefined,
+      bankCommissionPercent: bankCommissionPct > 0 ? bankCommissionPct : undefined,
+      bankCommissionAmount:  bankCommissionAmount > 0 ? bankCommissionAmount : undefined,
       dueDate:       data.dueDate   || undefined,
       prepayment:    hasPrepayment ? data.prepayment : undefined,
       paymentMethod: hasPrepayment ? data.paymentMethod : undefined,
@@ -249,10 +342,11 @@ export default function ChapanNewOrderPage() {
         mixedKaspiTerminal: data.mixedKaspiTerminal ?? 0,
         mixedTransfer:      data.mixedTransfer      ?? 0,
       } : undefined,
-      receiptFileNames: receipts.length > 0 ? receipts.map((f) => f.name) : undefined,
+      // receiptFileNames: receipts.length > 0 ? receipts.map((f) => f.name) : undefined, // Sprint 9: re-enable when upload endpoint is ready
       items: payloadItems,
       managerNote: data.managerNote?.trim() || undefined,
     });
+    clearDraft();
     navigate('/workzone/chapan/orders');
   }
 
@@ -262,12 +356,35 @@ export default function ChapanNewOrderPage() {
   return (
     <div className={styles.root}>
       <div className={styles.pageHeader}>
-        <button className={styles.backLink} onClick={() => navigate('/workzone/chapan/orders')}>
+        <button className={styles.backLink} onClick={() => { clearDraft(); navigate('/workzone/chapan/orders'); }}>
           <ChevronLeft size={14} />
           <span>Заказы</span>
         </button>
         <h1 className={styles.pageTitle}>Новый заказ</h1>
       </div>
+
+      {draftRestored && (
+        <div className={styles.draftBanner}>
+          <span>Восстановлен незавершённый черновик</span>
+          <button
+            type="button"
+            className={styles.draftClear}
+            onClick={() => {
+              clearDraft();
+              savedDraft.current = null;
+              reset({
+                urgency: 'normal',
+                isDemandingClient: false,
+                orderDate: todayIso(),
+                items: [{ productName: '', gender: '', length: '', color: '', size: '', quantity: 1, unitPrice: undefined, itemDiscount: undefined, workshopNotes: '' }],
+              });
+              setDraftRestored(false);
+            }}
+          >
+            Сбросить
+          </button>
+        </div>
+      )}
 
       <form className={styles.form} onSubmit={handleSubmit(onSubmit)}>
 
@@ -564,6 +681,11 @@ export default function ChapanNewOrderPage() {
                   <Calculator size={13} />
                   <span>Итого по позициям:</span>
                   <strong>{fmt(itemsTotal)}</strong>
+                  <span style={{ color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 400, marginLeft: 8 }}>
+                    {items.length} {items.length === 1 ? 'позиция' : items.length < 5 ? 'позиции' : 'позиций'}
+                    {' · '}
+                    {items.reduce((s, i) => s + (Number(i.quantity) || 0), 0)} шт.
+                  </span>
                 </div>
               )}
             </div>
@@ -589,17 +711,30 @@ export default function ChapanNewOrderPage() {
               <div className={styles.field}>
                 <label className={styles.label}>Приоритет</label>
                 <div className={styles.priorityGroup}>
-                  {(['normal', 'urgent', 'vip'] as Priority[]).map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className={`${styles.priorityBtn} ${priority === value ? styles.priorityBtnActive : ''} ${value === 'urgent' ? styles.priorityBtnUrgent : ''} ${value === 'vip' ? styles.priorityBtnVip : ''}`}
-                      onClick={() => setValue('priority', value)}
-                    >
-                      {value === 'normal' ? 'Обычный' : value === 'urgent' ? '🔴 Срочно' : '⭐ VIP'}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    className={`${styles.priorityBtn} ${urgency === 'normal' ? styles.priorityBtnActive : ''}`}
+                    onClick={() => setValue('urgency', 'normal')}
+                  >
+                    Обычный
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.priorityBtn} ${styles.priorityBtnUrgent} ${urgency === 'urgent' ? styles.priorityBtnActive : ''}`}
+                    onClick={() => setValue('urgency', 'urgent')}
+                  >
+                    🔴 Срочно
+                  </button>
                 </div>
+                <label className={styles.demandingToggle}>
+                  <input
+                    type="checkbox"
+                    checked={isDemandingClient}
+                    onChange={e => setValue('isDemandingClient', e.target.checked)}
+                    className={styles.demandingCheckbox}
+                  />
+                  <span>⭐ Требовательный клиент</span>
+                </label>
               </div>
             </div>
           </div>
@@ -613,26 +748,47 @@ export default function ChapanNewOrderPage() {
           </div>
           <div className={styles.sectionBody}>
 
-            {/* Итого по позициям / скидка / итого к оплате */}
-            <div className={styles.row3}>
-              <div className={styles.field}>
-                <label className={styles.label}>Итого по позициям (₸)</label>
-                <div className={styles.calcDisplay}>
-                  {itemsTotal > 0 ? fmt(itemsTotal) : '—'}
-                </div>
+            {/* F1: Правильный порядок вычислений */}
+            <div className={styles.finPipeline}>
+
+              {/* 1. Сумма по позициям */}
+              <div className={styles.finRow}>
+                <span className={styles.finLabel}>Сумма по позициям</span>
+                <span className={styles.finValue}>{itemsTotal > 0 ? fmt(itemsTotal) : '—'}</span>
               </div>
-              <div className={styles.field}>
-                <label className={styles.label}>Скидка на заказ</label>
+
+              {/* 2. Сумма доставки — F3 */}
+              <div className={styles.finRow}>
+                <span className={styles.finLabel}>Доставка</span>
+                <Controller control={control} name="deliveryFee" render={({ field }) => (
+                  <input
+                    type="number" min="0" inputMode="numeric"
+                    className={styles.finInput}
+                    placeholder="0 ₸"
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(parseOptionalAmount(e.target.value))}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onFocus={(e) => e.target.select()}
+                  />
+                )} />
+              </div>
+
+              {/* 3. Скидка на заказ — F5: один мастер-блок */}
+              <div className={styles.finRow}>
+                <span className={styles.finLabel}>Скидка</span>
                 <div className={styles.discountCompound}>
                   <Controller control={control} name="orderDiscount" render={({ field }) => (
                     <input
                       type="number" min="0" inputMode="numeric"
-                      className={`${styles.input} ${styles.discountAmtInput}`}
+                      className={`${styles.finInput} ${styles.discountAmtInput}`}
                       placeholder="0 ₸"
                       value={field.value ?? ''}
                       onChange={(e) => {
-                        field.onChange(parseOptionalAmount(e.target.value));
-                        setDiscountPercent('');
+                        const amt = parseOptionalAmount(e.target.value);
+                        field.onChange(amt);
+                        if (itemsTotal > 0 && Number.isFinite(amt) && (amt ?? 0) > 0) {
+                          setDiscountPercent(((amt! / itemsTotal) * 100).toFixed(1));
+                        } else { setDiscountPercent(''); }
                       }}
                       onWheel={(e) => e.currentTarget.blur()}
                       onFocus={(e) => e.target.select()}
@@ -640,10 +796,7 @@ export default function ChapanNewOrderPage() {
                   )} />
                   <div className={styles.discountPctWrap}>
                     <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
+                      type="number" min="0" max="100" step="0.1"
                       className={styles.discountPctInput}
                       placeholder="0"
                       value={discountPercent}
@@ -652,9 +805,7 @@ export default function ChapanNewOrderPage() {
                         const pct = parseFloat(e.target.value);
                         if (Number.isFinite(pct) && itemsTotal > 0) {
                           setValue('orderDiscount', Math.round(itemsTotal * pct / 100));
-                        } else if (!e.target.value) {
-                          setValue('orderDiscount', 0);
-                        }
+                        } else if (!e.target.value) { setValue('orderDiscount', 0); }
                       }}
                       onWheel={(e) => e.currentTarget.blur()}
                       onFocus={(e) => e.target.select()}
@@ -663,26 +814,45 @@ export default function ChapanNewOrderPage() {
                   </div>
                 </div>
               </div>
-              <div className={styles.field}>
-                <label className={styles.label}>Итого к оплате (₸)</label>
-                <div className={styles.calcDisplay}>
-                  {itemsTotal > 0 ? fmt(finalTotal) : '—'}
-                  {orderDiscount > 0 && itemsTotal > 0 && (
-                    <span className={styles.calcSaveBadge}>−{fmt(orderDiscount)}</span>
-                  )}
+
+              {/* 4. Банковская комиссия — F4 */}
+              <div className={styles.finRow}>
+                <span className={styles.finLabel}>Комиссия банка</span>
+                <div className={styles.discountCompound}>
+                  <div className={styles.finValue} style={{ minWidth: 80 }}>
+                    {bankCommissionAmount > 0 ? fmt(bankCommissionAmount) : '—'}
+                  </div>
+                  <div className={styles.discountPctWrap}>
+                    <Controller control={control} name="bankCommissionPercent" render={({ field }) => (
+                      <input
+                        type="number" min="0" max="100" step="0.1"
+                        className={styles.discountPctInput}
+                        placeholder="0"
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(parseOptionalAmount(e.target.value))}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        onFocus={(e) => e.target.select()}
+                      />
+                    )} />
+                    <span className={styles.discountPctSymbol}>%</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Предоплата / остаток */}
-            <div className={styles.row2}>
-              <div className={styles.field}>
-                <label className={styles.label}>Предоплата (₸)</label>
+              {/* 5. Итог к оплате */}
+              <div className={`${styles.finRow} ${styles.finRowTotal}`}>
+                <span className={styles.finLabel}>Итого к оплате</span>
+                <span className={styles.finValueBold}>{itemsTotal > 0 ? fmt(finalTotal) : '—'}</span>
+              </div>
+
+              {/* 6-7. Предоплата / Остаток */}
+              <div className={styles.finRow}>
+                <span className={styles.finLabel}>Предоплата</span>
                 <Controller control={control} name="prepayment" render={({ field }) => (
                   <input
                     type="number" min="0" max={finalTotal || undefined} inputMode="numeric"
-                    className={`${styles.input} ${errors.prepayment ? styles.inputError : ''}`}
-                    placeholder="0"
+                    className={`${styles.finInput} ${errors.prepayment ? styles.inputError : ''}`}
+                    placeholder="0 ₸"
                     value={field.value ?? ''}
                     onChange={(e) => field.onChange(parseOptionalAmount(e.target.value))}
                     onWheel={(e) => e.currentTarget.blur()}
@@ -691,12 +861,13 @@ export default function ChapanNewOrderPage() {
                 )} />
                 {errors.prepayment && <span className={styles.fieldError}>{errors.prepayment.message}</span>}
               </div>
-              <div className={styles.field}>
-                <label className={styles.label}>Остаток (₸)</label>
-                <div className={styles.calcDisplay}>
+              <div className={`${styles.finRow} ${styles.finRowBalance}`}>
+                <span className={styles.finLabel}>Остаток</span>
+                <span className={finalTotal > 0 && debt > 0 ? styles.finValueDebt : styles.finValue}>
                   {finalTotal > 0 ? fmt(debt) : '—'}
-                </div>
+                </span>
               </div>
+
             </div>
 
             {/* Способ оплаты */}
@@ -789,6 +960,7 @@ export default function ChapanNewOrderPage() {
               <label className={styles.receiptUpload}>
                 <Paperclip size={14} />
                 <span>Прикрепить чек...</span>
+                <span className={styles.uploadBadge}>локально</span>
                 <input
                   ref={receiptInputRef}
                   type="file"

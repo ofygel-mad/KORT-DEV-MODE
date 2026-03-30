@@ -83,3 +83,31 @@
 .workersAddInput:focus { border-color:var(--ch-plat-border); }
 .workersAddBtn { padding:9px 16px; background:var(--ch-plat-soft); border:1px solid var(--ch-plat-border); border-radius:7px; color:var(--ch-plat-bright); font-family:inherit; font-size:13px; cursor:pointer; font-weight:600; }
 .workersAddBtn:hover { background:rgba(180,192,210,.18); }
+
+/* ── Sprint 4 additions ── */
+.catalogTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.catalogCount {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--bg-surface-elevated, rgba(255,255,255,.08));
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.catalogInputError {
+  border-color: var(--fill-negative, #ef4444) !important;
+  background: color-mix(in srgb, var(--fill-negative, #ef4444) 6%, transparent) !important;
+}
+
+.catalogInputError::placeholder {
+  color: var(--fill-negative, #ef4444);
+  opacity: 0.8;
+}

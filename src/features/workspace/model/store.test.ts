@@ -82,6 +82,7 @@ describe('sanitizeWorkspacePersistedState', () => {
       topZIndex: 10,
       sceneTheme: 'morning',
       sceneTerrainMode: 'full',
+      sceneBgMode: 'photo',
     });
   });
 

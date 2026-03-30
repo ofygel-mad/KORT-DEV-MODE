@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { AlertTriangle, ChevronLeft, Plus, Trash2, X } from 'lucide-react';
 import { useOrder, useUpdateOrder, useChapanCatalogs, useRequestItemChange } from '../../../../entities/order/queries';
-import type { Priority } from '../../../../entities/order/types';
+import type { Urgency } from '../../../../entities/order/types';
 import { formatPersonNameInput } from '../../../../shared/utils/person';
 import { formatKazakhPhoneInput, isKazakhPhoneComplete } from '../../../../shared/utils/kz';
 import styles from './ChapanNewOrder.module.css';
@@ -27,7 +27,8 @@ const schema = z.object({
     .min(1, 'Телефон обязателен')
     .refine((value) => isKazakhPhoneComplete(value), 'Введите номер в формате +7 (777)-777-77-77'),
   dueDate:     z.string().optional(),
-  priority:    z.enum(['normal', 'urgent', 'vip']),
+  urgency:     z.enum(['normal', 'urgent']).default('normal'),
+  isDemandingClient: z.boolean().default(false),
   items:       z.array(itemSchema).min(1, 'Добавьте хотя бы одну позицию'),
 });
 
@@ -57,12 +58,13 @@ export default function ChapanEditOrderPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: 'normal', items: [] },
+    defaultValues: { urgency: 'normal', isDemandingClient: false, items: [] },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
-  const priority = watch('priority');
-  const items    = watch('items');
+  const urgency          = watch('urgency');
+  const isDemandingClient = watch('isDemandingClient');
+  const items            = watch('items');
 
   // Populate form once when order first loads — do not re-run on background refetches
   // to avoid wiping user's in-progress edits (React Query refetchOnMount reuses the same
@@ -75,7 +77,8 @@ export default function ChapanEditOrderPage() {
       clientName:  formatPersonNameInput(order.clientName),
       clientPhone: formatKazakhPhoneInput(order.clientPhone),
       dueDate:     order.dueDate ? order.dueDate.slice(0, 10) : '',
-      priority:    order.priority as Priority,
+      urgency:     (order.urgency ?? (order.priority === 'urgent' ? 'urgent' : 'normal')) as Urgency,
+      isDemandingClient: order.isDemandingClient ?? (order.priority === 'vip'),
       items: (order.items ?? []).map(item => ({
         fabric:        item.fabric ?? '',
         productName:   item.productName,
@@ -114,7 +117,9 @@ export default function ChapanEditOrderPage() {
         clientName:  formatPersonNameInput(data.clientName).trim(),
         clientPhone: formatKazakhPhoneInput(data.clientPhone),
         dueDate:     data.dueDate || null,
-        priority:    data.priority as Priority,
+        priority:    data.urgency === 'urgent' ? 'urgent' : data.isDemandingClient ? 'vip' : 'normal',
+        urgency:     data.urgency as Urgency,
+        isDemandingClient: data.isDemandingClient,
         items:       canEditItems ? data.items.map(item => ({
           fabric:        item.fabric?.trim() || undefined,
           productName:   item.productName,
@@ -150,7 +155,9 @@ export default function ChapanEditOrderPage() {
         clientName:  formatPersonNameInput(pendingFormData.clientName).trim(),
         clientPhone: formatKazakhPhoneInput(pendingFormData.clientPhone),
         dueDate:     pendingFormData.dueDate || null,
-        priority:    pendingFormData.priority as Priority,
+        priority:    pendingFormData.urgency === 'urgent' ? 'urgent' : pendingFormData.isDemandingClient ? 'vip' : 'normal',
+        urgency:     pendingFormData.urgency as Urgency,
+        isDemandingClient: pendingFormData.isDemandingClient,
       },
     });
 
@@ -422,17 +429,30 @@ export default function ChapanEditOrderPage() {
               <div className={styles.field}>
                 <label className={styles.label}>Приоритет</label>
                 <div className={styles.priorityGroup}>
-                  {(['normal', 'urgent', 'vip'] as Priority[]).map(value => (
-                    <button
-                      key={value}
-                      type="button"
-                      className={`${styles.priorityBtn} ${priority === value ? styles.priorityBtnActive : ''} ${value === 'urgent' ? styles.priorityBtnUrgent : ''} ${value === 'vip' ? styles.priorityBtnVip : ''}`}
-                      onClick={() => setValue('priority', value)}
-                    >
-                      {value === 'normal' ? 'Обычный' : value === 'urgent' ? '🔴 Срочно' : '⭐ VIP'}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    className={`${styles.priorityBtn} ${urgency === 'normal' ? styles.priorityBtnActive : ''}`}
+                    onClick={() => setValue('urgency', 'normal')}
+                  >
+                    Обычный
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.priorityBtn} ${styles.priorityBtnUrgent} ${urgency === 'urgent' ? styles.priorityBtnActive : ''}`}
+                    onClick={() => setValue('urgency', 'urgent')}
+                  >
+                    🔴 Срочно
+                  </button>
                 </div>
+                <label className={styles.demandingToggle}>
+                  <input
+                    type="checkbox"
+                    checked={isDemandingClient}
+                    onChange={e => setValue('isDemandingClient', e.target.checked)}
+                    className={styles.demandingCheckbox}
+                  />
+                  <span>⭐ Требовательный клиент</span>
+                </label>
               </div>
             </div>
           </div>

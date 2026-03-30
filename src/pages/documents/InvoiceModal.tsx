@@ -193,9 +193,14 @@ function OrderListStep({ style, onClose }: { style: InvoiceStyle; onClose: () =>
           {/* Order number + priority */}
           <div className={styles.orderCardTop}>
             <span className={styles.orderNum}>{order.orderNumber}</span>
-            {order.priority !== 'normal' && (
-              <span className={`${styles.priorityBadge} ${styles[`priority_${order.priority}`]}`}>
-                {order.priority === 'urgent' ? 'Срочный' : 'VIP'}
+            {(order.urgency ?? order.priority) === 'urgent' && (
+              <span className={`${styles.priorityBadge} ${styles.priority_urgent}`}>
+                🔴 Срочный
+              </span>
+            )}
+            {(order.isDemandingClient ?? (order.priority === 'vip')) && (
+              <span className={`${styles.priorityBadge} ${styles.priority_vip}`}>
+                ⭐ Требовательный
               </span>
             )}
             <span className={styles.itemCount}>

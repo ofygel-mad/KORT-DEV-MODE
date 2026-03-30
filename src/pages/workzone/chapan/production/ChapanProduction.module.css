@@ -96,7 +96,7 @@
   font-weight: 700;
 }
 
-.columnCards { display: flex; flex-direction: column; gap: 6px; padding: 12px; }
+.columnCards { display: flex; flex-direction: column; gap: 5px; padding: 10px; } /* E3 */
 
 .columnEmpty {
   display: flex;
@@ -113,8 +113,8 @@
 .card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 5px;           /* E3: reduced from 8px */
+  padding: 9px 12px;  /* E3: reduced from 12px 14px */
   border-radius: 8px;
   border: 1px solid var(--ch-border);
   background: var(--ch-card);
@@ -122,6 +122,48 @@
 }
 .card:hover { border-color: var(--ch-border-plat); box-shadow: 0 2px 8px rgba(0,0,0,.06); }
 .cardBlocked { border-color: color-mix(in srgb, var(--ch-red) 32%, transparent); }
+
+/* ── E1: urgent card state ── */
+.cardUrgent {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  background: linear-gradient(160deg, rgba(239,68,68,0.08) 0%, var(--ch-card) 55%) !important;
+  box-shadow: 0 0 0 1px rgba(239,68,68,0.15) inset;
+}
+.demandBanner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  margin: -2px -2px 6px -2px;
+  border-radius: 5px 5px 0 0;
+  background: rgba(180,192,210,.10);
+  border-bottom: 1px solid rgba(180,192,210,.20);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ch-plat-bright, #b8c8d8);
+  letter-spacing: 0.01em;
+}
+
+.cardDemanding {
+  border-color: rgba(180,192,210,.30);
+  box-shadow: 0 0 0 1px rgba(180,192,210,.15);
+}
+
+.urgentBanner {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #EF4444;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
 
 .blockBanner {
   display: inline-flex;
@@ -136,6 +178,7 @@
 }
 
 .cardHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cardHeadRight { display: flex; align-items: center; gap: 6px; } /* E3 */
 .orderNumber {
   padding-left: 8px;
   border-left: 3px solid var(--ch-border);
@@ -147,22 +190,42 @@
 }
 .clientName { font-size: 11px; color: var(--ch-text-muted); }
 
-.productName { font-size: 14px; font-weight: 600; color: var(--ch-text); line-height: 1.3; }
+.productName { font-size: 13px; font-weight: 600; color: var(--ch-text); line-height: 1.25; } /* E3 */
 .metaLine { font-size: 11px; color: var(--ch-text-muted); }
 
-.infoRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* ── Workshop note (E2) ── */
+.workshopNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 5px 8px;  /* E3 */
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ch-gold, #C9A84C) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ch-gold, #C9A84C) 22%, transparent);
+  font-size: 12px;
+  color: var(--ch-text);
+  line-height: 1.4;
+}
+.workshopNoteIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: color-mix(in srgb, var(--ch-gold, #C9A84C) 80%, var(--ch-text));
+}
+
+
+.infoRow { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 1px; }
 .workerChip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 3px 8px;  /* E3 */
   border-radius: 999px;
   background: var(--ch-surface);
   border: 1px solid var(--ch-border);
   font-size: 11px;
   color: var(--ch-text-muted);
 }
-.deadline { font-size: 11px; color: var(--ch-text-muted); }
+.deadline { font-size: 11px; font-weight: 600; color: var(--ch-text-dim); letter-spacing: 0.01em; }
 
 /* ── Card actions ── */
 .cardActions { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
@@ -545,4 +608,45 @@
 @media (max-width: 960px) {
   .header, .headerRight { flex-direction: column; align-items: stretch; }
   .board, .loadingGrid { grid-template-columns: 1fr; }
+}
+
+/* ── Sprint 12: Mobile production board ── */
+@media (max-width: 768px) {
+  .root {
+    padding: 12px;
+  }
+
+  .board {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .column {
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+  }
+
+  .columnCards {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .card {
+    padding: 8px 10px;
+  }
+
+  .cardActions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .primaryAction,
+  .successAction,
+  .secondaryAction {
+    flex: 1;
+    min-width: 80px;
+    font-size: 12px;
+    padding: 7px 10px;
+  }
 }
