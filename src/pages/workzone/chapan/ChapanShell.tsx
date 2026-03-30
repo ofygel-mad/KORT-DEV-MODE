@@ -1,13 +1,15 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Archive, CheckCheck, ChevronLeft, Factory, Package, Warehouse } from 'lucide-react';
+import { Archive, CheckCheck, ChevronLeft, Factory, Package, Trash2, Warehouse } from 'lucide-react';
 import { useAuthStore } from '../../../shared/stores/auth';
 import { useChapanPermissions } from '../../../shared/hooks/useChapanPermissions';
 import { ThemeSwitcher } from '../../../shared/ui/ThemeSwitcher';
 import { useChapanUiStore } from '../../../features/workzone/chapan/store';
 import ChapanInvoicesDrawer from './invoices/ChapanInvoicesDrawer';
 import styles from './ChapanShell.module.css';
+import { useEmployeePermissions } from '../../../shared/hooks/useEmployeePermissions';
 
 export default function ChapanShell() {
+  const { isAbsolute } = useEmployeePermissions();
   const navigate = useNavigate();
   const role = useAuthStore((state) => state.membership.role);
   const isAdmin = role === 'owner' || role === 'admin';
@@ -85,6 +87,15 @@ export default function ChapanShell() {
               <Archive size={14} />
               <span>Архив</span>
             </NavLink>
+            {isAbsolute && (
+              <NavLink
+                to="/workzone/chapan/orders/trash"
+                className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
+              >
+                <Trash2 size={14} />
+                <span>Корзина</span>
+              </NavLink>
+            )}
           </nav>
 
           <div className={styles.sidebarBottom} />

@@ -351,6 +351,15 @@ function ToShipTab({ paidOrders, unpaidOrders }: { paidOrders: ChapanOrder[]; un
   );
 }
 
+function buildItemLine(item: ChapanOrder['items'][number]): string {
+  const parts: string[] = [];
+  if (item.productName) parts.push(item.productName);
+  if (item.color)       parts.push(item.color);
+  const genderPart = item.gender ? `(${item.gender})` : '';
+  const line = parts.join(' · ');
+  return genderPart ? `${line} ${genderPart}` : line;
+}
+
 function OrderRow({ order, onClick, statusColor }: { order: ChapanOrder; onClick: () => void; statusColor: string }) {
   return (
     <div
@@ -372,7 +381,7 @@ function OrderRow({ order, onClick, statusColor }: { order: ChapanOrder; onClick
       <div className={`${styles.cell} ${styles.cellBorder}`}>
         {order.items?.[0] && (
           <>
-            <span className={styles.cellLabel}>{order.items[0].productName}</span>
+            <span className={styles.cellLabel}>{buildItemLine(order.items[0])}</span>
             <span className={styles.cellSub}>
               {[order.items[0].size].filter(Boolean).join(' · ')}
               {order.items[0].quantity > 1 && ` × ${order.items[0].quantity}`}

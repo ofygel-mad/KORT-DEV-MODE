@@ -42,7 +42,7 @@ import styles from './AuthModal.module.css';
  * Намеренно удалены: 'choose-type' и 'employee'
  * (сотрудники регистрируются только через администратора в настройках)
  */
-type Step = 'login' | 'pin' | 'company' | 'set-password' | 'forgot';
+type Step = 'login' | 'pin' | 'company' | 'set-password' | 'forgot' | 'password-set';
 type BrandScene = 'network' | 'briefing' | 'flow' | 'metrics';
 
 interface AuthModalProps {
@@ -553,7 +553,7 @@ export function AuthModal({ open, onClose, onAuthSuccess, initialStep }: AuthMod
         onMouseDown={(event) => {
           // Закрывать модалку на шаге set-password не даём — пользователь
           // обязан установить пароль, иначе аккаунт зависнет в pending
-          if (step === 'set-password') return;
+          if (step === 'set-password' || step === 'password-set') return;
           if (event.target === event.currentTarget) onClose();
         }}
       >
@@ -808,8 +808,28 @@ export function AuthModal({ open, onClose, onAuthSuccess, initialStep }: AuthMod
                   <SetPasswordStep
                     tempToken={firstLoginTempToken}
                     userName={firstLoginUserName}
-                    onSuccess={applySession}
+                    onSuccess={() => setStep('password-set')}
                   />
+                </div>
+              )}
+
+              {/* ── Password set — ask to re-login ── */}
+              {step === 'password-set' && (
+                <div className={styles.stepContent}>
+                  <div style={{ textAlign: 'center', padding: '32px 16px', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
+                    <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'color-mix(in srgb, #4FC999 12%, transparent)', border: '1px solid color-mix(in srgb, #4FC999 28%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>✓</div>
+                    <h2 style={{ fontWeight: 700, fontSize: 18, color: 'var(--text-primary)' }}>Пароль установлен</h2>
+                    <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5, maxWidth: 280 }}>
+                      Войдите заново с вашим номером телефона и новым паролем, чтобы продолжить.
+                    </p>
+                    <button
+                      type="button"
+                      style={{ marginTop: 8, padding: '10px 24px', borderRadius: 8, background: 'var(--fill-accent)', border: 'none', color: '#fff', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
+                      onClick={() => { setStep('login'); setFirstLoginTempToken(''); setFirstLoginUserName(''); }}
+                    >
+                      Войти
+                    </button>
+                  </div>
                 </div>
               )}
 

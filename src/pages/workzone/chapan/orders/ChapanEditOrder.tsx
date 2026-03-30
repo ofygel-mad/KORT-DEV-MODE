@@ -13,6 +13,26 @@ import styles from './ChapanNewOrder.module.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
+type PaymentMethodValue = 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'mixed';
+
+const PAYMENT_METHODS: Array<{ value: PaymentMethodValue; label: string }> = [
+  { value: 'cash',           label: 'Наличные' },
+  { value: 'kaspi_qr',       label: 'Kaspi QR' },
+  { value: 'kaspi_terminal', label: 'Kaspi Терминал' },
+  { value: 'transfer',       label: 'Перевод' },
+  { value: 'mixed',          label: 'Смешанный' },
+];
+
+const MIXED_METHODS: Array<{
+  key: 'mixedCash' | 'mixedKaspiQr' | 'mixedKaspiTerminal' | 'mixedTransfer';
+  label: string;
+}> = [
+  { key: 'mixedCash',          label: 'Наличные' },
+  { key: 'mixedKaspiQr',       label: 'Kaspi QR' },
+  { key: 'mixedKaspiTerminal', label: 'Kaspi Терминал' },
+  { key: 'mixedTransfer',      label: 'Перевод' },
+];
+
 const CITIES   = ['Алматы', 'Астана', 'Шымкент', 'Атырау', 'Актобе', 'Тараз', 'Павлодар', 'Другой город'];
 const SOURCES  = ['Instagram', 'WhatsApp', 'Telegram', 'Звонок', 'Рекомендация', 'Сайт', 'Другое'];
 const DELIVERY_OPTIONS = ['Самовывоз', 'Курьер по городу', 'Казпочта', 'Жд', 'Авиа', 'СДЭК', 'Другое'];
@@ -74,7 +94,36 @@ const schema = z.object({
   orderDiscount: z.coerce.number().min(0).optional(),
   deliveryFee:   z.coerce.number().min(0).optional(),
   bankCommissionPercent: z.coerce.number().min(0).max(100).optional(),
+  prepayment:   z.coerce.number().min(0).optional(),
+  paymentMethod: z.enum(['cash', 'kaspi_qr', 'kaspi_terminal', 'transfer', 'mixed']).optional(),
+  expectedPaymentMethod: z.string().optional(),
+  mixedCash:          z.coerce.number().min(0).optional(),
+  mixedKaspiQr:       z.coerce.number().min(0).optional(),
+  mixedKaspiTerminal: z.coerce.number().min(0).optional(),
+  mixedTransfer:      z.coerce.number().min(0).optional(),
   items:       z.array(itemSchema).min(1, 'Добавьте хотя бы одну позицию'),
+}).superRefine((data, ctx) => {
+  const itemsTotal = (data.items ?? []).reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0);
+  const orderDiscount = Number(data.orderDiscount) || 0;
+  const deliveryFee   = Number(data.deliveryFee)   || 0;
+  const bankCommPct   = Number(data.bankCommissionPercent) || 0;
+  const subtotal      = Math.max(0, itemsTotal - orderDiscount);
+  const bankComm      = Math.round(subtotal * bankCommPct / 100);
+  const finalTotal    = Math.max(0, subtotal + deliveryFee + bankComm);
+
+  if ((data.prepayment ?? 0) > 0 && !data.paymentMethod) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Укажите способ оплаты', path: ['paymentMethod'] });
+  }
+  if ((data.prepayment ?? 0) > finalTotal) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Предоплата не может превышать итоговую сумму', path: ['prepayment'] });
+  }
+  if (data.paymentMethod === 'mixed' && (data.prepayment ?? 0) > 0) {
+    const mixedSum = (Number(data.mixedCash) || 0) + (Number(data.mixedKaspiQr) || 0)
+      + (Number(data.mixedKaspiTerminal) || 0) + (Number(data.mixedTransfer) || 0);
+    if (mixedSum > 0 && Math.abs(mixedSum - (data.prepayment ?? 0)) > 1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Сумма разбивки не совпадает с предоплатой', path: ['mixedCash'] });
+    }
+  }
 });
 
 type FormData = z.infer<typeof schema>;
@@ -114,13 +163,19 @@ export default function ChapanEditOrderPage() {
   const orderDiscountRaw  = watch('orderDiscount');
   const deliveryFeeRaw    = watch('deliveryFee');
   const bankCommPctRaw    = watch('bankCommissionPercent');
+  const paymentMethod    = watch('paymentMethod');
+  const prepaymentRaw    = watch('prepayment');
+  const mixedCash          = Number(watch('mixedCash'))          || 0;
+  const mixedKaspiQr       = Number(watch('mixedKaspiQr'))       || 0;
+  const mixedKaspiTerminal = Number(watch('mixedKaspiTerminal')) || 0;
+  const mixedTransfer      = Number(watch('mixedTransfer'))      || 0;
   const [discountPercent, setDiscountPercent] = useState('');
 
   // F3: auto-fill delivery fee when delivery type changes
   useEffect(() => {
     const autoFee = DELIVERY_FEE_MAP[deliveryType ?? ''];
     if (autoFee !== undefined) setValue('deliveryFee', autoFee);
-  }, [deliveryType]);
+  }, [deliveryType, setValue]);
 
   const itemsTotal            = items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0);
   const orderDiscount         = Number.isFinite(orderDiscountRaw)  ? (orderDiscountRaw  ?? 0) : 0;
@@ -129,6 +184,18 @@ export default function ChapanEditOrderPage() {
   const subtotalAfterDiscount = Math.max(0, itemsTotal - orderDiscount);
   const bankCommAmount        = Math.round(subtotalAfterDiscount * bankCommPct / 100);
   const finalTotal            = Math.max(0, subtotalAfterDiscount + deliveryFee + bankCommAmount);
+  const prepayment            = Number.isFinite(prepaymentRaw) ? (prepaymentRaw ?? 0) : 0;
+  const debt                  = Math.max(0, finalTotal - prepayment);
+  const mixedSum              = mixedCash + mixedKaspiQr + mixedKaspiTerminal + mixedTransfer;
+
+  const catalogPaymentMethods = (catalogs?.paymentMethodCatalog ?? []);
+  const activePaymentMethods: Array<{ value: string; label: string }> =
+    catalogPaymentMethods.length > 0
+      ? [
+          ...catalogPaymentMethods.map((name: string) => ({ value: name, label: name })),
+          { value: 'mixed', label: 'Смешанный' },
+        ]
+      : PAYMENT_METHODS;
   // to avoid wiping user's in-progress edits (React Query refetchOnMount reuses the same
   // component instance but may deliver a new object reference for the same data).
   const formPopulated = useRef(false);
@@ -150,6 +217,11 @@ export default function ChapanEditOrderPage() {
       orderDiscount: order.orderDiscount > 0 ? order.orderDiscount : undefined,
       deliveryFee:   order.deliveryFee   > 0 ? order.deliveryFee   : undefined,
       bankCommissionPercent: order.bankCommissionPercent > 0 ? order.bankCommissionPercent : undefined,
+      // Shows current paidAmount so manager can see what was already paid
+      prepayment:    order.paidAmount   > 0 ? order.paidAmount   : undefined,
+      paymentMethod: undefined,  // payment method for THIS edit session, not inherited
+      expectedPaymentMethod: order.expectedPaymentMethod ?? undefined,
+      mixedCash: undefined, mixedKaspiQr: undefined, mixedKaspiTerminal: undefined, mixedTransfer: undefined,
       items: (order.items ?? []).map(item => ({
         fabric:        item.fabric ?? '',
         productName:   item.productName,
@@ -201,6 +273,12 @@ export default function ChapanEditOrderPage() {
         deliveryFee:   deliveryFee   > 0 ? deliveryFee   : 0,
         bankCommissionPercent: bankCommPct > 0 ? bankCommPct : 0,
         bankCommissionAmount:  bankCommAmount > 0 ? bankCommAmount : 0,
+        prepayment:    prepayment > 0 ? prepayment : 0,
+        paymentMethod: prepayment > 0 ? (data.paymentMethod ?? undefined) : undefined,
+        mixedCash:          data.paymentMethod === 'mixed' ? (Number(data.mixedCash) || 0) : undefined,
+        mixedKaspiQr:       data.paymentMethod === 'mixed' ? (Number(data.mixedKaspiQr) || 0) : undefined,
+        mixedKaspiTerminal: data.paymentMethod === 'mixed' ? (Number(data.mixedKaspiTerminal) || 0) : undefined,
+        mixedTransfer:      data.paymentMethod === 'mixed' ? (Number(data.mixedTransfer) || 0) : undefined,
         items:       canEditItems ? data.items.map(item => ({
           fabric:        item.fabric?.trim() || undefined,
           productName:   item.productName,
@@ -252,6 +330,12 @@ export default function ChapanEditOrderPage() {
         deliveryFee:   deliveryFee   > 0 ? deliveryFee   : 0,
         bankCommissionPercent: bankCommPct > 0 ? bankCommPct : 0,
         bankCommissionAmount:  bankCommAmount > 0 ? bankCommAmount : 0,
+        prepayment:    prepayment > 0 ? prepayment : 0,
+        paymentMethod: prepayment > 0 ? (pendingFormData.paymentMethod ?? undefined) : undefined,
+        mixedCash:          pendingFormData.paymentMethod === 'mixed' ? (Number(pendingFormData.mixedCash) || 0) : undefined,
+        mixedKaspiQr:       pendingFormData.paymentMethod === 'mixed' ? (Number(pendingFormData.mixedKaspiQr) || 0) : undefined,
+        mixedKaspiTerminal: pendingFormData.paymentMethod === 'mixed' ? (Number(pendingFormData.mixedKaspiTerminal) || 0) : undefined,
+        mixedTransfer:      pendingFormData.paymentMethod === 'mixed' ? (Number(pendingFormData.mixedTransfer) || 0) : undefined,
       },
     });
 
@@ -751,7 +835,102 @@ export default function ChapanEditOrderPage() {
                 <span className={styles.finValueBold}>{itemsTotal > 0 ? fmt(finalTotal) : '—'}</span>
               </div>
 
+              {/* Предоплата */}
+              <div className={styles.finRow}>
+                <span className={styles.finLabel}>Предоплата</span>
+                <Controller control={control} name="prepayment" render={({ field }) => (
+                  <input
+                    type="number" min="0" max={finalTotal || undefined} inputMode="numeric"
+                    className={`${styles.finInput} ${errors.prepayment ? styles.inputError : ''}`}
+                    placeholder="0 ₸"
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(parseOptionalAmount(e.target.value))}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onFocus={(e) => e.target.select()}
+                  />
+                )} />
+                {errors.prepayment && <span className={styles.fieldError}>{errors.prepayment.message}</span>}
+              </div>
+              <div className={`${styles.finRow} ${styles.finRowBalance}`}>
+                <span className={styles.finLabel}>Остаток</span>
+                <span className={finalTotal > 0 && debt > 0 ? styles.finValueDebt : styles.finValue}>
+                  {finalTotal > 0 ? fmt(debt) : '—'}
+                </span>
+              </div>
+
             </div>
+
+            {/* Способ оплаты */}
+            <div className={styles.field}>
+              <label className={styles.label}>
+                Способ оплаты
+                {prepayment > 0 && <span className={styles.req}> *</span>}
+              </label>
+              <div className={styles.payMethodBtns}>
+                {activePaymentMethods.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    className={[
+                      styles.payMethodBtn,
+                      paymentMethod === m.value ? styles.payMethodBtnActive : '',
+                      m.value === 'mixed' ? styles.payMethodBtnMixed : '',
+                    ].join(' ')}
+                    onClick={() => setValue('paymentMethod', paymentMethod === m.value ? undefined : m.value as typeof paymentMethod)}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              {errors.paymentMethod && <span className={styles.fieldError}>{errors.paymentMethod.message}</span>}
+            </div>
+
+            {/* Ожидаемый способ доплаты */}
+            <div className={styles.field}>
+              <label className={styles.label}>Ожидаемый способ доплаты</label>
+              <Controller control={control} name="expectedPaymentMethod" render={({ field }) => (
+                <SelectOrText
+                  {...field}
+                  value={field.value ?? ''}
+                  options={activePaymentMethods.map(m => m.label)}
+                  placeholder="Как клиент заплатит остаток..."
+                  className={styles.input}
+                />
+              )} />
+            </div>
+
+            {/* Смешанный — разбивка */}
+            {paymentMethod === 'mixed' && (
+              <div className={styles.mixedBreakdown}>
+                <div className={styles.mixedBreakdownTitle}>Разбивка по способам оплаты</div>
+                {MIXED_METHODS.map((m) => (
+                  <div key={m.key} className={styles.mixedRow}>
+                    <span className={styles.mixedLabel}>{m.label}</span>
+                    <Controller control={control} name={m.key} render={({ field }) => (
+                      <input
+                        type="number" min="0" inputMode="numeric"
+                        className={styles.mixedInput}
+                        placeholder="0 ₸"
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(parseOptionalAmount(e.target.value))}
+                        onWheel={(e) => e.currentTarget.blur()}
+                        onFocus={(e) => e.target.select()}
+                      />
+                    )} />
+                  </div>
+                ))}
+                {mixedSum > 0 && (
+                  <div className={styles.mixedTotal}>
+                    Итого в разбивке: <strong>{fmt(mixedSum)}</strong>
+                    {prepayment > 0 && Math.abs(mixedSum - prepayment) > 1 && (
+                      <span className={styles.mixedMismatch}> ≠ предоплата {fmt(prepayment)}</span>
+                    )}
+                  </div>
+                )}
+                {errors.mixedCash && <span className={styles.fieldError}>{errors.mixedCash.message}</span>}
+              </div>
+            )}
+
           </div>
         </section>
 

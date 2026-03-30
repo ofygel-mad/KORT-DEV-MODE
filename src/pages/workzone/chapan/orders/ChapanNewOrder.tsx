@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { ChevronLeft, Plus, Trash2, Calculator, AlertCircle, Paperclip, X, ImagePlus } from 'lucide-react';
 import { useId } from 'react';
 import { useCreateOrder, useChapanCatalogs } from '../../../../entities/order/queries';
+import { useAuthStore } from '../../../../shared/stores/auth';
 import { useProductsAvailability } from '../../../../entities/warehouse/queries';
 import { attachmentsApi } from '../../../../entities/order/api';
 import type { Urgency } from '../../../../entities/order/types';
@@ -15,26 +16,28 @@ import { formatKazakhPhoneInput, isKazakhPhoneComplete } from '../../../../share
 import styles from './ChapanNewOrder.module.css';
 
 // ─── Draft autosave ───────────────────────────────────────────────────────────
-const DRAFT_KEY = 'chapan_new_order_draft_v1';
+function draftKey(userId?: string) {
+  return `chapan_new_order_draft_${userId ?? 'guest'}`;
+}
 
-function loadDraft(): Partial<FormData> | null {
+function loadDraft(userId?: string): Partial<FormData> | null {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = localStorage.getItem(draftKey(userId));
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-function saveDraft(data: Partial<FormData>) {
+function saveDraft(data: Partial<FormData>, userId?: string) {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+    localStorage.setItem(draftKey(userId), JSON.stringify(data));
   } catch { /* ignore */ }
 }
 
-function clearDraft() {
+function clearDraft(userId?: string) {
   try {
-    localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(draftKey(userId));
   } catch { /* ignore */ }
 }
 
@@ -221,7 +224,8 @@ export default function ChapanNewOrderPage() {
   const [receipts, setReceipts]     = useState<File[]>([]);
   const receiptInputRef = useRef<HTMLInputElement>(null);
 
-  const savedDraft = useRef(loadDraft());
+  const userId = useAuthStore((s) => s.user?.id);
+  const savedDraft = useRef(loadDraft(userId));
 
   const {
     register, control, handleSubmit, watch, setValue, reset,
@@ -240,18 +244,24 @@ export default function ChapanNewOrderPage() {
 
   // Draft autosave — дебаунс 800 мс, не сохраняем пустой стартовый стейт
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Autosave: subscribe to form changes via watch callback (RHF v7 pattern)
+  // Avoids JSON.stringify(watch()) in dep array which re-renders on every keystroke
   useEffect(() => {
-    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(() => {
-      const snapshot = watch();
-      const isEmpty =
-        !snapshot.clientName &&
-        !snapshot.clientPhone &&
-        (snapshot.items ?? []).every((i) => !i.productName && !i.size);
-      if (!isEmpty) saveDraft(snapshot);
-    }, 800);
-    return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
-  }, [JSON.stringify(watch())]);
+    const { unsubscribe } = watch((snapshot) => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      autosaveTimer.current = setTimeout(() => {
+        const isEmpty =
+          !snapshot.clientName &&
+          !snapshot.clientPhone &&
+          (snapshot.items ?? []).every((i) => !i.productName && !i.size);
+        if (!isEmpty) saveDraft(snapshot as Partial<FormData>, userId);
+      }, 800);
+    });
+    return () => {
+      unsubscribe();
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+  }, [watch, userId]);
 
   const deliveryType          = watch('deliveryType');
 
@@ -335,12 +345,10 @@ export default function ChapanNewOrderPage() {
       dueDate:       data.dueDate   || undefined,
       prepayment:    hasPrepayment ? data.prepayment : undefined,
       paymentMethod: hasPrepayment ? data.paymentMethod : undefined,
-      mixedBreakdown: hasPrepayment && isMixed ? {
-        mixedCash:          data.mixedCash          ?? 0,
-        mixedKaspiQr:       data.mixedKaspiQr       ?? 0,
-        mixedKaspiTerminal: data.mixedKaspiTerminal ?? 0,
-        mixedTransfer:      data.mixedTransfer      ?? 0,
-      } : undefined,
+      mixedCash:          hasPrepayment && isMixed ? (data.mixedCash ?? 0) : undefined,
+      mixedKaspiQr:       hasPrepayment && isMixed ? (data.mixedKaspiQr ?? 0) : undefined,
+      mixedKaspiTerminal: hasPrepayment && isMixed ? (data.mixedKaspiTerminal ?? 0) : undefined,
+      mixedTransfer:      hasPrepayment && isMixed ? (data.mixedTransfer ?? 0) : undefined,
       items: payloadItems,
       managerNote: data.managerNote?.trim() || undefined,
     });
@@ -356,7 +364,7 @@ export default function ChapanNewOrderPage() {
       }
     }
 
-    clearDraft();
+    clearDraft(userId);
     navigate('/workzone/chapan/orders');
   }
 
@@ -375,7 +383,7 @@ export default function ChapanNewOrderPage() {
   return (
     <div className={styles.root}>
       <div className={styles.pageHeader}>
-        <button className={styles.backLink} onClick={() => { clearDraft(); navigate('/workzone/chapan/orders'); }}>
+        <button className={styles.backLink} onClick={() => { clearDraft(userId); navigate('/workzone/chapan/orders'); }}>
           <ChevronLeft size={14} />
           <span>Заказы</span>
         </button>
@@ -389,7 +397,7 @@ export default function ChapanNewOrderPage() {
             type="button"
             className={styles.draftClear}
             onClick={() => {
-              clearDraft();
+              clearDraft(userId);
               savedDraft.current = null;
               reset({
                 urgency: 'normal',
@@ -634,9 +642,7 @@ export default function ChapanNewOrderPage() {
                       {lineDisc > 0 ? (
                         <>
                           <span className={styles.lineTotalOld}>{fmt(linePrice)}</span>
-                          <span className={styles.lineTotalArrow}>→</span>
                           <span className={styles.lineTotalFinal}>{fmt(lineTotal)}</span>
-                          <span className={styles.lineTotalSave}>экономия {fmt(lineDisc)}</span>
                         </>
                       ) : (
                         <span className={styles.lineTotalFinal}>{fmt(linePrice)}</span>

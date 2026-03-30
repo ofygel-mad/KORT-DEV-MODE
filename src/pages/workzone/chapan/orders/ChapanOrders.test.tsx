@@ -25,6 +25,7 @@ vi.mock('../../../../features/workzone/chapan/store', () => ({
 
 vi.mock('../../../../entities/order/queries', () => ({
   useOrders: (params: unknown) => useOrdersMock(params),
+  useTrashOrder: () => ({ mutate: vi.fn() }),
 }));
 
 vi.mock('../../../../entities/warehouse/queries', () => ({
@@ -33,6 +34,10 @@ vi.mock('../../../../entities/warehouse/queries', () => ({
 
 vi.mock('../../../../entities/alert/queries', () => ({
   useUnpaidAlerts: () => ({ data: undefined }),
+}));
+
+vi.mock('../../../../shared/hooks/useEmployeePermissions', () => ({
+  useEmployeePermissions: () => ({ isAbsolute: true }),
 }));
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────

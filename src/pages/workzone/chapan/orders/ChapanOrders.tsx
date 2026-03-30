@@ -1,11 +1,12 @@
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, LayoutGrid, Layers, List, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useOrders } from '../../../../entities/order/queries';
+import { Bell, Check, LayoutGrid, Layers, List, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { useOrders, useTrashOrder } from '../../../../entities/order/queries';
 import type { ChapanOrder, OrderStatus } from '../../../../entities/order/types';
 import { useProductsAvailability } from '../../../../entities/warehouse/queries';
 import type { ProductsAvailabilityMap } from '../../../../entities/warehouse/types';
-import { useAuthStore } from '@/shared/stores/auth';
+import { useAuthStore } from '../../../../shared/stores/auth';
+import { useEmployeePermissions } from '../../../../shared/hooks/useEmployeePermissions';
 import { useChapanUiStore } from '../../../../features/workzone/chapan/store';
 import { useUnpaidAlerts } from '../../../../entities/alert/queries';
 import OrderDetailDrawer from './OrderDetailDrawer';
@@ -136,6 +137,15 @@ export default function ChapanOrdersPage() {
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [showAlertsPanel, setShowAlertsPanel] = useState(false);
   const viewPickerRef = useRef<HTMLDivElement>(null);
+
+  const { isAbsolute } = useEmployeePermissions();
+  const trashOrder = useTrashOrder();
+
+  const handleTrash = (id: string) => {
+    if (window.confirm('Переместить заказ в корзину?')) {
+      trashOrder.mutate(id);
+    }
+  };
 
   const { data: alertsData } = useUnpaidAlerts();
   const alerts = useMemo(() => alertsData?.results ?? [], [alertsData?.results]);
@@ -357,7 +367,7 @@ export default function ChapanOrdersPage() {
             <div className={styles.grid}>
               {displayGroups.map((g, i) =>
                 g.kind === 'single'
-                  ? <OrderCard key={g.order.id} order={g.order} onSelectOrder={setSelectedOrderId} hasAlert={activeAlertOrderIds.has(g.order.id)} stockMap={stockMap} />
+                  ? <OrderCard key={g.order.id} order={g.order} onSelectOrder={setSelectedOrderId} hasAlert={activeAlertOrderIds.has(g.order.id)} stockMap={stockMap} onTrash={handleTrash} />
                   : <BatchCard key={`batch-${i}`} group={g} onSelectOrder={setSelectedOrderId} />
               )}
             </div>
@@ -365,7 +375,7 @@ export default function ChapanOrdersPage() {
             <div className={styles.list}>
               {displayGroups.map((g, i) =>
                 g.kind === 'single'
-                  ? <OrderRow key={g.order.id} order={g.order} onSelectOrder={setSelectedOrderId} hasAlert={activeAlertOrderIds.has(g.order.id)} stockMap={stockMap} />
+                  ? <OrderRow key={g.order.id} order={g.order} onSelectOrder={setSelectedOrderId} hasAlert={activeAlertOrderIds.has(g.order.id)} stockMap={stockMap} onTrash={handleTrash} />
                   : <BatchRow key={`batch-${i}`} group={g} onSelectOrder={setSelectedOrderId} />
               )}
             </div>
@@ -463,7 +473,7 @@ export default function ChapanOrdersPage() {
 
 // ── Single grid card ──────────────────────────────────────────────────────────
 
-const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stockMap }: { order: ChapanOrder; onSelectOrder: (id: string) => void; hasAlert?: boolean; stockMap?: ProductsAvailabilityMap }) {
+const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stockMap, onTrash }: { order: ChapanOrder; onSelectOrder: (id: string) => void; hasAlert?: boolean; stockMap?: ProductsAvailabilityMap; onTrash?: (id: string) => void }) {
   const overdue = isOverdue(order.dueDate);
   const first = order.items?.[0];
   const more = (order.items?.length ?? 0) - 1;
@@ -490,6 +500,16 @@ const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stoc
           <span className={stockInfo.available ? styles.stockPillIn : styles.stockPillOut}>
             {stockInfo.available ? `склад: ${stockInfo.qty} шт.` : 'нет на складе'}
           </span>
+        )}
+        {onTrash && (
+          <button
+            type="button"
+            className={styles.trashBtn}
+            title="В корзину"
+            onClick={(e) => { e.stopPropagation(); onTrash(order.id); }}
+          >
+            <Trash2 size={13} />
+          </button>
         )}
       </div>
       <div className={styles.cardOrderNum}>#{order.orderNumber}</div>
@@ -565,9 +585,9 @@ const BatchCard = memo(function BatchCard({ group, onSelectOrder }: { group: { o
 
         {item && (
           <div className={styles.batchProduct}>
-            <span className={styles.batchProductName}>{item.productName}</span>
-            {(item.fabric || item.size) && (
-              <span className={styles.cardItemMeta}>{[item.fabric, item.size].filter(Boolean).join(' · ')}</span>
+            <span className={styles.batchProductName}>{buildItemLine(item)}</span>
+            {item.size && (
+              <span className={styles.cardItemMeta}>{item.size}</span>
             )}
           </div>
         )}
@@ -643,7 +663,7 @@ const BatchCard = memo(function BatchCard({ group, onSelectOrder }: { group: { o
 
 // ── Single list row ───────────────────────────────────────────────────────────
 
-const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockMap }: { order: ChapanOrder; onSelectOrder: (id: string) => void; hasAlert?: boolean; stockMap?: ProductsAvailabilityMap }) {
+const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockMap, onTrash }: { order: ChapanOrder; onSelectOrder: (id: string) => void; hasAlert?: boolean; stockMap?: ProductsAvailabilityMap; onTrash?: (id: string) => void }) {
   const overdue = isOverdue(order.dueDate);
   const first = order.items?.[0];
   const more = (order.items?.length ?? 0) - 1;
@@ -694,6 +714,11 @@ const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockM
           <span className={styles.cardItemMeta}>—</span>
         )}
       </div>
+      {onTrash && (
+        <button type="button" className={styles.trashBtnRow} title="В корзину" onClick={e => { e.stopPropagation(); onTrash(order.id); }}>
+          <Trash2 size={13} />
+        </button>
+      )}
       <div className={styles.rowFin}>
         <span className={styles.cardAmount}>{fmt(order.totalAmount)}</span>
         <span className={styles.cardPay} style={{ color: PAY_COLOR[order.paymentStatus] }}>
@@ -756,9 +781,9 @@ const BatchRow = memo(function BatchRow({ group, onSelectOrder }: { group: { ord
         <div className={styles.rowProduct}>
           {item ? (
             <>
-              <span className={styles.cardItemName}>{item.productName}</span>
-              {(item.fabric || item.size) && (
-                <span className={styles.cardItemMeta}>{[item.fabric, item.size].filter(Boolean).join(' · ')}</span>
+              <span className={styles.cardItemName}>{buildItemLine(item)}</span>
+              {item.size && (
+                <span className={styles.cardItemMeta}>{item.size}</span>
               )}
             </>
           ) : <span className={styles.cardItemMeta}>—</span>}

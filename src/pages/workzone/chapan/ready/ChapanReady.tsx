@@ -20,6 +20,16 @@ const STATUS_LABEL: Record<ReadyStatus, string> = {
   ready: 'Готово',
 };
 
+function buildItemLine(item: { productName?: string; color?: string | null; gender?: string | null } | undefined): string {
+  if (!item) return '—';
+  const parts: string[] = [];
+  if (item.productName) parts.push(item.productName);
+  if (item.color)       parts.push(item.color);
+  const genderPart = item.gender ? `(${item.gender})` : '';
+  const line = parts.join(' · ');
+  return genderPart ? `${line} ${genderPart}` : line;
+}
+
 const STATUS_COLOR: Record<ReadyStatus, string> = {
   ready: '#4FC999',
 };
@@ -733,10 +743,9 @@ function ReadyCard({
 
       {firstItem && (
         <div className={styles.itemBlock}>
-          <span className={styles.itemName}>{firstItem.productName} <span className={styles.orderNumber}>(#{order.orderNumber})</span></span>
+          <span className={styles.itemName}>{buildItemLine(firstItem)} <span className={styles.orderNumber}>(#{order.orderNumber})</span></span>
           <span className={styles.itemMeta}>
-            {[firstItem.fabric, firstItem.size].filter(Boolean).join(' · ')}
-            {firstItem.quantity > 1 && ` × ${firstItem.quantity}`}
+            {firstItem.size}{firstItem.quantity > 1 && ` × ${firstItem.quantity}`}
           </span>
           {moreItems > 0 && <span className={styles.itemMore}>+ еще {moreItems}</span>}
         </div>
@@ -812,8 +821,8 @@ function ReadyBatchCard({
 
         {firstItem && (
           <div className={styles.batchProduct}>
-            <span className={styles.itemName}>{firstItem.productName}</span>
-            <span className={styles.itemMeta}>{[firstItem.fabric, firstItem.size].filter(Boolean).join(' · ')}</span>
+            <span className={styles.itemName}>{buildItemLine(firstItem)}</span>
+            <span className={styles.itemMeta}>{firstItem.size ?? ''}</span>
           </div>
         )}
 
@@ -908,7 +917,7 @@ function ReadyRow({
         </div>
         <div className={styles.rowClient}>{order.clientName}</div>
         <div className={styles.rowMeta}>
-          <span>{firstItem?.productName ?? 'Без позиции'}</span>
+          <span>{buildItemLine(firstItem) || 'Без позиции'}</span>
           <span>{formatMoney(order.totalAmount)}</span>
           <span>{formatDate(order.dueDate)}</span>
         </div>

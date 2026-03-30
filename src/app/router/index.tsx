@@ -51,6 +51,7 @@ const ChapanProductionPage  = makePage(() => import('../../pages/workzone/chapan
 const ChapanReadyPage       = makePage(() => import('../../pages/workzone/chapan/ready/ChapanReady'));
 const ChapanInvoicesPage    = makePage(() => import('../../pages/workzone/chapan/invoices/ChapanInvoices'));
 const ChapanArchivePage     = makePage(() => import('../../pages/workzone/chapan/archive/ChapanArchive'));
+const ChapanTrashPage       = makePage(() => import('../../pages/workzone/chapan/orders/ChapanTrash'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const user = useAuthStore((s) => s.user);
@@ -244,6 +245,10 @@ export const appRouter = createBrowserRouter([
       {
         path: 'invoices',
         element: <ChapanInvoicesPage />,
+      },
+      {
+        path: 'orders/trash',
+        element: <ChapanTrashPage />,
       },
       {
         path: 'archive',

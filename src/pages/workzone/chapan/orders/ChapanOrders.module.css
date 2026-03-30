@@ -785,3 +785,45 @@
     font-size: 11px;
   }
 }
+
+/* ── Trash button ─────────────────────────────────────────────────────────── */
+.trashBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ch-text-muted, #6b7280);
+  cursor: pointer;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: color 140ms, border-color 140ms, background 140ms;
+}
+.trashBtn:hover {
+  color: #EF4444;
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.trashBtnRow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ch-text-muted, #6b7280);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 140ms, border-color 140ms, background 140ms;
+}
+.trashBtnRow:hover {
+  color: #EF4444;
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.06);
+}

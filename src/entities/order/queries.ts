@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ordersApi, productionApi, chapanSettingsApi, invoicesApi, changeRequestsApi, attachmentsApi } from './api';
+import { ordersApi, usersApi, productionApi, chapanSettingsApi, invoicesApi, changeRequestsApi, attachmentsApi } from './api';
 import type {
   CreateOrderDto,
   UpdateOrderDto,
@@ -530,5 +530,53 @@ export function useDeleteAttachment(orderId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: orderKeys.detail(orderId) });
     },
+  });
+}
+
+// ── Trash mutations ───────────────────────────────────────────────────────────
+export function useTrashOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => ordersApi.trash(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chapan-orders'] });
+      qc.invalidateQueries({ queryKey: ['chapan-orders-trash'] });
+    },
+  });
+}
+
+export function useRestoreFromTrash() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => ordersApi.restoreFromTrash(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chapan-orders'] });
+      qc.invalidateQueries({ queryKey: ['chapan-orders-trash'] });
+    },
+  });
+}
+
+export function usePermanentDelete() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => ordersApi.permanentDelete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chapan-orders-trash'] });
+    },
+  });
+}
+
+export function useTrashedOrders() {
+  return useQuery({
+    queryKey: ['chapan-orders-trash'],
+    queryFn: () => ordersApi.listTrashed(),
+  });
+}
+
+// ── Account mutations ─────────────────────────────────────────────────────────
+export function useChangeEmail() {
+  return useMutation({
+    mutationFn: ({ new_email, current_password }: { new_email: string; current_password: string }) =>
+      usersApi.changeEmail(new_email, current_password),
   });
 }

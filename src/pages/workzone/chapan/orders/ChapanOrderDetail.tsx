@@ -93,8 +93,16 @@ function formatPaymentMethod(method: string) {
 }
 
 function formatItemMeta(item: Pick<OrderItem, 'fabric' | 'size' | 'quantity'>) {
-  const meta = [item.fabric, item.size].filter(Boolean).join(' · ');
+  // fabric omitted — color/gender shown in separate line; keep size + qty
+  const meta = [item.size].filter(Boolean).join(' · ');
   return item.quantity > 1 ? `${meta}${meta ? ' · ' : ''}× ${item.quantity}` : meta;
+}
+
+function buildItemTitle(item: { productName: string; color?: string | null; gender?: string | null }): string {
+  const parts: string[] = [item.productName];
+  if (item.color) parts.push(item.color);
+  const line = parts.join(' · ');
+  return item.gender ? `${line} (${item.gender})` : line;
 }
 
 function resolveItemFulfillmentMode(order: { status: OrderStatus; productionTasks?: Array<{ orderItemId: string }> }, item: OrderItem): OrderItemFulfillmentMode {
@@ -298,7 +306,7 @@ export default function ChapanOrderDetailPage() {
             <div className={styles.cardLabel}>Клиент</div>
             <div className={styles.clientName}>{order.clientName}</div>
             <a href={`tel:${order.clientPhone}`} className={styles.clientPhone}>{order.clientPhone}</a>
-            {(order.city || (order as any).deliveryType || (order as any).source || order.dueDate) && (
+            {(order.city || order.deliveryType || order.source || order.dueDate) && (
               <div className={styles.clientMeta}>
                 {order.city && (
                   <div className={styles.clientMetaRow}>
@@ -307,18 +315,18 @@ export default function ChapanOrderDetailPage() {
                     <span className={styles.clientMetaValue}>{order.city}</span>
                   </div>
                 )}
-                {(order as any).deliveryType && (
+                {order.deliveryType && (
                   <div className={styles.clientMetaRow}>
                     <span className={styles.clientMetaIcon}>📦</span>
                     <span className={styles.clientMetaLabel}>Доставка</span>
-                    <span className={styles.clientMetaValue}>{(order as any).deliveryType}</span>
+                    <span className={styles.clientMetaValue}>{order.deliveryType}</span>
                   </div>
                 )}
-                {(order as any).source && (
+                {order.source && (
                   <div className={styles.clientMetaRow}>
                     <span className={styles.clientMetaIcon}>📣</span>
                     <span className={styles.clientMetaLabel}>Источник</span>
-                    <span className={styles.clientMetaValue}>{(order as any).source}</span>
+                    <span className={styles.clientMetaValue}>{order.source}</span>
                   </div>
                 )}
                 {order.dueDate && (
@@ -366,7 +374,7 @@ export default function ChapanOrderDetailPage() {
                   <div key={item.id} className={styles.itemRow}>
                     <div className={styles.itemInfo}>
                       <div className={styles.itemHead}>
-                        <span className={styles.itemName}>{item.productName}</span>
+                        <span className={styles.itemName}>{buildItemTitle(item)}</span>
                         {showBadge && (
                           <span className={`${styles.routeBadge} ${badgeClass}`}>
                             {effectiveBadgeLabel}
@@ -374,9 +382,9 @@ export default function ChapanOrderDetailPage() {
                         )}
                       </div>
                       <span className={styles.itemMeta}>{formatItemMeta(item)}</span>
-                      {(item.color || item.gender || item.length) && (
+                      {item.length && (
                         <span className={styles.itemMeta} style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>
-                          {[item.color, item.gender, item.length ? `дл. ${item.length}` : null].filter(Boolean).join(' · ')}
+                          дл. {item.length}
                         </span>
                       )}
                       {item.workshopNotes && <span className={styles.itemNote}>↳ {item.workshopNotes}</span>}
@@ -441,8 +449,8 @@ export default function ChapanOrderDetailPage() {
               <div className={styles.finRow}><span>Оплачено</span><strong style={{ color: '#4FC999' }}>{fmt(order.paidAmount)}</strong></div>
               <div className={`${styles.finRow} ${styles.finRowBalance}`}><span>Остаток</span><strong style={{ color: balance > 0 ? '#E8C97A' : '#4FC999' }}>{fmt(balance)}</strong></div>
               <div className={styles.finRow}><span>Статус оплаты</span><span style={{ color: PAY_COLOR[order.paymentStatus], fontWeight: 500, fontSize: 12 }}>{PAY_LABEL[order.paymentStatus]}</span></div>
-              {(order as any).expectedPaymentMethod && (
-                <div className={styles.finRow}><span>Ожидаемый способ доплаты</span><span style={{ fontWeight: 500 }}>{(order as any).expectedPaymentMethod}</span></div>
+              {order.expectedPaymentMethod && (
+                <div className={styles.finRow}><span>Ожидаемый способ доплаты</span><span style={{ fontWeight: 500 }}>{order.expectedPaymentMethod}</span></div>
               )}
               {order.postalCode && (
                 <div className={styles.finRow}><span>Индекс</span><span style={{ fontWeight: 500 }}>{order.postalCode}</span></div>

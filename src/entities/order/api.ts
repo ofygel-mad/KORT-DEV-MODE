@@ -87,6 +87,16 @@ export const ordersApi = {
   requestItemChange: (id: string, items: CreateOrderItemDto[], managerNote?: string) =>
     api.post<ChapanChangeRequest>(`/chapan/orders/${id}/change-request`, { items, managerNote }),
 
+  // Trash (soft-delete)
+  trash: (id: string) =>
+    api.post<{ ok: boolean }>(`/chapan/orders/${id}/trash`, {}),
+  restoreFromTrash: (id: string) =>
+    api.post<{ ok: boolean }>(`/chapan/orders/${id}/restore-from-trash`, {}),
+  permanentDelete: (id: string) =>
+    api.delete<{ ok: boolean }>(`/chapan/orders/${id}`),
+  listTrashed: () =>
+    api.get<ChapanOrder[]>('/chapan/orders/trash'),
+
   routeItem: (orderId: string, itemId: string, fulfillmentMode: 'warehouse' | 'production') =>
     api.post<{ ok: boolean }>(`/chapan/orders/${orderId}/items/${itemId}/route`, { fulfillmentMode }),
 };
@@ -210,4 +220,10 @@ export const attachmentsApi = {
 
   delete: (orderId: string, attachmentId: string) =>
     api.delete<{ ok: boolean }>(`/chapan/orders/${orderId}/attachments/${attachmentId}`),
+};
+
+// ── Users / account API ───────────────────────────────────────────────────────
+export const usersApi = {
+  changeEmail: (new_email: string, current_password: string) =>
+    api.post<{ ok: boolean; requires_relogin: boolean }>('/users/me/change-email', { new_email, current_password }),
 };

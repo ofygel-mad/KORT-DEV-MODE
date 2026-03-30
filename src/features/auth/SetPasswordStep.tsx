@@ -3,7 +3,6 @@ import { Eye, EyeOff, KeyRound, ShieldCheck } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../shared/api/client';
 import { readApiErrorMessage } from '../../shared/api/errors';
-import type { AuthSessionResponse } from '../../shared/api/contracts';
 import styles from './SetPasswordStep.module.css';
 
 interface Props {
@@ -11,7 +10,8 @@ interface Props {
   tempToken: string;
   /** Employee's name for the greeting */
   userName?: string;
-  onSuccess: (session: AuthSessionResponse) => void;
+  /** Called after password is set — no session returned, user must re-login */
+  onSuccess: () => void;
 }
 
 function readAuthError(cause: unknown, fallback: string) {
@@ -62,8 +62,8 @@ export function SetPasswordStep({ tempToken, userName, onSuccess }: Props) {
   async function submit() {
     setError('');
 
-    if (password.length < 8) {
-      setError('Пароль должен содержать не менее 8 символов.');
+    if (password.length < 6) {
+      setError('Пароль должен содержать не менее 6 символов.');
       return;
     }
     if (password !== confirm) {
@@ -76,7 +76,7 @@ export function SetPasswordStep({ tempToken, userName, onSuccess }: Props) {
       // We call axios directly with the temp_token in Authorization.
       // We intentionally bypass the shared api client's auth interceptor
       // (which would inject the store access token instead).
-      const { data } = await axios.post<AuthSessionResponse>(
+      const { data } = await axios.post<{ ok: boolean; requires_login?: boolean }>(
         `${API_BASE_URL}/auth/set-password/`,
         { new_password: password, confirm_password: confirm },
         {
@@ -86,7 +86,8 @@ export function SetPasswordStep({ tempToken, userName, onSuccess }: Props) {
           },
         },
       );
-      onSuccess(data);
+      // Password set — backend revoked tokens, user must re-login
+      onSuccess();
     } catch (cause) {
       setError(readAuthError(cause, 'Не удалось установить пароль. Попробуйте снова.'));
     } finally {
@@ -115,7 +116,7 @@ export function SetPasswordStep({ tempToken, userName, onSuccess }: Props) {
           <PasswordField
             value={password}
             onChange={(v) => { setPassword(v); setError(''); }}
-            placeholder="Минимум 8 символов"
+            placeholder="Минимум 6 символов"
             autoComplete="new-password"
           />
         </div>
@@ -133,7 +134,7 @@ export function SetPasswordStep({ tempToken, userName, onSuccess }: Props) {
       {error && <div className={styles.error}>{error}</div>}
 
       <div className={styles.strengthHint}>
-        Используйте буквы, цифры и символы. Не используйте личные данные.
+        Минимум 6 символов. После сохранения войдите заново с телефоном и новым паролем.
       </div>
 
       <button
@@ -143,7 +144,7 @@ export function SetPasswordStep({ tempToken, userName, onSuccess }: Props) {
         onClick={() => void submit()}
       >
         <KeyRound size={16} />
-        {loading ? 'Сохраняем...' : 'Сохранить пароль и войти'}
+        {loading ? 'Сохраняем...' : 'Сохранить пароль'}
       </button>
     </div>
   );

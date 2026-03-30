@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { useAuthStore } from '../../../../shared/stores/auth';
+import { useEmployeePermissions } from '../../../../shared/hooks/useEmployeePermissions';
+import { useChapanCatalogs, useChapanProfile, useSaveCatalogs, useSaveProfile, useChapanClients, useChangeEmail } from '../../../../entities/order/queries';
 import { AlertCircle, Plus, RefreshCw, Save, X } from 'lucide-react';
-import { useChapanCatalogs, useChapanProfile, useSaveCatalogs, useSaveProfile } from '../../../../entities/order/queries';
-import { useChapanClients } from '../../../../entities/order/queries';
 import type { ChapanCatalogs } from '../../../../entities/order/types';
 import styles from './ChapanSettings.module.css';
 
 // ── Sprint 4 catalog key includes paymentMethodCatalog ────────────────────────
 type CatalogKey = 'productCatalog' | 'fabricCatalog' | 'sizeCatalog' | 'workers' | 'paymentMethodCatalog';
+type SettingsTab = 'catalogs' | 'profile' | 'clients' | 'account';
 
 // ── Sprint 4: буква → число ───────────────────────────────────────────────────
 const LETTER_TO_NUMBER: Record<string, string> = {
@@ -44,28 +46,39 @@ const PRESET_COLORS: Array<{ name: string; hex: string }> = [
 ];
 
 export default function ChapanSettingsPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'catalogs' | 'clients'>('catalogs');
+  const { isAbsolute } = useEmployeePermissions();
+  const defaultTab = isAbsolute ? 'catalogs' : 'account';
+  const [activeTab, setActiveTab] = useState<'profile' | 'catalogs' | 'clients' | 'account'>(defaultTab);
+
+  const allTabs = [
+    { key: 'catalogs' as const, label: 'Каталоги',  ownerOnly: true  },
+    { key: 'profile'  as const, label: 'Профиль',   ownerOnly: true  },
+    { key: 'clients'  as const, label: 'Клиенты',   ownerOnly: true  },
+    { key: 'account'  as const, label: 'Аккаунт',   ownerOnly: false },
+  ];
+  const visibleTabs = allTabs.filter(t => !t.ownerOnly || isAbsolute);
 
   return (
     <div className={styles.root}>
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>Настройки</h1>
         <div className={styles.tabs}>
-          {(['catalogs', 'profile', 'clients'] as const).map(tab => (
+          {visibleTabs.map(tab => (
             <button
-              key={tab}
-              className={`${styles.tab} ${activeTab === tab ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab(tab)}
+              key={tab.key}
+              className={`${styles.tab} ${activeTab === tab.key ? styles.tabActive : ''}`}
+              onClick={() => setActiveTab(tab.key)}
             >
-              {{ catalogs: 'Каталоги', profile: 'Профиль', clients: 'Клиенты' }[tab]}
+              {tab.label}
             </button>
           ))}
         </div>
       </div>
 
       {activeTab === 'catalogs' && <CatalogsTab />}
-      {activeTab === 'profile' && <ProfileTab />}
-      {activeTab === 'clients' && <ClientsTab />}
+      {activeTab === 'profile'  && <ProfileTab />}
+      {activeTab === 'clients'  && <ClientsTab />}
+      {activeTab === 'account'  && <AccountTab isOwner={isAbsolute} />}
     </div>
   );
 }
@@ -425,6 +438,192 @@ function ClientsTab() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Account tab ───────────────────────────────────────────────────────────────
+// Visible to ALL users (employees included). Owner sees email-change section too.
+
+function AccountTab({ isOwner }: { isOwner: boolean }) {
+  const authStore = useAuthStore();
+  const user = authStore.user;
+  const changeEmailMutation = useChangeEmail();
+
+  // Change password state (for employees)
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+
+  // Change email state (owner only)
+  const [emailStep, setEmailStep] = useState<'idle' | 'form'>('idle');
+  const [newEmail, setNewEmail] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+
+  async function handleChangePassword() {
+    setPwError(''); setPwSuccess('');
+    if (!pwCurrent) { setPwError('Введите текущий пароль.'); return; }
+    if (pwNew.length < 6) { setPwError('Новый пароль — минимум 6 символов.'); return; }
+    if (pwNew !== pwConfirm) { setPwError('Пароли не совпадают.'); return; }
+    setPwLoading(true);
+    try {
+      const { api } = await import('../../../../shared/api/client');
+      await (api as { post: (url: string, data: object) => Promise<unknown> })
+        .post('/auth/change-password', { current_password: pwCurrent, new_password: pwNew });
+      setPwSuccess('Пароль успешно изменён.');
+      setPwCurrent(''); setPwNew(''); setPwConfirm('');
+    } catch {
+      setPwError('Не удалось изменить пароль. Проверьте текущий пароль.');
+    } finally {
+      setPwLoading(false);
+    }
+  }
+
+  async function handleChangeEmail() {
+    setEmailError(''); setEmailSuccess('');
+    if (!newEmail.trim() || !/\S+@\S+\.\S+/.test(newEmail)) {
+      setEmailError('Введите корректный email.'); return;
+    }
+    if (!emailPassword) { setEmailError('Введите текущий пароль.'); return; }
+    try {
+      await changeEmailMutation.mutateAsync({ new_email: newEmail.trim(), current_password: emailPassword });
+      setEmailSuccess('Email изменён. Вы будете выведены из аккаунта для повторного входа.');
+      setTimeout(() => authStore.clearAuth(), 2500);
+    } catch {
+      setEmailError('Не удалось изменить email. Проверьте пароль или попробуйте другой адрес.');
+    }
+  }
+
+  return (
+    <div className={styles.accountTab}>
+      <div className={styles.accountSection}>
+        <h3 className={styles.accountSectionTitle}>Данные аккаунта</h3>
+        <div className={styles.accountInfo}>
+          <div className={styles.accountInfoRow}>
+            <span className={styles.accountInfoLabel}>Имя</span>
+            <span className={styles.accountInfoValue}>{user?.full_name ?? '—'}</span>
+          </div>
+          {user?.phone && (
+            <div className={styles.accountInfoRow}>
+              <span className={styles.accountInfoLabel}>Телефон</span>
+              <span className={styles.accountInfoValue}>{user.phone}</span>
+            </div>
+          )}
+          {user?.email && (
+            <div className={styles.accountInfoRow}>
+              <span className={styles.accountInfoLabel}>Email</span>
+              <span className={styles.accountInfoValue}>{user.email}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Change password — all users */}
+      <div className={styles.accountSection}>
+        <h3 className={styles.accountSectionTitle}>Сменить пароль</h3>
+        <div className={styles.accountForm}>
+          <input
+            className={styles.accountInput}
+            type="password"
+            placeholder="Текущий пароль"
+            value={pwCurrent}
+            onChange={e => { setPwCurrent(e.target.value); setPwError(''); setPwSuccess(''); }}
+          />
+          <input
+            className={styles.accountInput}
+            type="password"
+            placeholder="Новый пароль (мин. 6 символов)"
+            value={pwNew}
+            onChange={e => { setPwNew(e.target.value); setPwError(''); }}
+          />
+          <input
+            className={styles.accountInput}
+            type="password"
+            placeholder="Повторите новый пароль"
+            value={pwConfirm}
+            onChange={e => { setPwConfirm(e.target.value); setPwError(''); }}
+          />
+          {pwError && <p className={styles.accountError}>{pwError}</p>}
+          {pwSuccess && <p className={styles.accountSuccess}>{pwSuccess}</p>}
+          <button
+            className={styles.accountBtn}
+            onClick={handleChangePassword}
+            disabled={pwLoading}
+          >
+            {pwLoading ? 'Сохранение...' : 'Сменить пароль'}
+          </button>
+        </div>
+      </div>
+
+      {/* Change email — owner / full_access only */}
+      {isOwner && (
+        <div className={styles.accountSection}>
+          <h3 className={styles.accountSectionTitle}>Сменить email</h3>
+
+          {emailStep === 'idle' && !emailSuccess && (
+            <div>
+              <p className={styles.accountHint}>
+                Текущий email: <strong>{user?.email ?? '—'}</strong>
+              </p>
+              <div className={styles.accountWarningBox}>
+                <strong>⚠ Важно:</strong> после смены email вы будете автоматически выведены
+                из аккаунта и должны войти заново с новым адресом.
+              </div>
+              <button
+                className={styles.accountBtn}
+                onClick={() => setEmailStep('form')}
+              >
+                Сменить email
+              </button>
+            </div>
+          )}
+
+          {emailStep === 'form' && !emailSuccess && (
+            <div className={styles.accountForm}>
+              <input
+                className={styles.accountInput}
+                type="email"
+                placeholder="Новый email"
+                value={newEmail}
+                onChange={e => { setNewEmail(e.target.value); setEmailError(''); }}
+                autoComplete="email"
+              />
+              <input
+                className={styles.accountInput}
+                type="password"
+                placeholder="Подтвердите текущий пароль"
+                value={emailPassword}
+                onChange={e => { setEmailPassword(e.target.value); setEmailError(''); }}
+              />
+              {emailError && <p className={styles.accountError}>{emailError}</p>}
+              <div className={styles.accountFormRow}>
+                <button
+                  className={styles.accountBtnSecondary}
+                  onClick={() => { setEmailStep('idle'); setEmailError(''); setNewEmail(''); setEmailPassword(''); }}
+                >
+                  Отмена
+                </button>
+                <button
+                  className={styles.accountBtn}
+                  onClick={handleChangeEmail}
+                  disabled={changeEmailMutation.isPending}
+                >
+                  {changeEmailMutation.isPending ? 'Сохранение...' : 'Подтвердить смену'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {emailSuccess && (
+            <p className={styles.accountSuccess}>{emailSuccess}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
