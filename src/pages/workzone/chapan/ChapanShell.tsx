@@ -8,6 +8,13 @@ import ChapanInvoicesDrawer from './invoices/ChapanInvoicesDrawer';
 import styles from './ChapanShell.module.css';
 import { useEmployeePermissions } from '../../../shared/hooks/useEmployeePermissions';
 
+const BASE_NAV = [
+  { to: '/workzone/chapan/orders',     label: 'Заказы',       icon: Package  },
+  { to: '/workzone/chapan/production', label: 'Производство', icon: Factory  },
+  { to: '/workzone/chapan/ready',      label: 'Готово',       icon: CheckCheck },
+  { to: '/workzone/chapan/archive',    label: 'Архив',        icon: Archive  },
+] as const;
+
 export default function ChapanShell() {
   const { isAbsolute } = useEmployeePermissions();
   const navigate = useNavigate();
@@ -18,6 +25,12 @@ export default function ChapanShell() {
   const invoicesDrawerOpen = useChapanUiStore((s) => s.invoicesDrawerOpen);
   const invoicesDrawerFilter = useChapanUiStore((s) => s.invoicesDrawerFilter);
   const setInvoicesDrawerOpen = useChapanUiStore((s) => s.setInvoicesDrawerOpen);
+
+  const navItems = [
+    ...BASE_NAV,
+    ...((isAdmin || canAccessWarehouseNav) ? [{ to: '/warehouse' as const,                       label: 'Склад',   icon: Warehouse }] : []),
+    ...(isAbsolute                         ? [{ to: '/workzone/chapan/orders/trash' as const,     label: 'Корзина', icon: Trash2   }] : []),
+  ];
 
   return (
     <div className={styles.root}>
@@ -46,56 +59,19 @@ export default function ChapanShell() {
           </div>
 
           <nav className={styles.nav}>
-            <NavLink
-              to="/workzone/chapan/orders"
-              className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
-            >
-              <Package size={14} />
-              <span>Заказы</span>
-            </NavLink>
-
-            <NavLink
-              to="/workzone/chapan/production"
-              className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
-            >
-              <Factory size={14} />
-              <span>Производство</span>
-            </NavLink>
-
-            <NavLink
-              to="/workzone/chapan/ready"
-              className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
-            >
-              <CheckCheck size={14} />
-              <span>Готово</span>
-            </NavLink>
-
-            {(isAdmin || canAccessWarehouseNav) && (
-              <NavLink
-                to="/warehouse"
-                className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
-              >
-                <Warehouse size={14} />
-                <span>Склад</span>
-              </NavLink>
-            )}
-
-            <NavLink
-              to="/workzone/chapan/archive"
-              className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
-            >
-              <Archive size={14} />
-              <span>Архив</span>
-            </NavLink>
-            {isAbsolute && (
-              <NavLink
-                to="/workzone/chapan/orders/trash"
-                className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
-              >
-                <Trash2 size={14} />
-                <span>Корзина</span>
-              </NavLink>
-            )}
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) => `${styles.navItem} ${isActive ? styles.navActive : ''}`}
+                >
+                  <Icon size={14} />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
           </nav>
 
           <div className={styles.sidebarBottom} />
@@ -107,6 +83,23 @@ export default function ChapanShell() {
       </div>
 
       <ChapanInvoicesDrawer open={invoicesDrawerOpen} onClose={() => setInvoicesDrawerOpen(false)} initialFilter={invoicesDrawerFilter as 'all' | 'pending_confirmation' | 'confirmed' | 'rejected' | 'archived'} />
+
+      {/* Mobile bottom navigation — hidden on desktop via CSS */}
+      <nav className={styles.mobileNav}>
+        {navItems.slice(0, 5).map((item) => {
+          const Icon = item.icon;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => `${styles.mobileNavItem} ${isActive ? styles.mobileNavItemActive : ''}`}
+            >
+              <Icon size={18} />
+              <span>{item.label}</span>
+            </NavLink>
+          );
+        })}
+      </nav>
     </div>
   );
 }

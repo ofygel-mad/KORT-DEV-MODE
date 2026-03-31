@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { apiClient } from '../../../../shared/api/client';
 import { useChapanUiStore } from '../../../../features/workzone/chapan/store';
+import { buildItemLine } from '../../../../shared/utils/itemLine';
 import styles from './ChapanOrderDetail.module.css';
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -54,6 +55,7 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
   kaspi_qr: 'Kaspi QR',
   kaspi_terminal: 'Kaspi терминал',
   transfer: 'Перевод',
+  halyk: 'Халык',
   mixed: 'Смешанный',
 };
 
@@ -98,12 +100,6 @@ function formatItemMeta(item: Pick<OrderItem, 'fabric' | 'size' | 'quantity'>) {
   return item.quantity > 1 ? `${meta}${meta ? ' · ' : ''}× ${item.quantity}` : meta;
 }
 
-function buildItemTitle(item: { productName: string; color?: string | null; gender?: string | null }): string {
-  const parts: string[] = [item.productName];
-  if (item.color) parts.push(item.color);
-  const line = parts.join(' · ');
-  return item.gender ? `${line} (${item.gender})` : line;
-}
 
 function resolveItemFulfillmentMode(order: { status: OrderStatus; productionTasks?: Array<{ orderItemId: string }> }, item: OrderItem): OrderItemFulfillmentMode {
   if (item.fulfillmentMode === 'warehouse' || item.fulfillmentMode === 'production') return item.fulfillmentMode;
@@ -374,7 +370,7 @@ export default function ChapanOrderDetailPage() {
                   <div key={item.id} className={styles.itemRow}>
                     <div className={styles.itemInfo}>
                       <div className={styles.itemHead}>
-                        <span className={styles.itemName}>{buildItemTitle(item)}</span>
+                        <span className={styles.itemName}>{buildItemLine(item)}</span>
                         {showBadge && (
                           <span className={`${styles.routeBadge} ${badgeClass}`}>
                             {effectiveBadgeLabel}

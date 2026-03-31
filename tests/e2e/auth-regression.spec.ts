@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { preparePage } from './helpers';
+import { clearSession, preparePage } from './helpers';
 
 test('company registration submits on Enter from password confirmation', async ({ page }) => {
   const unique = Date.now();
 
+  await clearSession(page);
   await preparePage(page);
   await page.goto('/auth/register');
 
@@ -23,6 +24,7 @@ test('company registration submits on Enter from password confirmation', async (
 
 test('company registration footer stays visible on short desktop viewport', async ({ page }) => {
   await page.setViewportSize({ width: 1365, height: 768 });
+  await clearSession(page);
   await preparePage(page);
   await page.goto('/auth/register');
 
@@ -48,7 +50,7 @@ test('login rejects an invalid password for an existing account', async ({ page,
   const email = `invalid-password+${unique}@demo.kz`;
   const password = 'superpass1';
 
-  await request.post('http://127.0.0.1:8000/api/v1/auth/register/company', {
+  await request.post('http://127.0.0.1:8001/api/v1/auth/register/company', {
     data: {
       company_name: `Password Check ${unique}`,
       full_name: `Password Owner ${unique}`,
@@ -57,6 +59,7 @@ test('login rejects an invalid password for an existing account', async ({ page,
     },
   });
 
+  await clearSession(page);
   await preparePage(page);
   await page.goto('/auth/login');
 

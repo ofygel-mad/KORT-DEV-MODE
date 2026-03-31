@@ -1,22 +1,10 @@
 /**
  * Sprint 13: Smoke tests for D2/S8 item line format
- * Tests buildItemLine — the unified "Товар · Цвет (пол)" formatter.
+ * Tests buildItemLine — the unified "Товар - Цвет (пол)" formatter.
+ * Separator is dash (-) per requirement #18.
  */
 import { describe, expect, it } from 'vitest';
-
-// Mirrors buildItemLine from ChapanOrders.tsx
-function buildItemLine(item: {
-  productName?: string;
-  color?: string | null;
-  gender?: string | null;
-}): string {
-  const parts: string[] = [];
-  if (item.productName) parts.push(item.productName);
-  if (item.color) parts.push(item.color);
-  const genderPart = item.gender ? `(${item.gender})` : '';
-  const line = parts.join(' · ');
-  return genderPart ? `${line} ${genderPart}` : line;
-}
+import { buildItemLine } from '../../../../shared/utils/itemLine';
 
 describe('D2/S8: buildItemLine', () => {
   it('product name only', () => {
@@ -24,12 +12,12 @@ describe('D2/S8: buildItemLine', () => {
   });
 
   it('product + color', () => {
-    expect(buildItemLine({ productName: 'Шапан', color: 'Синий' })).toBe('Шапан · Синий');
+    expect(buildItemLine({ productName: 'Шапан', color: 'Синий' })).toBe('Шапан - Синий');
   });
 
   it('product + color + gender', () => {
     expect(buildItemLine({ productName: 'Шапан', color: 'Тёмно-синий', gender: 'муж' }))
-      .toBe('Шапан · Тёмно-синий (муж)');
+      .toBe('Шапан - Тёмно-синий (муж)');
   });
 
   it('product + gender, no color', () => {
@@ -42,5 +30,13 @@ describe('D2/S8: buildItemLine', () => {
 
   it('empty item renders empty string', () => {
     expect(buildItemLine({})).toBe('');
+  });
+
+  it('undefined item renders empty string', () => {
+    expect(buildItemLine(undefined)).toBe('');
+  });
+
+  it('null item renders empty string', () => {
+    expect(buildItemLine(null)).toBe('');
   });
 });

@@ -7,6 +7,7 @@ import { useProductsAvailability } from '../../../../entities/warehouse/queries'
 import type { ProductsAvailabilityMap } from '../../../../entities/warehouse/types';
 import { useAuthStore } from '../../../../shared/stores/auth';
 import { useEmployeePermissions } from '../../../../shared/hooks/useEmployeePermissions';
+import { buildItemLine } from '../../../../shared/utils/itemLine';
 import { useChapanUiStore } from '../../../../features/workzone/chapan/store';
 import { useUnpaidAlerts } from '../../../../entities/alert/queries';
 import OrderDetailDrawer from './OrderDetailDrawer';
@@ -40,15 +41,6 @@ function fmtDate(d: string | null) {
 const ORDER_MONEY_FORMATTER = new Intl.NumberFormat('ru-KZ', { maximumFractionDigits: 0 });
 const ORDER_DATE_FORMATTER = new Intl.DateTimeFormat('ru-KZ', { day: '2-digit', month: 'short' });
 
-// D2: Unified item line — «Товар · Цвет · Модель (муж/жен)»
-function buildItemLine(item: ChapanOrder['items'][number]): string {
-  const parts: string[] = [];
-  if (item.productName) parts.push(item.productName);
-  if (item.color)       parts.push(item.color);
-  const genderPart = item.gender ? `(${item.gender})` : '';
-  const line = parts.join(' · ');
-  return genderPart ? `${line} ${genderPart}` : line;
-}
 
 type ViewMode = 'grid' | 'list';
 
@@ -59,6 +51,15 @@ const VIEW_OPTIONS: { key: ViewMode; label: string; Icon: React.ElementType }[] 
 
 function viewStorageKey(userId?: string) { return `chapan_orders_view_${userId ?? 'guest'}`; }
 function groupStorageKey(userId?: string) { return `chapan_orders_grouped_${userId ?? 'guest'}`; }
+
+function handleClickableKey(event: React.KeyboardEvent, onActivate: () => void) {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+
+  event.preventDefault();
+  onActivate();
+}
 
 // ── Grouping logic ────────────────────────────────────────────────────────────
 
@@ -483,12 +484,28 @@ const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stoc
   const isDemanding = order.isDemandingClient ?? (order.priority === 'vip');
 
   return (
-    <button
-      className={`${styles.card} ${hasAlert ? styles.cardAlert : ''} ${isUrgent && !hasAlert ? styles.cardUrgent : ''}`}
+    <div
+      className={`${styles.card} ${hasAlert ? styles.cardAlert : ''} ${isUrgent ? styles.cardUrgent : ''}`}
       style={{ '--status-color': STATUS_COLOR[order.status] } as React.CSSProperties}
+      role="button"
+      tabIndex={0}
       onClick={() => onSelectOrder(order.id)}
+      onKeyDown={(event) => handleClickableKey(event, () => onSelectOrder(order.id))}
     >
+      {first && (
+        <div className={styles.cardItems}>
+          <span className={styles.cardItemName}>{buildItemLine(first)}</span>
+          {(first.size) && (
+            <span className={styles.cardItemMeta}>
+              {[first.size, first.length ? `дл. ${first.length}` : ''].filter(Boolean).join(' · ')}
+              {first.quantity > 1 && ` × ${first.quantity}`}
+            </span>
+          )}
+          {more > 0 && <span className={styles.cardMoreItems}>+ещё {more}</span>}
+        </div>
+      )}
       <div className={styles.cardHead}>
+        <span className={styles.cardOrderNum}>#{order.orderNumber}</span>
         <span className={styles.statusBadge}>{STATUS_LABEL[order.status]}</span>
         {isUrgent && (
           <span className={`${styles.priorityBadge} ${styles.urgent}`}>{URGENCY_LABEL['urgent']}</span>
@@ -512,19 +529,6 @@ const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stoc
           </button>
         )}
       </div>
-      <div className={styles.cardOrderNum}>#{order.orderNumber}</div>
-      {first && (
-        <div className={styles.cardItems}>
-          <span className={styles.cardItemName}>{buildItemLine(first)}</span>
-          {(first.size) && (
-            <span className={styles.cardItemMeta}>
-              {[first.size, first.length ? `дл. ${first.length}` : ''].filter(Boolean).join(' · ')}
-              {first.quantity > 1 && ` × ${first.quantity}`}
-            </span>
-          )}
-          {more > 0 && <span className={styles.cardMoreItems}>+ещё {more}</span>}
-        </div>
-      )}
       <div className={styles.cardClient}>{order.clientName}</div>
       <span className={styles.cardPhone}>{order.clientPhone}</span>
       <div className={styles.cardDivider} />
@@ -537,7 +541,7 @@ const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stoc
           </span>
         )}
       </div>
-    </button>
+    </div>
   );
 });
 
@@ -673,12 +677,31 @@ const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockM
   const isDemanding = order.isDemandingClient ?? (order.priority === 'vip');
 
   return (
-    <button
-      className={`${styles.row} ${hasAlert ? styles.rowAlert : ''} ${isUrgent && !hasAlert ? styles.rowUrgent : ''}`}
+    <div
+      className={`${styles.row} ${hasAlert ? styles.rowAlert : ''} ${isUrgent ? styles.rowUrgent : ''}`}
       style={{ '--status-color': STATUS_COLOR[order.status] } as React.CSSProperties}
+      role="button"
+      tabIndex={0}
       onClick={() => onSelectOrder(order.id)}
+      onKeyDown={(event) => handleClickableKey(event, () => onSelectOrder(order.id))}
     >
       <span className={styles.rowStripe} />
+      <div className={styles.rowProduct}>
+        {first ? (
+          <>
+            <span className={styles.cardItemName}>{buildItemLine(first)}</span>
+            {first.size && (
+              <span className={styles.cardItemMeta}>
+                {[first.size, first.length ? `дл. ${first.length}` : ''].filter(Boolean).join(' · ')}
+                {first.quantity > 1 && ` × ${first.quantity}`}
+              </span>
+            )}
+            {more > 0 && <span className={styles.cardMoreItems}>+ещё {more}</span>}
+          </>
+        ) : (
+          <span className={styles.cardItemMeta}>—</span>
+        )}
+      </div>
       <div className={styles.rowNum}>
         <span className={styles.rowOrderNum}>#{order.orderNumber}</span>
         <span className={styles.statusBadge}>{STATUS_LABEL[order.status]}</span>
@@ -698,27 +721,6 @@ const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockM
         <span className={styles.cardClient}>{order.clientName}</span>
         <span className={styles.cardPhone}>{order.clientPhone}</span>
       </div>
-      <div className={styles.rowProduct}>
-        {first ? (
-          <>
-            <span className={styles.cardItemName}>{buildItemLine(first)}</span>
-            {first.size && (
-              <span className={styles.cardItemMeta}>
-                {[first.size, first.length ? `дл. ${first.length}` : ''].filter(Boolean).join(' · ')}
-                {first.quantity > 1 && ` × ${first.quantity}`}
-              </span>
-            )}
-            {more > 0 && <span className={styles.cardMoreItems}>+ещё {more}</span>}
-          </>
-        ) : (
-          <span className={styles.cardItemMeta}>—</span>
-        )}
-      </div>
-      {onTrash && (
-        <button type="button" className={styles.trashBtnRow} title="В корзину" onClick={e => { e.stopPropagation(); onTrash(order.id); }}>
-          <Trash2 size={13} />
-        </button>
-      )}
       <div className={styles.rowFin}>
         <span className={styles.cardAmount}>{fmt(order.totalAmount)}</span>
         <span className={styles.cardPay} style={{ color: PAY_COLOR[order.paymentStatus] }}>
@@ -730,8 +732,13 @@ const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockM
           ? <span style={{ color: overdue ? '#EF4444' : '#6B7280' }}>{fmtDate(order.dueDate)}</span>
           : <span className={styles.rowDateEmpty}>—</span>
         }
+        {onTrash && (
+          <button type="button" className={styles.trashBtnRow} title="В корзину" onClick={e => { e.stopPropagation(); onTrash(order.id); }}>
+            <Trash2 size={13} />
+          </button>
+        )}
       </div>
-    </button>
+    </div>
   );
 });
 
@@ -758,6 +765,16 @@ const BatchRow = memo(function BatchRow({ group, onSelectOrder }: { group: { ord
         aria-expanded={expanded}
       >
         <span className={styles.rowStripe} />
+        <div className={styles.rowProduct}>
+          {item ? (
+            <>
+              <span className={styles.cardItemName}>{buildItemLine(item)}</span>
+              {item.size && (
+                <span className={styles.cardItemMeta}>{item.size}</span>
+              )}
+            </>
+          ) : <span className={styles.cardItemMeta}>—</span>}
+        </div>
         <div className={styles.rowNum}>
           <span className={styles.batchCountBadge}>{orders.length}</span>
           <span className={styles.statusBadge}>{STATUS_LABEL[first.status]}</span>
@@ -777,16 +794,6 @@ const BatchRow = memo(function BatchRow({ group, onSelectOrder }: { group: { ord
             ))}
             {orders.length > 5 && <span className={styles.batchAvatarPlus}>+{orders.length - 5}</span>}
           </div>
-        </div>
-        <div className={styles.rowProduct}>
-          {item ? (
-            <>
-              <span className={styles.cardItemName}>{buildItemLine(item)}</span>
-              {item.size && (
-                <span className={styles.cardItemMeta}>{item.size}</span>
-              )}
-            </>
-          ) : <span className={styles.cardItemMeta}>—</span>}
         </div>
         <div className={styles.rowFin}>
           <span className={styles.batchQtyTag}>{totalQty} шт.</span>

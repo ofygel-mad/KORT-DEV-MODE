@@ -1,8 +1,9 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
   AlertCircle, AlertTriangle, Archive, CheckCircle2, ChevronRight, Download,
-  FileText, Package, PackageCheck, Phone, Plus, Search, Send, TrendingDown, User, X, CheckSquare,
+  FileText, Package, PackageCheck, Phone, Plus, Search, Send, TrendingDown, User, X, CheckSquare, BookOpen,
 } from 'lucide-react';
+import { WarehouseCatalog } from './WarehouseCatalog';
 import {
   useWarehouseItems, useWarehouseMovements, useWarehouseAlerts,
   useWarehouseCategories, useCreateItem, useAddMovement, useDeleteItem, useResolveAlert,
@@ -18,7 +19,7 @@ import { Skeleton } from '../../shared/ui/Skeleton';
 import { exportToCSV } from '../../shared/lib/export';
 import styles from './Warehouse.module.css';
 
-type Tab = 'incoming' | 'invoice_archive' | 'orders_wh' | 'to_ship' | 'shipped' | 'items' | 'movements' | 'alerts';
+type Tab = 'incoming' | 'invoice_archive' | 'orders_wh' | 'to_ship' | 'shipped' | 'items' | 'movements' | 'alerts' | 'catalog';
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
   in: 'Приход', out: 'Расход', adjustment: 'Корректировка', write_off: 'Списание', return: 'Возврат',
@@ -675,6 +676,9 @@ export default function WarehousePage() {
             <button className={`${styles.tab} ${tab === 'alerts' ? styles.tabActive : ''}`} onClick={() => setTab('alerts')}>
               <AlertTriangle size={13} /> Оповещения {alertCount > 0 && <span className={styles.alertBadge}>{alertCount}</span>}
             </button>
+            <button className={`${styles.tab} ${tab === 'catalog' ? styles.tabActive : ''}`} onClick={() => setTab('catalog')}>
+              <BookOpen size={13} /> Каталог
+            </button>
 
             <div className={styles.tabDivider} />
             <span className={styles.tabGroupLabel}>Чапан</span>
@@ -1142,6 +1146,9 @@ export default function WarehousePage() {
           )}
         </div>
       )}
+
+      {/* ── Каталог tab ── */}
+      {tab === 'catalog' && <WarehouseCatalog />}
 
       {/* Drawers */}
       {addItemOpen && <AddItemDrawer onClose={() => setAddItemOpen(false)} />}

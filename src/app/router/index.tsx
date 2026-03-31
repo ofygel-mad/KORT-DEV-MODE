@@ -35,6 +35,9 @@ const DocumentsPage  = makePage(() => import('../../pages/documents'));
 const SettingsPage   = makePage(() => import('../../pages/settings'));
 const OnboardingPage = makePage(() => import('../../pages/onboarding'));
 
+// Dev panel — no auth, service password only
+const DevPanelPage = makePage(() => import('../../pages/dev'));
+
 // Auth pages
 const LoginPage         = makePage(() => import('../../pages/auth/login'));
 const RegisterPage      = makePage(() => import('../../pages/auth/register'));
@@ -270,6 +273,9 @@ export const appRouter = createBrowserRouter([
   { path: '/auth/register',      element: <RegisterPage /> },
   { path: '/auth/accept-invite', element: <AcceptInvitePage /> },
   { path: '/reset-password',     element: <ResetPasswordPage /> },
+
+  // ── Dev panel — service password, no normal auth ──────
+  { path: '/dev', element: <DevPanelPage /> },
 
   // ── Fallback ───────────────────────────────────────────
   { path: '*', element: <Navigate to="/" replace /> },

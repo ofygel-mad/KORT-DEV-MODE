@@ -4,22 +4,17 @@ import { useEmployeePermissions } from '../../../../shared/hooks/useEmployeePerm
 import { useChapanCatalogs, useChapanProfile, useSaveCatalogs, useSaveProfile, useChapanClients, useChangeEmail } from '../../../../entities/order/queries';
 import { AlertCircle, Plus, RefreshCw, Save, X } from 'lucide-react';
 import type { ChapanCatalogs } from '../../../../entities/order/types';
+import {
+  buildSizeCatalog,
+  normalizePaymentCatalog,
+  normalizePaymentMethodLabel,
+  normalizeSizeCatalog,
+  normalizeSizeValue,
+} from '../../../../shared/lib/chapanCatalogDefaults';
 import styles from './ChapanSettings.module.css';
 
-// ── Sprint 4 catalog key includes paymentMethodCatalog ────────────────────────
 type CatalogKey = 'productCatalog' | 'fabricCatalog' | 'sizeCatalog' | 'workers' | 'paymentMethodCatalog';
 type SettingsTab = 'catalogs' | 'profile' | 'clients' | 'account';
-
-// ── Sprint 4: буква → число ───────────────────────────────────────────────────
-const LETTER_TO_NUMBER: Record<string, string> = {
-  'XS': '42', 'S': '44', 'M': '46', 'L': '48',
-  'XL': '50', 'XXL': '52', 'XXXL': '54', '3XL': '54',
-  'xs': '42', 's': '44', 'm': '46', 'l': '48',
-  'xl': '50', 'xxl': '52', 'xxxl': '54',
-};
-
-const SIZE_PRESET_EVEN = ['38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60'];
-const PAYMENT_METHOD_DEFAULTS = ['Наличные', 'Kaspi QR', 'Kaspi Терминал', 'Перевод'];
 
 const PRESET_COLORS: Array<{ name: string; hex: string }> = [
   { name: 'Синий',                hex: '#1d4ed8' },
@@ -107,8 +102,14 @@ function CatalogsTab() {
   function addItem(key: CatalogKey, value: string): boolean {
     const trimmed = value.trim();
     if (!trimmed) return false;
-    if (getList(key).map(v => v.toLowerCase()).includes(trimmed.toLowerCase())) return false;
-    setList(key, [...getList(key), trimmed]);
+
+    const prepared =
+      key === 'sizeCatalog'          ? normalizeSizeValue(trimmed) :
+      key === 'paymentMethodCatalog' ? normalizePaymentMethodLabel(trimmed) :
+      trimmed;
+
+    if (getList(key).map(v => v.toLowerCase()).includes(prepared.toLowerCase())) return false;
+    setList(key, [...getList(key), prepared]);
     return true;
   }
 
@@ -117,25 +118,17 @@ function CatalogsTab() {
   }
 
   function normalizeSizes() {
-    const normalized = getList('sizeCatalog').map(s => LETTER_TO_NUMBER[s.trim()] ?? s);
-    setList('sizeCatalog', [...new Set(normalized)]);
+    setList('sizeCatalog', normalizeSizeCatalog(getList('sizeCatalog')));
   }
 
-  const hasLetterSizes = getList('sizeCatalog').some(s => LETTER_TO_NUMBER[s.trim()] !== undefined);
+  const hasLetterSizes = getList('sizeCatalog').some(v => normalizeSizeValue(v) !== v.trim());
 
   function applySizePreset() {
-    const nonLetter = getList('sizeCatalog').filter(s => !LETTER_TO_NUMBER[s.trim()]);
-    const merged = [...new Set([...SIZE_PRESET_EVEN, ...nonLetter])].sort((a, b) => {
-      const na = parseInt(a); const nb = parseInt(b);
-      if (!isNaN(na) && !isNaN(nb)) return na - nb;
-      return a.localeCompare(b);
-    });
-    setList('sizeCatalog', merged);
+    setList('sizeCatalog', buildSizeCatalog(getList('sizeCatalog')));
   }
 
   function loadPaymentDefaults() {
-    if (getList('paymentMethodCatalog').length > 0) return;
-    setList('paymentMethodCatalog', [...PAYMENT_METHOD_DEFAULTS]);
+    setList('paymentMethodCatalog', normalizePaymentCatalog(getList('paymentMethodCatalog')));
   }
 
   function toggleColor(name: string) {
@@ -145,7 +138,11 @@ function CatalogsTab() {
 
   async function handleSave() {
     if (!draft) return;
-    await saveCatalogs.mutateAsync(draft);
+    await saveCatalogs.mutateAsync({
+      ...draft,
+      sizeCatalog:           normalizeSizeCatalog(draft.sizeCatalog),
+      paymentMethodCatalog:  normalizePaymentCatalog(draft.paymentMethodCatalog),
+    });
     setDraft(null);
   }
 
@@ -214,13 +211,11 @@ function CatalogsTab() {
           onAdd={v => addItem('paymentMethodCatalog', v)}
           onRemove={v => removeItem('paymentMethodCatalog', v)}
           actions={
-            getList('paymentMethodCatalog').length === 0 ? (
-              <div className={styles.catalogActions}>
-                <button type="button" className={styles.catalogActionBtn} onClick={loadPaymentDefaults}>
-                  <Plus size={11} />Загрузить стандартные
-                </button>
-              </div>
-            ) : undefined
+            <div className={styles.catalogActions}>
+              <button type="button" className={styles.catalogActionBtn} onClick={loadPaymentDefaults}>
+                <Plus size={11} />Нормализовать методы оплаты
+              </button>
+            </div>
           }
           hint={
             <div className={styles.catalogHint}>
@@ -345,12 +340,22 @@ function ColorCatalogSection({
 function ProfileTab() {
   const { data: profile, isLoading } = useChapanProfile();
   const saveProfile = useSaveProfile();
-  const [form, setForm] = useState<{ displayName: string; orderPrefix: string; publicIntakeEnabled: boolean } | null>(null);
+  const [form, setForm] = useState<{
+    displayName: string;
+    orderPrefix: string;
+    publicIntakeEnabled: boolean;
+    kazpostDeliveryFee: number;
+    railDeliveryFee: number;
+    airDeliveryFee: number;
+  } | null>(null);
 
   const current = form ?? {
     displayName: profile?.displayName ?? '',
     orderPrefix: profile?.orderPrefix ?? 'ЧП',
     publicIntakeEnabled: profile?.publicIntakeEnabled ?? false,
+    kazpostDeliveryFee: profile?.kazpostDeliveryFee ?? 2000,
+    railDeliveryFee: profile?.railDeliveryFee ?? 3000,
+    airDeliveryFee: profile?.airDeliveryFee ?? 5000,
   };
 
   if (isLoading) return <div className={styles.loading}>Загрузка...</div>;
@@ -393,6 +398,36 @@ function ProfileTab() {
           />
           <span>Включить публичную форму заявок</span>
         </label>
+        <div className={styles.profileField}>
+          <label className={styles.profileLabel}>Казпочта (₸)</label>
+          <input
+            type="number"
+            min={0}
+            className={styles.profileInput}
+            value={current.kazpostDeliveryFee}
+            onChange={e => setForm({ ...current, kazpostDeliveryFee: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className={styles.profileField}>
+          <label className={styles.profileLabel}>Жд (₸)</label>
+          <input
+            type="number"
+            min={0}
+            className={styles.profileInput}
+            value={current.railDeliveryFee}
+            onChange={e => setForm({ ...current, railDeliveryFee: Number(e.target.value) || 0 })}
+          />
+        </div>
+        <div className={styles.profileField}>
+          <label className={styles.profileLabel}>Авиа (₸)</label>
+          <input
+            type="number"
+            min={0}
+            className={styles.profileInput}
+            value={current.airDeliveryFee}
+            onChange={e => setForm({ ...current, airDeliveryFee: Number(e.target.value) || 0 })}
+          />
+        </div>
         <button
           className={styles.profileSaveBtn}
           onClick={handleSave}

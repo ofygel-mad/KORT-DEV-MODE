@@ -505,6 +505,18 @@ export const useSaveProfile = () => {
   });
 };
 
+export const useUpdateBankCommission = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (percent: number) => chapanSettingsApi.updateBankCommission(percent),
+    onSuccess: (_data, percent) => {
+      qc.invalidateQueries({ queryKey: orderKeys.settings });
+      toast.success(`Ставка комиссии банка сохранена: ${percent}%`);
+    },
+    onError: () => toast.error('Не удалось сохранить ставку комиссии'),
+  });
+};
+
 export const useChapanClients = () =>
   useQuery({
     queryKey: orderKeys.clients,
@@ -538,8 +550,22 @@ export function useTrashOrder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => ordersApi.trash(id),
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: orderKeys.all });
+      const snapshots = qc.getQueriesData({ queryKey: orderKeys.all });
+      qc.setQueriesData({ queryKey: orderKeys.all }, (old: any) => {
+        if (!old?.results) return old;
+        return { ...old, results: old.results.filter((o: any) => o.id !== id), count: Math.max(0, (old.count ?? 1) - 1) };
+      });
+      return { snapshots };
+    },
+    onError: (_err: unknown, _id: string, context: any) => {
+      for (const [key, data] of context?.snapshots ?? []) {
+        qc.setQueryData(key, data);
+      }
+    },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['chapan-orders'] });
+      qc.invalidateQueries({ queryKey: orderKeys.all });
       qc.invalidateQueries({ queryKey: ['chapan-orders-trash'] });
     },
   });
@@ -550,7 +576,7 @@ export function useRestoreFromTrash() {
   return useMutation({
     mutationFn: (id: string) => ordersApi.restoreFromTrash(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['chapan-orders'] });
+      qc.invalidateQueries({ queryKey: orderKeys.all });
       qc.invalidateQueries({ queryKey: ['chapan-orders-trash'] });
     },
   });

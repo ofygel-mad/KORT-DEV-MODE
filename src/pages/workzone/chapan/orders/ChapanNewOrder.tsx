@@ -4,13 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ChevronLeft, Plus, Trash2, Calculator, AlertCircle, Paperclip, X, ImagePlus } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2, Calculator, AlertCircle, Paperclip, X, ImagePlus, Pencil } from 'lucide-react';
 import { useId } from 'react';
-import { useCreateOrder, useChapanCatalogs } from '../../../../entities/order/queries';
+import { useCreateOrder, useChapanCatalogs, useChapanProfile, useUpdateBankCommission } from '../../../../entities/order/queries';
 import { useAuthStore } from '../../../../shared/stores/auth';
-import { useProductsAvailability } from '../../../../entities/warehouse/queries';
+import { useProductsAvailability, useOrderFormCatalog } from '../../../../entities/warehouse/queries';
+import type { OrderFormField } from '../../../../entities/warehouse/types';
 import { attachmentsApi } from '../../../../entities/order/api';
 import type { Urgency } from '../../../../entities/order/types';
+import {
+  buildDeliveryOptions,
+  buildMixedBreakdownRows,
+  buildPaymentMethodOptions,
+  buildSizeCatalog,
+} from '../../../../shared/lib/chapanCatalogDefaults';
 import { formatPersonNameInput } from '../../../../shared/utils/person';
 import { formatKazakhPhoneInput, isKazakhPhoneComplete } from '../../../../shared/utils/kz';
 import styles from './ChapanNewOrder.module.css';
@@ -44,24 +51,6 @@ function clearDraft(userId?: string) {
 // ─── Payment methods ──────────────────────────────────────────────────────────
 type PaymentMethodValue = 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'mixed';
 
-const PAYMENT_METHODS: Array<{ value: PaymentMethodValue; label: string }> = [
-  { value: 'cash',           label: 'Наличные' },
-  { value: 'kaspi_qr',       label: 'Kaspi QR' },
-  { value: 'kaspi_terminal', label: 'Kaspi Терминал' },
-  { value: 'transfer',       label: 'Перевод' },
-  { value: 'mixed',          label: 'Смешанный' },
-];
-
-const MIXED_METHODS: Array<{
-  key: 'mixedCash' | 'mixedKaspiQr' | 'mixedKaspiTerminal' | 'mixedTransfer';
-  label: string;
-}> = [
-  { key: 'mixedCash',          label: 'Наличные' },
-  { key: 'mixedKaspiQr',       label: 'Kaspi QR' },
-  { key: 'mixedKaspiTerminal', label: 'Kaspi Терминал' },
-  { key: 'mixedTransfer',      label: 'Перевод' },
-];
-
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 const itemSchema = z.object({
   productName:  z.string().min(1, 'Укажите модель'),
@@ -94,11 +83,8 @@ const schema = z
     deliveryFee:   z.coerce.number().min(0).optional(),
     bankCommissionPercent: z.coerce.number().min(0).max(100).optional(),
     prepayment:   z.coerce.number().min(0).optional(),
-    paymentMethod: z.enum(['cash', 'kaspi_qr', 'kaspi_terminal', 'transfer', 'mixed']).optional(),
-    mixedCash:          z.coerce.number().min(0).optional(),
-    mixedKaspiQr:       z.coerce.number().min(0).optional(),
-    mixedKaspiTerminal: z.coerce.number().min(0).optional(),
-    mixedTransfer:      z.coerce.number().min(0).optional(),
+    paymentMethod: z.enum(['cash', 'kaspi_qr', 'kaspi_terminal', 'transfer', 'halyk', 'mixed']).optional(),
+    paymentBreakdown: z.record(z.string(), z.coerce.number().min(0)).optional(),
     expectedPaymentMethod: z.string().optional(),
     items:        z.array(itemSchema).min(1, 'Добавьте хотя бы одну позицию'),
     managerNote:  z.string().optional(),
@@ -120,13 +106,9 @@ const schema = z
     }
 
     if (data.paymentMethod === 'mixed' && (data.prepayment ?? 0) > 0) {
-      const mixedSum =
-        (Number(data.mixedCash) || 0) +
-        (Number(data.mixedKaspiQr) || 0) +
-        (Number(data.mixedKaspiTerminal) || 0) +
-        (Number(data.mixedTransfer) || 0);
+      const mixedSum = Object.values(data.paymentBreakdown ?? {}).reduce((s, v) => s + (Number(v) || 0), 0);
       if (mixedSum > 0 && Math.abs(mixedSum - (data.prepayment ?? 0)) > 1) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Сумма разбивки должна совпадать с предоплатой', path: ['mixedCash'] });
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Сумма разбивки должна совпадать с предоплатой', path: ['paymentBreakdown'] });
       }
     }
   });
@@ -134,15 +116,7 @@ const schema = z
 type FormData = z.infer<typeof schema>;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-// F3: Автоматическая сумма доставки по типу
-const DELIVERY_FEE_MAP: Record<string, number> = {
-  'Казпочта': 2000,
-  'Жд': 3000,
-  'Авиа': 5000,
-};
-
 const CITIES   = ['Алматы', 'Астана', 'Шымкент', 'Атырау', 'Актобе', 'Тараз', 'Павлодар', 'Другой город'];
-const DELIVERY = ['Самовывоз', 'Курьер по городу', 'Казпочта', 'СДЭК', 'Другое'];
 const SOURCES  = ['Instagram', 'WhatsApp', 'Telegram', 'Звонок', 'Рекомендация', 'Сайт', 'Другое'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -214,9 +188,13 @@ export default function ChapanNewOrderPage() {
   const navigate    = useNavigate();
   const createOrder = useCreateOrder();
   const { data: catalogs } = useChapanCatalogs();
+  const { data: profile } = useChapanProfile();
+  const updateBankCommission = useUpdateBankCommission();
 
   const [discountPercent, setDiscountPercent] = useState('');
   const [draftRestored, setDraftRestored] = useState(false);
+  const [editingRate, setEditingRate] = useState(false);
+  const [rateInput, setRateInput] = useState('');
 
   // File state — UI selection only; server upload endpoint not yet implemented.
   // receiptFileNames sends file names to order metadata; actual bytes are not persisted yet.
@@ -265,13 +243,27 @@ export default function ChapanNewOrderPage() {
 
   const deliveryType          = watch('deliveryType');
 
+  const deliveryFeeMap: Record<string, number> = {
+    'Казпочта': profile?.kazpostDeliveryFee ?? 2000,
+    'Жд':       profile?.railDeliveryFee    ?? 3000,
+    'Авиа':     profile?.airDeliveryFee     ?? 5000,
+  };
+
   // F3: Автоматически проставляем сумму доставки при выборе типа
   useEffect(() => {
-    const autoFee = DELIVERY_FEE_MAP[deliveryType ?? ''];
+    const autoFee = deliveryFeeMap[deliveryType ?? ''];
     if (autoFee !== undefined) {
       setValue('deliveryFee', autoFee);
     }
-  }, [deliveryType]);
+  }, [deliveryType, profile?.kazpostDeliveryFee, profile?.railDeliveryFee, profile?.airDeliveryFee]);
+
+  // Авто-подстановка глобальной ставки комиссии если поле пустое
+  useEffect(() => {
+    if (profile?.bankCommissionPercent && !savedDraft.current?.bankCommissionPercent) {
+      const current = watch('bankCommissionPercent');
+      if (!current) setValue('bankCommissionPercent', profile.bankCommissionPercent);
+    }
+  }, [profile?.bankCommissionPercent]);
 
   // Показываем тост один раз, если черновик был восстановлен
   useEffect(() => {
@@ -291,10 +283,7 @@ export default function ChapanNewOrderPage() {
   const paymentMethod    = watch('paymentMethod');
   const orderDiscountRaw = watch('orderDiscount');
   const prepaymentRaw    = watch('prepayment');
-  const mixedCash          = Number(watch('mixedCash'))          || 0;
-  const mixedKaspiQr       = Number(watch('mixedKaspiQr'))       || 0;
-  const mixedKaspiTerminal = Number(watch('mixedKaspiTerminal')) || 0;
-  const mixedTransfer      = Number(watch('mixedTransfer'))      || 0;
+  const paymentBreakdownWatch = watch('paymentBreakdown');
 
   const itemsTotal = items.reduce((sum, item) => {
     const line = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
@@ -314,7 +303,7 @@ export default function ChapanNewOrderPage() {
   const bankCommissionAmount  = Math.round(subtotalAfterDiscount * bankCommissionPct / 100);
   const finalTotal            = Math.max(0, subtotalAfterDiscount + deliveryFee + bankCommissionAmount);
   const debt                  = Math.max(0, finalTotal - prepayment);
-  const mixedSum      = mixedCash + mixedKaspiQr + mixedKaspiTerminal + mixedTransfer;
+  const mixedSum = Object.values(paymentBreakdownWatch ?? {}).reduce((s, v) => s + (Number(v) || 0), 0);
 
   function fmt(n: number) {
     return `${new Intl.NumberFormat('ru-KZ', { maximumFractionDigits: 0 }).format(n)} ₸`;
@@ -343,12 +332,11 @@ export default function ChapanNewOrderPage() {
       bankCommissionPercent: bankCommissionPct > 0 ? bankCommissionPct : undefined,
       bankCommissionAmount:  bankCommissionAmount > 0 ? bankCommissionAmount : undefined,
       dueDate:       data.dueDate   || undefined,
-      prepayment:    hasPrepayment ? data.prepayment : undefined,
-      paymentMethod: hasPrepayment ? data.paymentMethod : undefined,
-      mixedCash:          hasPrepayment && isMixed ? (data.mixedCash ?? 0) : undefined,
-      mixedKaspiQr:       hasPrepayment && isMixed ? (data.mixedKaspiQr ?? 0) : undefined,
-      mixedKaspiTerminal: hasPrepayment && isMixed ? (data.mixedKaspiTerminal ?? 0) : undefined,
-      mixedTransfer:      hasPrepayment && isMixed ? (data.mixedTransfer ?? 0) : undefined,
+      prepayment:       hasPrepayment ? data.prepayment : undefined,
+      paymentMethod:    hasPrepayment ? data.paymentMethod : undefined,
+      paymentBreakdown: hasPrepayment && isMixed
+        ? Object.fromEntries(Object.entries(data.paymentBreakdown ?? {}).filter(([, v]) => Number(v) > 0))
+        : undefined,
       items: payloadItems,
       managerNote: data.managerNote?.trim() || undefined,
     });
@@ -368,17 +356,31 @@ export default function ChapanNewOrderPage() {
     navigate('/workzone/chapan/orders');
   }
 
-  const products        = catalogs?.productCatalog        ?? [];
-  const sizes           = catalogs?.sizeCatalog           ?? [];
-  // Sprint 4: способы оплаты из каталога; fallback на hardcoded если каталог пуст
-  const catalogPaymentMethods = (catalogs?.paymentMethodCatalog ?? []);
-  const activePaymentMethods: Array<{ value: string; label: string }> =
-    catalogPaymentMethods.length > 0
-      ? [
-          ...catalogPaymentMethods.map(name => ({ value: name, label: name })),
-          { value: 'mixed', label: 'Смешанный' },
-        ]
-      : PAYMENT_METHODS;
+  const products             = catalogs?.productCatalog ?? [];
+  const catalogPaymentMethods = catalogs?.paymentMethodCatalog ?? [];
+  const activePaymentMethods  = buildPaymentMethodOptions(catalogPaymentMethods);
+  const mixedBreakdownRows    = buildMixedBreakdownRows(catalogPaymentMethods);
+  const sizeOptions           = buildSizeCatalog(catalogs?.sizeCatalog ?? []);
+  const deliveryOptions       = buildDeliveryOptions();
+
+  // Warehouse smart catalog: live dropdowns per product
+  const { data: orderFormCatalog } = useOrderFormCatalog();
+  const warehouseProductMap: Record<string, OrderFormField[]> = {};
+  if (orderFormCatalog) {
+    for (const p of orderFormCatalog.products) {
+      warehouseProductMap[p.name] = p.fields;
+    }
+  }
+  const warehouseProductNames = Object.keys(warehouseProductMap);
+  // Merged product list: chapan catalog + warehouse catalog (deduped)
+  const allProductNames = [...new Set([...products, ...warehouseProductNames])];
+  // Helper: get catalog options for a field code given current productName
+  function getCatalogOptions(productName: string, code: string): string[] {
+    const fields = warehouseProductMap[productName];
+    if (!fields) return [];
+    const field = fields.find((f) => f.code === code);
+    return field?.options.map((o) => o.label) ?? [];
+  }
 
   return (
     <div className={styles.root}>
@@ -475,7 +477,7 @@ export default function ChapanNewOrderPage() {
               <div className={styles.field}>
                 <label className={styles.label}>Доставка</label>
                 <Controller control={control} name="deliveryType" render={({ field }) => (
-                  <SelectOrText {...field} value={field.value ?? ''} options={DELIVERY} placeholder="Выберите или введите" className={styles.input} />
+                  <SelectOrText {...field} value={field.value ?? ''} options={deliveryOptions} placeholder="Выберите или введите" className={styles.input} />
                 )} />
               </div>
             </div>
@@ -513,6 +515,9 @@ export default function ChapanNewOrderPage() {
               const lineTotal   = Math.max(0, linePrice - lineDisc);
               const itemStockName = items[idx]?.productName;
               const itemStock = itemStockName && stockMap ? stockMap[itemStockName] : undefined;
+              // Warehouse smart catalog: check if this product has catalog fields
+              const catalogFields = warehouseProductMap[itemStockName ?? ''] ?? [];
+              const hasWarehouseCatalog = catalogFields.length > 0;
 
               return (
                 <div key={field.id} className={styles.itemCard}>
@@ -530,10 +535,10 @@ export default function ChapanNewOrderPage() {
                     <div className={styles.field}>
                       <label className={styles.label}>Модель <span className={styles.req}>*</span></label>
                       <Controller control={control} name={`items.${idx}.productName`} render={({ field: f }) => (
-                        products.length > 0 ? (
+                        allProductNames.length > 0 ? (
                           <select {...f} className={`${styles.select} ${errors.items?.[idx]?.productName ? styles.inputError : ''}`}>
                             <option value="">Выберите модель</option>
-                            {products.map((p) => <option key={p} value={p}>{p}</option>)}
+                            {allProductNames.map((p) => <option key={p} value={p}>{p}</option>)}
                             <option value="__other">Другая модель...</option>
                           </select>
                         ) : (
@@ -541,7 +546,12 @@ export default function ChapanNewOrderPage() {
                         )
                       )} />
                       {errors.items?.[idx]?.productName && <span className={styles.fieldError}>{errors.items[idx]?.productName?.message}</span>}
-                      {itemStock !== undefined && (
+                      {hasWarehouseCatalog && (
+                        <span style={{ fontSize: 10, color: 'var(--fill-accent)', fontWeight: 500 }}>
+                          ✦ Умный склад
+                        </span>
+                      )}
+                      {!hasWarehouseCatalog && itemStock !== undefined && (
                         <span className={itemStock.available ? styles.stockBadgeIn : styles.stockBadgeOut}>
                           {itemStock.available ? `В наличии: ${itemStock.qty} шт.` : 'Нет на складе'}
                         </span>
@@ -549,16 +559,18 @@ export default function ChapanNewOrderPage() {
                     </div>
                     <div className={styles.field}>
                       <label className={styles.label}>Размер <span className={styles.req}>*</span></label>
-                      <Controller control={control} name={`items.${idx}.size`} render={({ field: f }) => (
-                        sizes.length > 0 ? (
+                      <Controller control={control} name={`items.${idx}.size`} render={({ field: f }) => {
+                        const catalogSizes = getCatalogOptions(items[idx]?.productName ?? '', 'size');
+                        const opts = catalogSizes.length > 0 ? catalogSizes : sizeOptions;
+                        return opts.length > 0 ? (
                           <select {...f} className={`${styles.select} ${errors.items?.[idx]?.size ? styles.inputError : ''}`}>
                             <option value="">— выбрать —</option>
-                            {sizes.map((s) => <option key={s} value={s}>{s}</option>)}
+                            {opts.map((s) => <option key={s} value={s}>{s}</option>)}
                           </select>
                         ) : (
                           <input {...f} className={`${styles.input} ${errors.items?.[idx]?.size ? styles.inputError : ''}`} placeholder="48" />
-                        )
-                      )} />
+                        );
+                      }} />
                       {errors.items?.[idx]?.size && <span className={styles.fieldError}>{errors.items[idx]?.size?.message}</span>}
                     </div>
                   </div>
@@ -584,15 +596,19 @@ export default function ChapanNewOrderPage() {
                     </div>
                     <div className={styles.field}>
                       <label className={styles.label}>Длина изделия</label>
-                      <Controller control={control} name={`items.${idx}.length`} render={({ field: f }) => (
-                        <SelectOrText
-                          {...f}
-                          value={f.value ?? ''}
-                          options={['Стандарт', 'Удлинённый', 'Укороченный']}
-                          placeholder="Стандарт"
-                          className={styles.input}
-                        />
-                      )} />
+                      <Controller control={control} name={`items.${idx}.length`} render={({ field: f }) => {
+                        const catalogLengths = getCatalogOptions(items[idx]?.productName ?? '', 'length');
+                        const opts = catalogLengths.length > 0 ? catalogLengths : ['Стандарт', 'Удлинённый', 'Укороченный'];
+                        return (
+                          <SelectOrText
+                            {...f}
+                            value={f.value ?? ''}
+                            options={opts}
+                            placeholder="Стандарт"
+                            className={styles.input}
+                          />
+                        );
+                      }} />
                     </div>
                   </div>
 
@@ -600,7 +616,18 @@ export default function ChapanNewOrderPage() {
                   <div className={styles.itemRow4}>
                     <div className={styles.field}>
                       <label className={styles.label}>Цвет / материал</label>
-                      <input {...register(`items.${idx}.color`)} className={styles.input} placeholder="Тёмно-синий, бордо..." />
+                      <Controller control={control} name={`items.${idx}.color`} render={({ field: f }) => {
+                        const catalogColors = getCatalogOptions(items[idx]?.productName ?? '', 'color');
+                        return catalogColors.length > 0 ? (
+                          <select {...f} value={f.value ?? ''} className={styles.select}>
+                            <option value="">— выбрать —</option>
+                            {catalogColors.map((c) => <option key={c} value={c}>{c}</option>)}
+                            <option value="__other">Другой...</option>
+                          </select>
+                        ) : (
+                          <input {...f} value={f.value ?? ''} className={styles.input} placeholder="Тёмно-синий, бордо..." />
+                        );
+                      }} />
                     </div>
                     <div className={styles.field}>
                       <label className={styles.label}>Кол-во</label>
@@ -856,20 +883,55 @@ export default function ChapanNewOrderPage() {
                   <div className={styles.finValue} style={{ minWidth: 80 }}>
                     {bankCommissionAmount > 0 ? fmt(bankCommissionAmount) : '—'}
                   </div>
-                  <div className={styles.discountPctWrap}>
-                    <Controller control={control} name="bankCommissionPercent" render={({ field }) => (
-                      <input
-                        type="number" min="0" max="100" step="0.1"
-                        className={styles.discountPctInput}
-                        placeholder="0"
-                        value={field.value ?? ''}
-                        onChange={(e) => field.onChange(parseOptionalAmount(e.target.value))}
-                        onWheel={(e) => e.currentTarget.blur()}
-                        onFocus={(e) => e.target.select()}
-                      />
-                    )} />
-                    <span className={styles.discountPctSymbol}>%</span>
-                  </div>
+                  {editingRate ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div className={styles.discountPctWrap}>
+                        <input
+                          type="number" min="0" max="100" step="0.1"
+                          className={styles.discountPctInput}
+                          placeholder="0"
+                          value={rateInput}
+                          autoFocus
+                          onChange={(e) => setRateInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') { setEditingRate(false); }
+                          }}
+                          onWheel={(e) => e.currentTarget.blur()}
+                        />
+                        <span className={styles.discountPctSymbol}>%</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const v = parseFloat(rateInput);
+                          const safe = isNaN(v) ? 0 : Math.min(100, Math.max(0, v));
+                          setValue('bankCommissionPercent', safe || undefined);
+                          updateBankCommission.mutate(safe);
+                          setEditingRate(false);
+                        }}
+                        style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, background: 'var(--fill-accent)', color: 'var(--text-on-accent)', border: 'none', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
+                      >Сохранить</button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingRate(false)}
+                        style={{ padding: '4px 8px', fontSize: 12, background: 'none', color: 'var(--text-tertiary)', border: '1px solid var(--border-subtle)', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
+                      >Отмена</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: bankCommissionPct > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+                        {bankCommissionPct > 0 ? `${bankCommissionPct}%` : '—'}
+                      </span>
+                      <button
+                        type="button"
+                        title="Изменить ставку комиссии"
+                        onClick={() => { setRateInput(bankCommissionPct > 0 ? String(bankCommissionPct) : ''); setEditingRate(true); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', display: 'inline-flex', alignItems: 'center', color: 'var(--text-tertiary)', borderRadius: 4 }}
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -947,10 +1009,10 @@ export default function ChapanNewOrderPage() {
             {paymentMethod === 'mixed' && (
               <div className={styles.mixedBreakdown}>
                 <div className={styles.mixedBreakdownTitle}>Разбивка по способам оплаты</div>
-                {MIXED_METHODS.map((m) => (
-                  <div key={m.key} className={styles.mixedRow}>
+                {mixedBreakdownRows.map((m) => (
+                  <div key={m.value} className={styles.mixedRow}>
                     <span className={styles.mixedLabel}>{m.label}</span>
-                    <Controller control={control} name={m.key} render={({ field }) => (
+                    <Controller control={control} name={`paymentBreakdown.${m.value}`} render={({ field }) => (
                       <input
                         type="number" min="0" inputMode="numeric"
                         className={styles.mixedInput}
@@ -971,7 +1033,7 @@ export default function ChapanNewOrderPage() {
                     )}
                   </div>
                 )}
-                {errors.mixedCash && <span className={styles.fieldError}>{errors.mixedCash.message}</span>}
+                {(errors as any).paymentBreakdown?.message && <span className={styles.fieldError}>{(errors as any).paymentBreakdown.message}</span>}
               </div>
             )}
 

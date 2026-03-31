@@ -4,6 +4,7 @@ import { useOrders } from '../../entities/order/queries';
 import type { ChapanOrder } from '../../entities/order/types';
 import { apiClient } from '../../shared/api/client';
 import styles from './InvoiceModal.module.css';
+import { buildItemLine } from '../../shared/utils/itemLine';
 
 type Step = 'style' | 'order-list';
 type InvoiceStyle = 'default' | 'branded';
@@ -192,7 +193,7 @@ function OrderListStep({ style, onClose }: { style: InvoiceStyle; onClose: () =>
         >
           {/* Order number + priority */}
           <div className={styles.orderCardTop}>
-            <span className={styles.orderNum}>{order.orderNumber}</span>
+            <span className={styles.orderNum}>#{order.orderNumber}</span>
             {(order.urgency ?? order.priority) === 'urgent' && (
               <span className={`${styles.priorityBadge} ${styles.priority_urgent}`}>
                 🔴 Срочный
@@ -232,7 +233,7 @@ function OrderListStep({ style, onClose }: { style: InvoiceStyle; onClose: () =>
           <div className={styles.orderItems}>
             {order.items.slice(0, 3).map((item, i) => (
               <span key={i} className={styles.orderItemChip}>
-                {item.productName} · {item.size} · {item.quantity} шт
+                {buildItemLine(item)}{item.size ? ` - ${item.size}` : ''}{item.quantity > 1 ? ` - ${item.quantity} шт` : ''}
               </span>
             ))}
             {order.items.length > 3 && (

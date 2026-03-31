@@ -184,6 +184,9 @@ export const chapanSettingsApi = {
   updateProfile: (data: Partial<ChapanProfile>) =>
     api.patch<ChapanProfile>('/chapan/settings/profile', data),
 
+  updateBankCommission: (percent: number) =>
+    api.patch<{ bankCommissionPercent: number }>('/chapan/settings/bank-commission', { bankCommissionPercent: percent }),
+
   // Returns { productCatalog: string[], fabricCatalog: string[], sizeCatalog: string[], workers: string[] }
   getCatalogs: () =>
     api.get<ChapanCatalogs>('/chapan/settings/catalogs'),

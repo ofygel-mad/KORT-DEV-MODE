@@ -56,6 +56,7 @@ export interface ChapanOrder {
   payments: OrderPayment[];
   activities: OrderActivity[];
   transfer: OrderTransfer | null;
+  paymentBreakdown?: Record<string, number> | null;
   attachments?: OrderAttachment[];
   // Included only in getById response:
   invoiceOrders?: Array<{
@@ -190,12 +191,8 @@ export interface CreateOrderDto {
   bankCommissionPercent?: number;
   bankCommissionAmount?: number;
   prepayment?: number;
-  paymentMethod?: 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'mixed';
-  // Flat breakdown (backend accepts flat fields, not nested)
-  mixedCash?: number;
-  mixedKaspiQr?: number;
-  mixedKaspiTerminal?: number;
-  mixedTransfer?: number;
+  paymentMethod?: 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'halyk' | 'mixed';
+  paymentBreakdown?: Record<string, number>;
   receiptFileNames?: string[];
   items?: CreateOrderItemDto[];
   sourceRequestId?: string;
@@ -236,12 +233,9 @@ export interface UpdateOrderDto {
   bankCommissionAmount?: number;
   // Payment
   prepayment?: number;
-  paymentMethod?: 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'mixed';
+  paymentMethod?: 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'halyk' | 'mixed';
   expectedPaymentMethod?: string;
-  mixedCash?: number;
-  mixedKaspiQr?: number;
-  mixedKaspiTerminal?: number;
-  mixedTransfer?: number;
+  paymentBreakdown?: Record<string, number>;
   items?: CreateOrderItemDto[];
 }
 
@@ -270,6 +264,10 @@ export interface ChapanProfile {
   publicIntakeDescription: string | null;
   publicIntakeEnabled: boolean;
   supportLabel: string | null;
+  kazpostDeliveryFee: number;
+  railDeliveryFee: number;
+  airDeliveryFee: number;
+  bankCommissionPercent: number;
 }
 
 export interface ChapanClient {

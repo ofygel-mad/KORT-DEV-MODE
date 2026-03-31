@@ -98,6 +98,89 @@ export interface ProductStockInfo {
 
 export type ProductsAvailabilityMap = Record<string, ProductStockInfo>;
 
+// ── Smart Catalog types ────────────────────────────────────────────────────────
+
+export type FieldInputType = 'select' | 'multiselect' | 'text' | 'number' | 'boolean';
+
+export interface WarehouseFieldOption {
+  id: string;
+  definitionId: string;
+  value: string;
+  label: string;
+  sortOrder: number;
+  colorHex?: string | null;
+  isActive: boolean;
+}
+
+export interface WarehouseFieldDefinition {
+  id: string;
+  orgId: string;
+  code: string;
+  label: string;
+  entityScope: string;
+  inputType: FieldInputType;
+  isRequired: boolean;
+  isVariantAxis: boolean;
+  showInWarehouseForm: boolean;
+  showInOrderForm: boolean;
+  showInDocuments: boolean;
+  affectsAvailability: boolean;
+  sortOrder: number;
+  isSystem: boolean;
+  options: WarehouseFieldOption[];
+}
+
+export interface WarehouseProductField {
+  id: string;
+  productId: string;
+  definitionId: string;
+  isRequired: boolean;
+  sortOrder: number;
+  definition: WarehouseFieldDefinition;
+}
+
+export interface WarehouseProductCatalog {
+  id: string;
+  orgId: string;
+  name: string;
+  normalizedName: string;
+  isActive: boolean;
+  source?: string | null;
+  fieldLinks: WarehouseProductField[];
+}
+
+export interface OrderFormField {
+  code: string;
+  label: string;
+  inputType: FieldInputType;
+  isRequired: boolean;
+  affectsAvailability: boolean;
+  options: Array<{ value: string; label: string }>;
+}
+
+export interface OrderFormProduct {
+  id: string;
+  name: string;
+  fields: OrderFormField[];
+}
+
+export interface OrderFormCatalog {
+  products: OrderFormProduct[];
+}
+
+export interface VariantAvailability {
+  status: 'in_stock' | 'low' | 'out_of_stock' | 'unknown';
+  variantKey: string;
+  qty: number | null;
+  itemId?: string;
+}
+
+export interface ImportResult {
+  created: number;
+  skipped: number;
+  errors: string[];
+}
+
 export function getStockStatus(item: WarehouseItem): StockStatus {
   if (item.qty <= item.qtyMin) return 'critical';
   if (item.qty <= item.qtyMin * 1.5) return 'low';

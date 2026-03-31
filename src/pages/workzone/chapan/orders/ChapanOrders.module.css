@@ -149,7 +149,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 2px 200px 180px 1fr 130px 80px;
+  grid-template-columns: 2px 1fr 200px 180px 130px 100px;
   align-items: center;
   gap: 0;
   padding: 0;
@@ -162,6 +162,7 @@
   text-align: left;
   width: 100%;
   overflow: hidden;
+  position: relative;
   transition: border-color 140ms, background 140ms, box-shadow 140ms;
 }
 .row:hover { border-color: var(--ch-border-plat); background: var(--ch-card); box-shadow: 0 2px 12px rgba(0,0,0,0.28); }
@@ -256,26 +257,41 @@
 .urgent { background: rgba(239,68,68,.12); color: var(--ch-red); border: 1px solid rgba(239,68,68,.25); }
 .vip    { background: rgba(180,192,210,.12); color: var(--ch-plat-bright); border: 1px solid var(--ch-plat-border); }
 
-/* ── D1: urgent card/row — отдельно от финансового alert ── */
+/* ── D1: urgent card/row — пульсирующий красный glow ── */
+@keyframes urgentPulse {
+  0%   { box-shadow: 0 0 0 1px rgba(239,68,68,0.5), 0 0 10px rgba(239,68,68,0.18); }
+  50%  { box-shadow: 0 0 0 1px rgba(239,68,68,0.8), 0 0 22px rgba(239,68,68,0.38); }
+  100% { box-shadow: 0 0 0 1px rgba(239,68,68,0.5), 0 0 10px rgba(239,68,68,0.18); }
+}
+
+@keyframes urgentPulseRow {
+  0%   { box-shadow: 0 0 0 1px rgba(239,68,68,0.4), 0 2px 14px rgba(239,68,68,0.12); }
+  50%  { box-shadow: 0 0 0 1px rgba(239,68,68,0.7), 0 2px 24px rgba(239,68,68,0.28); }
+  100% { box-shadow: 0 0 0 1px rgba(239,68,68,0.4), 0 2px 14px rgba(239,68,68,0.12); }
+}
+
 .cardUrgent {
-  border-color: rgba(239, 68, 68, 0.45) !important;
-  background: linear-gradient(160deg, rgba(239,68,68,0.07) 0%, var(--ch-surface) 60%) !important;
+  border-color: rgba(239, 68, 68, 0.65) !important;
+  background: linear-gradient(160deg, rgba(239,68,68,0.10) 0%, var(--ch-surface) 55%) !important;
+  animation: urgentPulse 2.4s ease-in-out infinite;
 }
 .cardUrgent::after {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #EF4444 0%, #F97316 50%, #EF4444 100%);
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, #EF4444 30%, #F97316 50%, #EF4444 70%, transparent 100%);
   border-radius: 12px 12px 0 0;
+  opacity: 1 !important;
 }
 .rowUrgent {
-  border-color: rgba(239, 68, 68, 0.4) !important;
-  background: linear-gradient(90deg, rgba(239,68,68,0.07) 0%, var(--ch-surface) 35%) !important;
+  border-color: rgba(239, 68, 68, 0.55) !important;
+  background: linear-gradient(90deg, rgba(239,68,68,0.10) 0%, var(--ch-surface) 30%) !important;
+  animation: urgentPulseRow 2.4s ease-in-out infinite;
 }
 .rowUrgent .rowStripe {
   background: #EF4444 !important;
-  opacity: 0.85 !important;
+  opacity: 1 !important;
 }
 
 .cardClient { font-size: 14px; font-weight: 600; color: var(--ch-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -708,7 +724,7 @@
   font-weight: 700;
   color: var(--text-tertiary);
   letter-spacing: .04em;
-  margin-bottom: -2px;
+  white-space: nowrap;
 }
 
 .rowOrderNum {
@@ -820,8 +836,10 @@
   color: var(--ch-text-muted, #6b7280);
   cursor: pointer;
   flex-shrink: 0;
-  transition: color 140ms, border-color 140ms, background 140ms;
+  opacity: 0;
+  transition: color 140ms, border-color 140ms, background 140ms, opacity 140ms;
 }
+.row:hover .trashBtnRow { opacity: 1; }
 .trashBtnRow:hover {
   color: #EF4444;
   border-color: rgba(239, 68, 68, 0.25);

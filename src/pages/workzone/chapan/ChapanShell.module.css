@@ -251,6 +251,31 @@
   border-top: 1px solid var(--ch-border-plat);
 }
 
+/* ── Mobile bottom nav (hidden on desktop) ─────────────────── */
+.mobileNav {
+  display: none;
+}
+
+.mobileNavItem {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 4px 2px 2px;
+  transition: color 120ms;
+}
+
+.mobileNavItemActive {
+  color: var(--fill-accent);
+}
+
 .main {
   flex: 1;
   min-width: 0;
@@ -266,13 +291,11 @@
 
 @media (max-width: 768px) {
   .root {
-    /* Safe area top */
     padding-top: env(safe-area-inset-top, 0px);
   }
 
   .topbar {
     padding: 0 14px;
-    /* iPhone status bar clearance handled by root */
   }
 
   .kortBack {
@@ -280,57 +303,36 @@
     font-size: 12px;
   }
 
-  .body { flex-direction: column; }
+  .body { display: block; }
 
+  /* Desktop sidebar hides completely on mobile — replaced by bottom nav */
   .sidebar {
-    width: 100%;
-    height: auto;
-    position: sticky;
-    top: 50px;
-    flex-direction: row;
-    align-items: center;
-    z-index: 10;
-    border-right: none;
-    border-bottom: 1px solid var(--border-default);
+    display: none;
   }
-
-  .logoWrap {
-    padding: 8px 12px;
-    border-bottom: none;
-    border-right: 1px solid var(--ch-border-plat);
-    flex-shrink: 0;
-  }
-
-  .logoText { font-size: 13px; }
-  .logoSub { display: none; }
-
-  .nav {
-    flex-direction: row;
-    padding: 6px 8px;
-    gap: 2px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
-    flex: 1;
-    scrollbar-width: none;
-  }
-
-  .nav::-webkit-scrollbar { display: none; }
-
-  .navItem {
-    padding: 7px 12px;
-    white-space: nowrap;
-    font-size: 12px;
-    min-height: 36px;
-    border-radius: 8px;
-  }
-
-  .sidebarBottom { display: none; }
 
   .main {
     height: auto;
-    /* Bottom safe area */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* Reserve space above the fixed bottom nav + safe area */
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 76px);
+  }
+
+  /* Bottom nav is visible only on mobile */
+  .mobileNav {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    padding: 10px 10px;
+    border: 1px solid rgba(122, 140, 162, 0.18);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 }
 

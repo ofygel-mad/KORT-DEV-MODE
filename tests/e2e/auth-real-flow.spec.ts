@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
-import { preparePage } from './helpers';
+import { clearSession, preparePage } from './helpers';
 
 test('company registration creates an account that can log in again', async ({ page }) => {
+  await clearSession(page);
   await preparePage(page);
 
   const unique = Date.now();
@@ -24,11 +25,7 @@ test('company registration creates an account that can log in again', async ({ p
   await page.getByRole('button', { name: 'Создать компанию' }).click();
   await expect(page).not.toHaveURL(/\/auth\/register$/);
 
-  await page.evaluate(() => {
-    window.localStorage.clear();
-    window.sessionStorage.setItem('kort.workspace:intro-v1', '1');
-  });
-
+  await clearSession(page);
   await page.goto('/auth/login');
 
   fields = page.locator('form input');

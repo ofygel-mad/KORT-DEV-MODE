@@ -10,19 +10,12 @@ interface ChapanUiState {
 }
 
 export const useChapanUiStore = create<ChapanUiState>((set) => {
-  // Load initial state from sessionStorage
-  const saved = typeof window !== 'undefined' ? sessionStorage.getItem('chapan_selected_order') : null;
-
   return {
-    selectedOrderId: saved,
-    setSelectedOrderId: (id) => {
-      if (id) {
-        sessionStorage.setItem('chapan_selected_order', id);
-      } else {
-        sessionStorage.removeItem('chapan_selected_order');
-      }
-      set({ selectedOrderId: id });
-    },
+    // selectedOrderId is transient UI navigation state — not durable business data.
+    // Persisting it caused an infinite redirect loop: the list page would always
+    // re-open the last viewed order instead of showing the list on back-navigate.
+    selectedOrderId: null,
+    setSelectedOrderId: (id) => set({ selectedOrderId: id }),
     invoicesDrawerOpen: false,
     invoicesDrawerFilter: 'all',
     setInvoicesDrawerOpen: (open) => set({ invoicesDrawerOpen: open }),

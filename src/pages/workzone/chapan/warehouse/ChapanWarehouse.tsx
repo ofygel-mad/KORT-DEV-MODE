@@ -8,6 +8,7 @@ import {
   useShipOrder,
 } from '../../../../entities/order/queries';
 import type { ChapanOrder, ChapanInvoice } from '../../../../entities/order/types';
+import { buildItemLine } from '../../../../shared/utils/itemLine';
 import styles from './ChapanWarehouse.module.css';
 
 type TabKey = 'incoming' | 'on_warehouse' | 'to_ship';
@@ -351,14 +352,6 @@ function ToShipTab({ paidOrders, unpaidOrders }: { paidOrders: ChapanOrder[]; un
   );
 }
 
-function buildItemLine(item: ChapanOrder['items'][number]): string {
-  const parts: string[] = [];
-  if (item.productName) parts.push(item.productName);
-  if (item.color)       parts.push(item.color);
-  const genderPart = item.gender ? `(${item.gender})` : '';
-  const line = parts.join(' · ');
-  return genderPart ? `${line} ${genderPart}` : line;
-}
 
 function OrderRow({ order, onClick, statusColor }: { order: ChapanOrder; onClick: () => void; statusColor: string }) {
   return (

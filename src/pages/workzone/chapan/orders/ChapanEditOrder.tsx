@@ -4,38 +4,25 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertTriangle, Calculator, ChevronLeft, Plus, Trash2, X } from 'lucide-react';
-import { useOrder, useUpdateOrder, useChapanCatalogs, useRequestItemChange } from '../../../../entities/order/queries';
+import { AlertTriangle, Calculator, ChevronLeft, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { useOrder, useUpdateOrder, useChapanCatalogs, useChapanProfile, useRequestItemChange, useUpdateBankCommission } from '../../../../entities/order/queries';
 import type { Urgency } from '../../../../entities/order/types';
 import { formatPersonNameInput } from '../../../../shared/utils/person';
 import { formatKazakhPhoneInput, isKazakhPhoneComplete } from '../../../../shared/utils/kz';
+import {
+  buildDeliveryOptions,
+  buildMixedBreakdownRows,
+  buildPaymentMethodOptions,
+  buildSizeCatalog,
+} from '../../../../shared/lib/chapanCatalogDefaults';
 import styles from './ChapanNewOrder.module.css';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 type PaymentMethodValue = 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'mixed';
 
-const PAYMENT_METHODS: Array<{ value: PaymentMethodValue; label: string }> = [
-  { value: 'cash',           label: 'Наличные' },
-  { value: 'kaspi_qr',       label: 'Kaspi QR' },
-  { value: 'kaspi_terminal', label: 'Kaspi Терминал' },
-  { value: 'transfer',       label: 'Перевод' },
-  { value: 'mixed',          label: 'Смешанный' },
-];
-
-const MIXED_METHODS: Array<{
-  key: 'mixedCash' | 'mixedKaspiQr' | 'mixedKaspiTerminal' | 'mixedTransfer';
-  label: string;
-}> = [
-  { key: 'mixedCash',          label: 'Наличные' },
-  { key: 'mixedKaspiQr',       label: 'Kaspi QR' },
-  { key: 'mixedKaspiTerminal', label: 'Kaspi Терминал' },
-  { key: 'mixedTransfer',      label: 'Перевод' },
-];
-
 const CITIES   = ['Алматы', 'Астана', 'Шымкент', 'Атырау', 'Актобе', 'Тараз', 'Павлодар', 'Другой город'];
 const SOURCES  = ['Instagram', 'WhatsApp', 'Telegram', 'Звонок', 'Рекомендация', 'Сайт', 'Другое'];
-const DELIVERY_OPTIONS = ['Самовывоз', 'Курьер по городу', 'Казпочта', 'Жд', 'Авиа', 'СДЭК', 'Другое'];
 
 // ── SelectOrText ──────────────────────────────────────────────────────────────
 
@@ -55,11 +42,6 @@ function parseOptionalAmount(value: string) {
   return Number.isFinite(n) ? n : undefined;
 }
 
-const DELIVERY_FEE_MAP: Record<string, number> = {
-  'Казпочта': 2000,
-  'Жд': 3000,
-  'Авиа': 5000,
-};
 
 const DELIVERY = ['Самовывоз', 'Курьер по городу', 'Казпочта', 'СДЭК', 'Другое'];
 
@@ -95,12 +77,9 @@ const schema = z.object({
   deliveryFee:   z.coerce.number().min(0).optional(),
   bankCommissionPercent: z.coerce.number().min(0).max(100).optional(),
   prepayment:   z.coerce.number().min(0).optional(),
-  paymentMethod: z.enum(['cash', 'kaspi_qr', 'kaspi_terminal', 'transfer', 'mixed']).optional(),
+  paymentMethod: z.enum(['cash', 'kaspi_qr', 'kaspi_terminal', 'transfer', 'halyk', 'mixed']).optional(),
   expectedPaymentMethod: z.string().optional(),
-  mixedCash:          z.coerce.number().min(0).optional(),
-  mixedKaspiQr:       z.coerce.number().min(0).optional(),
-  mixedKaspiTerminal: z.coerce.number().min(0).optional(),
-  mixedTransfer:      z.coerce.number().min(0).optional(),
+  paymentBreakdown: z.record(z.string(), z.coerce.number().min(0)).optional(),
   items:       z.array(itemSchema).min(1, 'Добавьте хотя бы одну позицию'),
 }).superRefine((data, ctx) => {
   const itemsTotal = (data.items ?? []).reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0);
@@ -118,10 +97,9 @@ const schema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Предоплата не может превышать итоговую сумму', path: ['prepayment'] });
   }
   if (data.paymentMethod === 'mixed' && (data.prepayment ?? 0) > 0) {
-    const mixedSum = (Number(data.mixedCash) || 0) + (Number(data.mixedKaspiQr) || 0)
-      + (Number(data.mixedKaspiTerminal) || 0) + (Number(data.mixedTransfer) || 0);
+    const mixedSum = Object.values(data.paymentBreakdown ?? {}).reduce((s, v) => s + (Number(v) || 0), 0);
     if (mixedSum > 0 && Math.abs(mixedSum - (data.prepayment ?? 0)) > 1) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Сумма разбивки не совпадает с предоплатой', path: ['mixedCash'] });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Сумма разбивки не совпадает с предоплатой', path: ['paymentBreakdown'] });
     }
   }
 });
@@ -137,10 +115,16 @@ export default function ChapanEditOrderPage() {
   const { data: order, isLoading, isError } = useOrder(id!);
   const updateOrder = useUpdateOrder();
   const requestItemChange = useRequestItemChange();
+  const updateBankCommission = useUpdateBankCommission();
   const { data: catalogs } = useChapanCatalogs();
+  const { data: profile } = useChapanProfile();
 
-  const products = catalogs?.productCatalog ?? [];
-  const sizes    = catalogs?.sizeCatalog    ?? [];
+  const products             = catalogs?.productCatalog ?? [];
+  const catalogPaymentMethods = catalogs?.paymentMethodCatalog ?? [];
+  const activePaymentMethods  = buildPaymentMethodOptions(catalogPaymentMethods);
+  const mixedBreakdownRows    = buildMixedBreakdownRows(catalogPaymentMethods);
+  const sizeOptions           = buildSizeCatalog(catalogs?.sizeCatalog ?? []);
+  const deliveryOptions       = buildDeliveryOptions();
 
   // Change request modal state (for in_production orders)
   const [changeRequestModal, setChangeRequestModal] = useState(false);
@@ -165,17 +149,22 @@ export default function ChapanEditOrderPage() {
   const bankCommPctRaw    = watch('bankCommissionPercent');
   const paymentMethod    = watch('paymentMethod');
   const prepaymentRaw    = watch('prepayment');
-  const mixedCash          = Number(watch('mixedCash'))          || 0;
-  const mixedKaspiQr       = Number(watch('mixedKaspiQr'))       || 0;
-  const mixedKaspiTerminal = Number(watch('mixedKaspiTerminal')) || 0;
-  const mixedTransfer      = Number(watch('mixedTransfer'))      || 0;
+  const paymentBreakdownWatch = watch('paymentBreakdown');
   const [discountPercent, setDiscountPercent] = useState('');
+  const [editingRate, setEditingRate] = useState(false);
+  const [rateInput, setRateInput] = useState('');
+
+  const deliveryFeeMap: Record<string, number> = {
+    'Казпочта': profile?.kazpostDeliveryFee ?? 2000,
+    'Жд':       profile?.railDeliveryFee    ?? 3000,
+    'Авиа':     profile?.airDeliveryFee     ?? 5000,
+  };
 
   // F3: auto-fill delivery fee when delivery type changes
   useEffect(() => {
-    const autoFee = DELIVERY_FEE_MAP[deliveryType ?? ''];
+    const autoFee = deliveryFeeMap[deliveryType ?? ''];
     if (autoFee !== undefined) setValue('deliveryFee', autoFee);
-  }, [deliveryType, setValue]);
+  }, [deliveryType, profile?.kazpostDeliveryFee, profile?.railDeliveryFee, profile?.airDeliveryFee]);
 
   const itemsTotal            = items.reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0);
   const orderDiscount         = Number.isFinite(orderDiscountRaw)  ? (orderDiscountRaw  ?? 0) : 0;
@@ -186,16 +175,8 @@ export default function ChapanEditOrderPage() {
   const finalTotal            = Math.max(0, subtotalAfterDiscount + deliveryFee + bankCommAmount);
   const prepayment            = Number.isFinite(prepaymentRaw) ? (prepaymentRaw ?? 0) : 0;
   const debt                  = Math.max(0, finalTotal - prepayment);
-  const mixedSum              = mixedCash + mixedKaspiQr + mixedKaspiTerminal + mixedTransfer;
+  const mixedSum = Object.values(paymentBreakdownWatch ?? {}).reduce((s, v) => s + (Number(v) || 0), 0);
 
-  const catalogPaymentMethods = (catalogs?.paymentMethodCatalog ?? []);
-  const activePaymentMethods: Array<{ value: string; label: string }> =
-    catalogPaymentMethods.length > 0
-      ? [
-          ...catalogPaymentMethods.map((name: string) => ({ value: name, label: name })),
-          { value: 'mixed', label: 'Смешанный' },
-        ]
-      : PAYMENT_METHODS;
   // to avoid wiping user's in-progress edits (React Query refetchOnMount reuses the same
   // component instance but may deliver a new object reference for the same data).
   const formPopulated = useRef(false);
@@ -221,7 +202,7 @@ export default function ChapanEditOrderPage() {
       prepayment:    order.paidAmount   > 0 ? order.paidAmount   : undefined,
       paymentMethod: undefined,  // payment method for THIS edit session, not inherited
       expectedPaymentMethod: order.expectedPaymentMethod ?? undefined,
-      mixedCash: undefined, mixedKaspiQr: undefined, mixedKaspiTerminal: undefined, mixedTransfer: undefined,
+      paymentBreakdown: undefined,
       items: (order.items ?? []).map(item => ({
         fabric:        item.fabric ?? '',
         productName:   item.productName,
@@ -273,12 +254,11 @@ export default function ChapanEditOrderPage() {
         deliveryFee:   deliveryFee   > 0 ? deliveryFee   : 0,
         bankCommissionPercent: bankCommPct > 0 ? bankCommPct : 0,
         bankCommissionAmount:  bankCommAmount > 0 ? bankCommAmount : 0,
-        prepayment:    prepayment > 0 ? prepayment : 0,
-        paymentMethod: prepayment > 0 ? (data.paymentMethod ?? undefined) : undefined,
-        mixedCash:          data.paymentMethod === 'mixed' ? (Number(data.mixedCash) || 0) : undefined,
-        mixedKaspiQr:       data.paymentMethod === 'mixed' ? (Number(data.mixedKaspiQr) || 0) : undefined,
-        mixedKaspiTerminal: data.paymentMethod === 'mixed' ? (Number(data.mixedKaspiTerminal) || 0) : undefined,
-        mixedTransfer:      data.paymentMethod === 'mixed' ? (Number(data.mixedTransfer) || 0) : undefined,
+        prepayment:       prepayment > 0 ? prepayment : 0,
+        paymentMethod:    prepayment > 0 ? (data.paymentMethod ?? undefined) : undefined,
+        paymentBreakdown: data.paymentMethod === 'mixed'
+          ? Object.fromEntries(Object.entries(data.paymentBreakdown ?? {}).filter(([, v]) => Number(v) > 0))
+          : undefined,
         items:       canEditItems ? data.items.map(item => ({
           fabric:        item.fabric?.trim() || undefined,
           productName:   item.productName,
@@ -330,12 +310,11 @@ export default function ChapanEditOrderPage() {
         deliveryFee:   deliveryFee   > 0 ? deliveryFee   : 0,
         bankCommissionPercent: bankCommPct > 0 ? bankCommPct : 0,
         bankCommissionAmount:  bankCommAmount > 0 ? bankCommAmount : 0,
-        prepayment:    prepayment > 0 ? prepayment : 0,
-        paymentMethod: prepayment > 0 ? (pendingFormData.paymentMethod ?? undefined) : undefined,
-        mixedCash:          pendingFormData.paymentMethod === 'mixed' ? (Number(pendingFormData.mixedCash) || 0) : undefined,
-        mixedKaspiQr:       pendingFormData.paymentMethod === 'mixed' ? (Number(pendingFormData.mixedKaspiQr) || 0) : undefined,
-        mixedKaspiTerminal: pendingFormData.paymentMethod === 'mixed' ? (Number(pendingFormData.mixedKaspiTerminal) || 0) : undefined,
-        mixedTransfer:      pendingFormData.paymentMethod === 'mixed' ? (Number(pendingFormData.mixedTransfer) || 0) : undefined,
+        prepayment:       prepayment > 0 ? prepayment : 0,
+        paymentMethod:    prepayment > 0 ? (pendingFormData.paymentMethod ?? undefined) : undefined,
+        paymentBreakdown: pendingFormData.paymentMethod === 'mixed'
+          ? Object.fromEntries(Object.entries(pendingFormData.paymentBreakdown ?? {}).filter(([, v]) => Number(v) > 0))
+          : undefined,
       },
     });
 
@@ -472,7 +451,7 @@ export default function ChapanEditOrderPage() {
               <div className={styles.field}>
                 <label className={styles.label}>Доставка</label>
                 <Controller control={control} name="deliveryType" render={({ field }) => (
-                  <SelectOrText {...field} value={field.value ?? ''} options={DELIVERY_OPTIONS} placeholder="Выберите или введите" className={styles.input} />
+                  <SelectOrText {...field} value={field.value ?? ''} options={deliveryOptions} placeholder="Выберите или введите" className={styles.input} />
                 )} />
               </div>
             </div>
@@ -550,10 +529,10 @@ export default function ChapanEditOrderPage() {
                     <div className={styles.field}>
                       <label className={styles.label}>Размер <span className={styles.req}>*</span></label>
                       <Controller control={control} name={`items.${idx}.size`} render={({ field: f }) => (
-                        sizes.length > 0 ? (
+                        sizeOptions.length > 0 ? (
                           <select {...f} disabled={!editable} className={`${styles.select} ${errors.items?.[idx]?.size ? styles.inputError : ''}`}>
                             <option value="">— выбрать —</option>
-                            {sizes.map(s => <option key={s} value={s}>{s}</option>)}
+                            {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         ) : (
                           <input {...f} disabled={!editable} className={`${styles.input} ${errors.items?.[idx]?.size ? styles.inputError : ''}`} placeholder="48" />
@@ -726,7 +705,7 @@ export default function ChapanEditOrderPage() {
               <div className={styles.field}>
                 <label className={styles.label}>Способ доставки</label>
                 <Controller control={control} name="deliveryType" render={({ field }) => (
-                  <SelectOrText {...field} value={field.value ?? ''} options={DELIVERY_OPTIONS} placeholder="Выберите или введите" className={styles.input} />
+                  <SelectOrText {...field} value={field.value ?? ''} options={deliveryOptions} placeholder="Выберите или введите" className={styles.input} />
                 )} />
               </div>
               <div className={styles.field}>
@@ -812,20 +791,57 @@ export default function ChapanEditOrderPage() {
                   <div className={styles.finValue} style={{ minWidth: 80 }}>
                     {bankCommAmount > 0 ? fmt(bankCommAmount) : '—'}
                   </div>
-                  <div className={styles.discountPctWrap}>
-                    <Controller control={control} name="bankCommissionPercent" render={({ field }) => (
-                      <input
-                        type="number" min="0" max="100" step="0.1"
-                        className={styles.discountPctInput}
-                        placeholder="0"
-                        value={field.value ?? ''}
-                        onChange={e => field.onChange(parseOptionalAmount(e.target.value))}
-                        onWheel={e => e.currentTarget.blur()}
-                        onFocus={e => e.target.select()}
-                      />
-                    )} />
-                    <span className={styles.discountPctSymbol}>%</span>
-                  </div>
+                  {editingRate ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div className={styles.discountPctWrap}>
+                        <input
+                          type="number" min="0" max="100" step="0.1"
+                          className={styles.discountPctInput}
+                          placeholder="0"
+                          value={rateInput}
+                          autoFocus
+                          onChange={e => {
+                            setRateInput(e.target.value);
+                            const v = parseFloat(e.target.value);
+                            setValue('bankCommissionPercent', isNaN(v) ? undefined : Math.min(100, Math.max(0, v)));
+                          }}
+                          onWheel={e => e.currentTarget.blur()}
+                          onFocus={e => e.target.select()}
+                        />
+                        <span className={styles.discountPctSymbol}>%</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const v = parseFloat(rateInput);
+                          const safe = isNaN(v) ? 0 : Math.min(100, Math.max(0, v));
+                          setValue('bankCommissionPercent', safe || undefined);
+                          updateBankCommission.mutate(safe);
+                          setEditingRate(false);
+                        }}
+                        style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, background: 'var(--fill-accent)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >Сохранить</button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingRate(false)}
+                        style={{ padding: '4px 8px', fontSize: 12, background: 'none', border: '1px solid var(--border-secondary)', borderRadius: 6, cursor: 'pointer', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}
+                      >Отмена</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: (bankCommPctRaw ?? 0) > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+                        {(bankCommPctRaw ?? 0) > 0 ? `${bankCommPctRaw}%` : '—'}
+                      </span>
+                      <button
+                        type="button"
+                        title="Изменить ставку комиссии"
+                        onClick={() => { setRateInput((bankCommPctRaw ?? 0) > 0 ? String(bankCommPctRaw) : ''); setEditingRate(true); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', display: 'inline-flex', alignItems: 'center', color: 'var(--text-tertiary)', borderRadius: 4 }}
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -903,10 +919,10 @@ export default function ChapanEditOrderPage() {
             {paymentMethod === 'mixed' && (
               <div className={styles.mixedBreakdown}>
                 <div className={styles.mixedBreakdownTitle}>Разбивка по способам оплаты</div>
-                {MIXED_METHODS.map((m) => (
-                  <div key={m.key} className={styles.mixedRow}>
+                {mixedBreakdownRows.map((m) => (
+                  <div key={m.value} className={styles.mixedRow}>
                     <span className={styles.mixedLabel}>{m.label}</span>
-                    <Controller control={control} name={m.key} render={({ field }) => (
+                    <Controller control={control} name={`paymentBreakdown.${m.value}`} render={({ field }) => (
                       <input
                         type="number" min="0" inputMode="numeric"
                         className={styles.mixedInput}
@@ -927,7 +943,7 @@ export default function ChapanEditOrderPage() {
                     )}
                   </div>
                 )}
-                {errors.mixedCash && <span className={styles.fieldError}>{errors.mixedCash.message}</span>}
+                {(errors as any).paymentBreakdown?.message && <span className={styles.fieldError}>{(errors as any).paymentBreakdown.message}</span>}
               </div>
             )}
 

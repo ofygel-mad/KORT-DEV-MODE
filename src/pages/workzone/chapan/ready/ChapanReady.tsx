@@ -5,6 +5,7 @@ import { useArchiveOrder, useChangeOrderStatus, useCloseOrder, useCreateInvoice,
 import type { ChapanOrder, InvoiceDocumentPayload, OrderStatus, Priority, Urgency } from '../../../../entities/order/types';
 import { useAuthStore } from '@/shared/stores/auth';
 import { useCreateUnpaidAlert } from '../../../../entities/alert/queries';
+import { buildItemLine } from '../../../../shared/utils/itemLine';
 import { useChapanUiStore } from '../../../../features/workzone/chapan/store';
 import ChapanInvoicePreviewModal from '../invoices/ChapanInvoicePreviewModal';
 import styles from './ChapanReady.module.css';
@@ -20,15 +21,6 @@ const STATUS_LABEL: Record<ReadyStatus, string> = {
   ready: 'Готово',
 };
 
-function buildItemLine(item: { productName?: string; color?: string | null; gender?: string | null } | undefined): string {
-  if (!item) return '—';
-  const parts: string[] = [];
-  if (item.productName) parts.push(item.productName);
-  if (item.color)       parts.push(item.color);
-  const genderPart = item.gender ? `(${item.gender})` : '';
-  const line = parts.join(' · ');
-  return genderPart ? `${line} ${genderPart}` : line;
-}
 
 const STATUS_COLOR: Record<ReadyStatus, string> = {
   ready: '#4FC999',

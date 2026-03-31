@@ -16,6 +16,7 @@ import {
 import type { ChapanChangeRequest, Priority, ProductionStatus, ProductionTask, Urgency } from '../../../../entities/order/types';
 import { useAuthStore } from '@/shared/stores/auth';
 import { useChapanUiStore } from '../../../../features/workzone/chapan/store';
+import { buildItemLine, buildTaskMetaLine } from '../../../../shared/utils/itemLine';
 import styles from './ChapanProduction.module.css';
 
 type ProductionMode = 'manager' | 'workshop';
@@ -338,7 +339,7 @@ export default function ChapanProductionPage() {
                 </div>
                 <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-tertiary)' }}>
                   Новые позиции: {(cr.proposedItems ?? []).map((item) =>
-                    `${item.productName} / ${item.size} × ${item.quantity}`
+                    `${buildItemLine(item)} - ${item.size} × ${item.quantity}`
                   ).join(', ')}
                 </div>
               </div>
@@ -601,17 +602,10 @@ function TaskCard({
         </div>
       </div>
 
-      <div className={styles.productName}>{task.productName}</div>
-      <div className={styles.metaLine}>
-        {[
-          task.color,
-          task.gender ? `(${task.gender})` : '',
-          task.fabric,
-          task.size,
-          task.length ? `дл. ${task.length}` : '',
-          task.quantity > 1 ? `× ${task.quantity}` : '',
-        ].filter(Boolean).join(' · ')}
+      <div className={styles.productName}>
+        {buildItemLine({ productName: task.productName, color: task.color, gender: task.gender }) || task.productName}
       </div>
+      <div className={styles.metaLine}>{buildTaskMetaLine(task)}</div>
 
       {task.notes && (
         <div className={styles.workshopNote}>
@@ -752,15 +746,11 @@ function BatchTaskCard({
           </button>
         </div>
 
-        <div className={styles.productName}>{firstTask.productName}</div>
+        <div className={styles.productName}>
+          {buildItemLine({ productName: firstTask.productName, color: firstTask.color, gender: firstTask.gender }) || firstTask.productName}
+        </div>
         <div className={styles.metaLine}>
-          {[
-            firstTask.color,
-            firstTask.gender ? `(${firstTask.gender})` : '',
-            firstTask.fabric,
-            firstTask.size,
-            firstTask.length ? `дл. ${firstTask.length}` : '',
-          ].filter(Boolean).join(' · ')} · {totalQty} шт.
+          {buildTaskMetaLine({ ...firstTask, quantity: undefined })} · {totalQty} шт.
         </div>
 
         <div className={styles.batchMeta}>
