@@ -82,7 +82,9 @@
 .routeViewport {
   flex: 1;
   min-height: 100%;
-  overflow: visible;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .offlineBanner {
