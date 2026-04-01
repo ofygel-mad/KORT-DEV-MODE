@@ -3,6 +3,7 @@ import { Plus, Search, X, Phone, Mail, MapPin, Calendar } from 'lucide-react';
 import { useCustomers, useCreateCustomer } from '../../../entities/customer/queries';
 import { api } from '../../../shared/api/client';
 import { useQuery } from '@tanstack/react-query';
+import { PhoneInput } from '../../../shared/ui/PhoneInput';
 import { Skeleton } from '../../../shared/ui/Skeleton';
 import styles from './Customers.module.css';
 
@@ -122,7 +123,7 @@ export default function CustomersPage() {
       {creating && (
         <form className={styles.createForm} onSubmit={handleCreate}>
           <input className={styles.fi} value={form.fullName} onChange={sf('fullName')} placeholder="Имя *" required autoFocus />
-          <input className={styles.fi} value={form.phone} onChange={sf('phone')} placeholder="Телефон" type="tel" />
+          <PhoneInput className={styles.fi} value={form.phone} onChange={sf('phone')} />
           <input className={styles.fi} value={form.email} onChange={sf('email')} placeholder="Email" type="email" />
           <button type="submit" className={styles.quickOk} disabled={createCustomer.isPending}>Создать</button>
           <button type="button" className={styles.quickCancel} onClick={() => setCreating(false)}><X size={13} /></button>

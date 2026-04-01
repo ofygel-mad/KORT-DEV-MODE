@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { Plus, UserX, Key, Edit2, X, Trash2 } from 'lucide-react';
+import { Plus, UserX, Key, Edit2, X, Trash2, ShieldCheck } from 'lucide-react';
 import { useViewportProfile } from '../../shared/hooks/useViewportProfile';
 import { useEmployees, useCreateEmployee, useUpdateEmployee, useDismissEmployee, useResetPassword, useRemoveEmployee } from '../../entities/employee/queries';
 import type { Employee, CreateEmployeeDto, UpdateEmployeeDto, EmployeePermission } from '../../entities/employee/types';
-import { PERMISSION_LABEL } from '../../entities/employee/types';
+import { PERMISSION_LABEL, PERMISSION_DESCRIPTION, BASE_PERMISSIONS, CHAPAN_PERMISSIONS } from '../../entities/employee/types';
+import { isKazakhPhoneComplete, normalizeKazakhPhone } from '../../shared/utils/kz';
+import { PhoneInput } from '../../shared/ui/PhoneInput';
 import { Skeleton } from '../../shared/ui/Skeleton';
 import styles from './Employees.module.css';
 
-const ALL_PERMS: EmployeePermission[] = ['full_access', 'financial_report', 'sales', 'production', 'observer'];
+const ALL_PERMS: EmployeePermission[] = [...BASE_PERMISSIONS, ...CHAPAN_PERMISSIONS];
 const DEPT_PRESETS = ['Менеджмент', 'Продажи', 'Производство', 'Склад', 'Финансы', 'IT'];
 
 // ── Add Employee Drawer ────────────────────────────────────────────────────────
@@ -31,11 +33,11 @@ function AddEmployeeDrawer({ onClose }: { onClose: () => void }) {
     const errs: Record<string, string> = {};
     if (!form.full_name.trim()) errs.full_name = 'Введите имя';
     if (!form.phone.trim()) errs.phone = 'Введите телефон';
-    if (!/^\+7\d{10}$/.test(form.phone.trim())) errs.phone = 'Формат: +7XXXXXXXXXX';
+    if (!isKazakhPhoneComplete(form.phone)) errs.phone = 'Введите полный номер: +7 (XXX) XXX-XX-XX';
     if (!form.department.trim()) errs.department = 'Введите отдел';
     if (!form.permissions.length) errs.permissions = 'Выберите хотя бы одно право';
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    await createEmployee.mutateAsync(form);
+    await createEmployee.mutateAsync({ ...form, phone: normalizeKazakhPhone(form.phone) ?? form.phone });
     onClose();
   }
 
@@ -56,9 +58,8 @@ function AddEmployeeDrawer({ onClose }: { onClose: () => void }) {
           </div>
           <div className={styles.field}>
             <label className={styles.label}>Телефон <span className={styles.req}>*</span></label>
-            <input className={`${styles.input} ${errors.phone ? styles.inputErr : ''}`}
-              value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-              placeholder="+77001234567" type="tel" />
+            <PhoneInput className={`${styles.input} ${errors.phone ? styles.inputErr : ''}`}
+              value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
             {errors.phone && <span className={styles.errMsg}>{errors.phone}</span>}
           </div>
           <div className={styles.field}>
@@ -100,23 +101,25 @@ function AddEmployeeDrawer({ onClose }: { onClose: () => void }) {
 
 function EditEmployeeDrawer({ employee, onClose }: { employee: Employee; onClose: () => void }) {
   const updateEmployee = useUpdateEmployee();
-  const [form, setForm] = useState<UpdateEmployeeDto>({
-    department: employee.department,
-    permissions: [...employee.permissions],
-  });
+  const dismissEmployee = useDismissEmployee();
+  const resetPassword = useResetPassword();
+  const [perms, setPerms] = useState<EmployeePermission[]>([...employee.permissions]);
+  const [dept, setDept] = useState(employee.department);
+  const [permsDirty, setPermsDirty] = useState(false);
+  const [confirmDismiss, setConfirmDismiss] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const isDismissed = employee.status === 'dismissed';
 
   function togglePerm(p: EmployeePermission) {
-    setForm(f => ({
-      ...f,
-      permissions: (f.permissions ?? []).includes(p)
-        ? (f.permissions ?? []).filter(x => x !== p)
-        : [...(f.permissions ?? []), p],
-    }));
+    setPerms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
+    setPermsDirty(true);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    await updateEmployee.mutateAsync({ id: employee.id, dto: form });
+    await updateEmployee.mutateAsync({ id: employee.id, dto: { department: dept, permissions: perms } });
+    setPermsDirty(false);
     onClose();
   }
 
@@ -124,31 +127,111 @@ function EditEmployeeDrawer({ employee, onClose }: { employee: Employee; onClose
     <div className={styles.drawerOverlay} onClick={onClose}>
       <div className={styles.drawer} onClick={e => e.stopPropagation()}>
         <div className={styles.drawerHeader}>
-          <span className={styles.drawerTitle}>{employee.full_name}</span>
+          <div className={styles.drawerAvatar}>{employee.full_name.charAt(0)}</div>
+          <div className={styles.drawerHeaderInfo}>
+            <span className={styles.drawerTitle}>{employee.full_name}</span>
+            <span className={styles.drawerStatusText} style={{ color: isDismissed ? 'var(--fill-negative)' : 'var(--fill-positive, #22c55e)' }}>
+              {isDismissed ? 'Деактивирован' : 'Активен'}
+            </span>
+          </div>
           <button className={styles.drawerClose} onClick={onClose}><X size={16} /></button>
         </div>
-        <form className={styles.drawerBody} onSubmit={handleSubmit}>
+        <form className={styles.drawerBody} onSubmit={handleSave}>
+          {/* Department */}
           <div className={styles.field}>
             <label className={styles.label}>Отдел</label>
             <input className={styles.input} list="dept-list2"
-              value={form.department ?? ''} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} />
+              value={dept} onChange={e => setDept(e.target.value)} />
             <datalist id="dept-list2">{DEPT_PRESETS.map(d => <option key={d} value={d} />)}</datalist>
           </div>
+
+          {/* Base permissions */}
           <div className={styles.field}>
-            <label className={styles.label}>Права доступа</label>
-            <div className={styles.permGrid}>
-              {ALL_PERMS.map(p => (
-                <button key={p} type="button"
-                  className={`${styles.permBtn} ${(form.permissions ?? []).includes(p) ? styles.permBtnActive : ''}`}
-                  onClick={() => togglePerm(p)}
-                >{PERMISSION_LABEL[p]}</button>
-              ))}
+            <div className={styles.permSectionLabel}><ShieldCheck size={12} />Права доступа</div>
+            <div className={styles.permChecklist}>
+              {BASE_PERMISSIONS.map(p => {
+                const checked = perms.includes(p);
+                return (
+                  <label key={p} className={`${styles.permCheckItem} ${checked ? styles.permCheckItemActive : ''} ${isDismissed ? styles.permCheckItemDisabled : ''}`}>
+                    <input type="checkbox" checked={checked} disabled={isDismissed}
+                      onChange={() => togglePerm(p)} className={styles.permCheckbox} />
+                    <div>
+                      <span className={styles.permCheckLabel}>{PERMISSION_LABEL[p]}</span>
+                      <span className={styles.permCheckDesc}>{PERMISSION_DESCRIPTION[p]}</span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           </div>
-          <div className={styles.drawerActions}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose}>Отмена</button>
-            <button type="submit" className={styles.submitBtn} disabled={updateEmployee.isPending}>Сохранить</button>
+
+          {/* Chapan module */}
+          <div className={styles.field}>
+            <div className={styles.permModuleDivider}>Модуль Чапан</div>
+            <div className={styles.permChecklist}>
+              {CHAPAN_PERMISSIONS.map(p => {
+                const checked = perms.includes(p);
+                return (
+                  <label key={p} className={`${styles.permCheckItem} ${checked ? styles.permCheckItemActive : ''} ${isDismissed ? styles.permCheckItemDisabled : ''}`}>
+                    <input type="checkbox" checked={checked} disabled={isDismissed}
+                      onChange={() => togglePerm(p)} className={styles.permCheckbox} />
+                    <div>
+                      <span className={styles.permCheckLabel}>{PERMISSION_LABEL[p]}</span>
+                      <span className={styles.permCheckDesc}>{PERMISSION_DESCRIPTION[p]}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Save */}
+          {!isDismissed && (
+            <div className={styles.drawerActions}>
+              <button type="button" className={styles.cancelBtn} onClick={onClose}>Отмена</button>
+              <button type="submit" className={styles.submitBtn} disabled={updateEmployee.isPending || (!permsDirty && dept === employee.department)}>
+                {updateEmployee.isPending ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          )}
+
+          {/* Управление аккаунтом */}
+          {!isDismissed && (
+            <div className={styles.dangerZoneDrawer}>
+              <div className={styles.dangerZoneLabel}>Управление аккаунтом</div>
+
+              {!confirmReset ? (
+                <button type="button" className={styles.dangerActionBtn} onClick={() => setConfirmReset(true)}>
+                  <Key size={13} />Сбросить пароль
+                </button>
+              ) : (
+                <div className={styles.confirmCard}>
+                  <div className={styles.confirmCardText}>Сотрудник получит временный пароль и должен будет сменить его при следующем входе.</div>
+                  <div className={styles.confirmCardBtns}>
+                    <button type="button" className={styles.confirmCancelBtn} onClick={() => setConfirmReset(false)}>Отмена</button>
+                    <button type="button" className={styles.confirmOkBtn} onClick={() => { resetPassword.mutate(employee.id); setConfirmReset(false); onClose(); }}>Сбросить</button>
+                  </div>
+                </div>
+              )}
+
+              {!confirmDismiss ? (
+                <button type="button" className={`${styles.dangerActionBtn} ${styles.dangerActionBtnRed}`} onClick={() => setConfirmDismiss(true)}>
+                  <UserX size={13} />Деактивировать сотрудника
+                </button>
+              ) : (
+                <div className={`${styles.confirmCard} ${styles.confirmCardDanger}`}>
+                  <div className={styles.confirmCardText}>Сотрудник <strong>{employee.full_name}</strong> потеряет доступ к системе. Данные сохранятся.</div>
+                  <div className={styles.confirmCardBtns}>
+                    <button type="button" className={styles.confirmCancelBtn} onClick={() => setConfirmDismiss(false)}>Отмена</button>
+                    <button type="button" className={`${styles.confirmOkBtn} ${styles.confirmOkBtnDanger}`}
+                      onClick={() => { dismissEmployee.mutate(employee.id); setConfirmDismiss(false); onClose(); }}>
+                      Деактивировать
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </form>
       </div>
     </div>
