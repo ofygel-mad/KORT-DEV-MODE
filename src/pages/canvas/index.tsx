@@ -142,7 +142,7 @@ export default function CanvasPage() {
           <span className={styles.mobileEyebrow}>KORT Mobile</span>
           <h1 className={styles.mobileTitle}>Главное меню</h1>
           <p className={styles.mobileSubtitle}>
-            Быстрый доступ ко всем разделам без тяжёлой canvas-анимации.
+            Быстрый доступ ко всем разделамразделам.
           </p>
 
           <div className={styles.mobileMeta}>
