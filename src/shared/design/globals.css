@@ -528,7 +528,7 @@ body {
   font-size: var(--text-size-md);
   line-height: 1.5;
   min-height: 100vh;
-  overflow-x: clip;
+  overflow-x: hidden;
 }
 
 /* ── Mobile / touch base ────────────────────────────────────────── */
@@ -775,7 +775,7 @@ header, nav, main, aside, section, article,
    RESPONSIVE
    ═══════════════════════════════════════════════════════════════════════ */
 @media (max-width:768px) {
-  body { overscroll-behavior-y:contain; }
+  body { overscroll-behavior-y:auto; }
   input[type='number'],input[inputmode='numeric'],input[inputmode='decimal'] { font-size:16px; }
   .app-content { padding:16px; }
   .kort-page { padding:16px !important; }

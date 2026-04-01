@@ -1,8 +1,10 @@
 .root {
   position: relative;
   display: flex;
+  min-height: 100vh;
+  min-height: 100svh;
   min-height: 100dvh;
-  overflow: clip;
+  overflow: hidden;
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--fill-accent) 8%, transparent) 0%, transparent 28%),
     radial-gradient(circle at bottom right, color-mix(in srgb, var(--fill-info) 7%, transparent) 0%, transparent 30%),
@@ -39,6 +41,8 @@
   flex-shrink: 0;
   position: sticky;
   top: 0;
+  height: 100vh;
+  height: 100svh;
   height: 100dvh;
   width: 56px;          /* collapsed gutter — sidebar overlays content when hovered */
   overflow: visible;
@@ -51,6 +55,8 @@
   position: fixed;
   left: 0;
   top: 0;
+  height: 100vh;
+  height: 100svh;
   height: 100dvh;
 }
 
@@ -74,6 +80,8 @@
   overflow-x: hidden;
   min-height: 0;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: auto;
+  touch-action: pan-y pinch-zoom;
 }
 
 .routeViewport {
@@ -115,7 +123,6 @@
 
   .main {
     padding-bottom: calc(var(--bottom-nav-height, 60px) + env(safe-area-inset-bottom, 0px));
-    overscroll-behavior-y: contain;
   }
 
   .offlineBanner {

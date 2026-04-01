@@ -49,7 +49,7 @@ function clearDraft(userId?: string) {
 }
 
 // ─── Payment methods ──────────────────────────────────────────────────────────
-type PaymentMethodValue = 'cash' | 'kaspi_qr' | 'kaspi_terminal' | 'transfer' | 'mixed';
+type PaymentMethodValue = 'cash' | 'kaspi_terminal' | 'transfer' | 'halyk' | 'mixed';
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 const itemSchema = z.object({
@@ -83,7 +83,7 @@ const schema = z
     deliveryFee:   z.coerce.number().min(0).optional(),
     bankCommissionPercent: z.coerce.number().min(0).max(100).optional(),
     prepayment:   z.coerce.number().min(0).optional(),
-    paymentMethod: z.enum(['cash', 'kaspi_qr', 'kaspi_terminal', 'transfer', 'halyk', 'mixed']).optional(),
+    paymentMethod: z.enum(['cash', 'kaspi_terminal', 'transfer', 'halyk', 'mixed']).optional(),
     paymentBreakdown: z.record(z.string(), z.coerce.number().min(0)).optional(),
     expectedPaymentMethod: z.string().optional(),
     items:        z.array(itemSchema).min(1, 'Добавьте хотя бы одну позицию'),
@@ -418,10 +418,21 @@ export default function ChapanNewOrderPage() {
 
   const products             = catalogs?.productCatalog ?? [];
   const catalogPaymentMethods = catalogs?.paymentMethodCatalog ?? [];
-  const activePaymentMethods  = buildPaymentMethodOptions(catalogPaymentMethods);
-  const mixedBreakdownRows    = buildMixedBreakdownRows(catalogPaymentMethods);
+  const activePaymentMethods  = buildPaymentMethodOptions(catalogPaymentMethods)
+    .filter((method) => method.value !== 'kaspi_qr');
+  const mixedBreakdownRows    = buildMixedBreakdownRows(catalogPaymentMethods)
+    .filter((method) => method.value !== 'kaspi_qr');
   const sizeOptions           = buildSizeCatalog(catalogs?.sizeCatalog ?? []);
   const deliveryOptions       = buildDeliveryOptions();
+
+  useEffect(() => {
+    if (paymentMethod === 'kaspi_qr') {
+      setValue('paymentMethod', undefined);
+    }
+    if (paymentBreakdownWatch?.kaspi_qr !== undefined) {
+      setValue('paymentBreakdown.kaspi_qr', undefined);
+    }
+  }, [paymentMethod, paymentBreakdownWatch?.kaspi_qr, setValue]);
 
   // Warehouse smart catalog: live dropdowns per product
   const { data: orderFormCatalog } = useOrderFormCatalog();
