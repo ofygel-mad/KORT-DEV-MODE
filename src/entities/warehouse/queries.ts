@@ -18,19 +18,19 @@ export const warehouseKeys = {
 };
 
 export const useWarehouseItems = (params?: { search?: string; categoryId?: string; lowStock?: string; page?: number }) =>
-  useQuery({ queryKey: warehouseKeys.items(params), queryFn: () => warehouseApi.listItems(params) });
+  useQuery({ queryKey: warehouseKeys.items(params), queryFn: () => warehouseApi.listItems(params), staleTime: 60_000 });
 
 export const useWarehouseMovements = (params?: { itemId?: string; type?: string; page?: number; limit?: number }) =>
-  useQuery({ queryKey: warehouseKeys.movements(params), queryFn: () => warehouseApi.listMovements(params) });
+  useQuery({ queryKey: warehouseKeys.movements(params), queryFn: () => warehouseApi.listMovements(params), staleTime: 60_000 });
 
 export const useWarehouseAlerts = () =>
-  useQuery({ queryKey: warehouseKeys.alerts, queryFn: () => warehouseApi.listAlerts({ status: 'open' }) });
+  useQuery({ queryKey: warehouseKeys.alerts, queryFn: () => warehouseApi.listAlerts({ status: 'open' }), staleTime: 30_000 });
 
 export const useWarehouseCategories = () =>
-  useQuery({ queryKey: warehouseKeys.categories, queryFn: () => warehouseApi.listCategories() });
+  useQuery({ queryKey: warehouseKeys.categories, queryFn: () => warehouseApi.listCategories(), staleTime: 5 * 60_000 });
 
 export const useWarehouseSummary = () =>
-  useQuery({ queryKey: warehouseKeys.summary, queryFn: () => warehouseApi.getSummary() });
+  useQuery({ queryKey: warehouseKeys.summary, queryFn: () => warehouseApi.getSummary(), staleTime: 60_000 });
 
 export const useCreateItem = () => {
   const qc = useQueryClient();
@@ -93,12 +93,14 @@ export const useCatalogDefinitions = () =>
   useQuery({
     queryKey: warehouseKeys.catalog.definitions,
     queryFn: () => warehouseCatalogApi.listDefinitions(),
+    staleTime: 5 * 60_000,
   });
 
 export const useCatalogProducts = () =>
   useQuery({
     queryKey: warehouseKeys.catalog.products,
     queryFn: () => warehouseCatalogApi.listProducts(),
+    staleTime: 5 * 60_000,
   });
 
 export const useOrderFormCatalog = () =>

@@ -13,6 +13,7 @@ export const useTasks = (filters?: TaskFilters) =>
   useQuery({
     queryKey: taskKeys.list(filters),
     queryFn: () => tasksApi.list(filters),
+    staleTime: 60_000,
   });
 
 export const useTask = (id: string) =>
@@ -20,6 +21,7 @@ export const useTask = (id: string) =>
     queryKey: taskKeys.detail(id),
     queryFn: () => tasksApi.get(id),
     enabled: Boolean(id),
+    staleTime: 120_000,
   });
 
 export const useCreateTask = () => {
@@ -40,7 +42,7 @@ export const useUpdateTask = () => {
     mutationFn: ({ id, dto }: { id: string; dto: UpdateTaskDto }) =>
       tasksApi.update(id, dto),
     onSuccess: (_data, { id }) => {
-      qc.invalidateQueries({ queryKey: taskKeys.all });
+      qc.invalidateQueries({ queryKey: taskKeys.list() });
       qc.invalidateQueries({ queryKey: taskKeys.detail(id) });
     },
     onError: () => toast.error('Не удалось обновить задачу'),
@@ -53,7 +55,7 @@ export const useUpdateTaskStatus = () => {
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       tasksApi.updateStatus(id, status),
     onSuccess: (_data, { id }) => {
-      qc.invalidateQueries({ queryKey: taskKeys.all });
+      qc.invalidateQueries({ queryKey: taskKeys.list() });
       qc.invalidateQueries({ queryKey: taskKeys.detail(id) });
     },
     onError: () => toast.error('Не удалось изменить статус'),

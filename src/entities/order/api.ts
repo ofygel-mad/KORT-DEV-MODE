@@ -25,8 +25,12 @@ export const ordersApi = {
   get: (id: string) =>
     api.get<ChapanOrder>(`/chapan/orders/${id}`),
 
-  create: (dto: CreateOrderDto) =>
-    api.post<ChapanOrder>('/chapan/orders', dto),
+  create: (dto: CreateOrderDto, idempotencyKey?: string) =>
+    api.post<ChapanOrder>(
+      '/chapan/orders',
+      dto,
+      idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+    ),
 
   update: (id: string, dto: UpdateOrderDto) =>
     api.patch<ChapanOrder>(`/chapan/orders/${id}`, dto),

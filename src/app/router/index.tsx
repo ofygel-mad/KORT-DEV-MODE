@@ -195,7 +195,9 @@ function PermissionDenied() {
   );
 }
 
-type PermissionCheck = 'sales' | 'warehouse' | 'production' | 'financial' | 'team' | 'chapan';
+type PermissionCheck =
+  | 'sales' | 'warehouse' | 'production' | 'financial' | 'team' | 'chapan'
+  | 'chapan_orders' | 'chapan_production' | 'chapan_ready' | 'chapan_archive';
 
 /**
  * Ограничивает доступ к маршруту для сотрудников без нужного права.
@@ -214,16 +216,35 @@ function RequirePermission({ check, children }: { check: PermissionCheck; childr
 
   let allowed = false;
   switch (check) {
-    case 'sales':       allowed = perms.canAccessSales; break;
-    case 'warehouse':   allowed = perms.canAccessWarehouse; break;
-    case 'production':  allowed = perms.canAccessProduction; break;
-    case 'financial':   allowed = perms.canAccessFinancial; break;
-    case 'team':        allowed = perms.canManageTeam; break;
-    case 'chapan':      allowed = chapan.hasAnyAccess; break;
+    case 'sales':             allowed = perms.canAccessSales; break;
+    case 'warehouse':         allowed = perms.canAccessWarehouse; break;
+    case 'production':        allowed = perms.canAccessProduction; break;
+    case 'financial':         allowed = perms.canAccessFinancial; break;
+    case 'team':              allowed = perms.canManageTeam; break;
+    case 'chapan':            allowed = chapan.hasAnyAccess; break;
+    case 'chapan_orders':     allowed = chapan.canAccessOrders; break;
+    case 'chapan_production': allowed = chapan.canAccessProduction; break;
+    case 'chapan_ready':      allowed = chapan.canAccessReady; break;
+    case 'chapan_archive':    allowed = chapan.canAccessArchive; break;
   }
 
   if (!allowed) return <PermissionDenied />;
   return <>{children}</>;
+}
+
+/**
+ * Редирект на первый доступный раздел Чапана.
+ * Используется как index-route вместо жёсткого Navigate to="orders".
+ */
+function ChapanDefaultRedirect() {
+  const { canAccessOrders, canAccessProduction, canAccessReady, canAccessArchive } = useChapanPermissions();
+
+  if (canAccessOrders)     return <Navigate to="orders"     replace />;
+  if (canAccessProduction) return <Navigate to="production" replace />;
+  if (canAccessReady)      return <Navigate to="ready"      replace />;
+  if (canAccessArchive)    return <Navigate to="archive"    replace />;
+
+  return <PermissionDenied />;
 }
 
 export const appRouter = createBrowserRouter([
@@ -304,35 +325,35 @@ export const appRouter = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="orders" replace />,
+        element: <ChapanDefaultRedirect />,
       },
       {
         path: 'orders',
-        element: <ChapanOrdersPage />,
+        element: <RequirePermission check="chapan_orders"><ChapanOrdersPage /></RequirePermission>,
       },
       {
         path: 'orders/new',
-        element: <ChapanNewOrderPage />,
+        element: <RequirePermission check="chapan_orders"><ChapanNewOrderPage /></RequirePermission>,
       },
       {
         path: 'orders/:id',
-        element: <ChapanOrderDetailPage />,
+        element: <RequirePermission check="chapan_orders"><ChapanOrderDetailPage /></RequirePermission>,
       },
       {
         path: 'orders/:id/edit',
-        element: <ChapanEditOrderPage />,
+        element: <RequirePermission check="chapan_orders"><ChapanEditOrderPage /></RequirePermission>,
       },
       {
         path: 'production',
-        element: <ChapanProductionPage />,
+        element: <RequirePermission check="chapan_production"><ChapanProductionPage /></RequirePermission>,
       },
       {
         path: 'ready',
-        element: <ChapanReadyPage />,
+        element: <RequirePermission check="chapan_ready"><ChapanReadyPage /></RequirePermission>,
       },
       {
         path: 'ready/:id',
-        element: <ChapanOrderDetailPage />,
+        element: <RequirePermission check="chapan_ready"><ChapanOrderDetailPage /></RequirePermission>,
       },
       {
         path: 'invoices',
@@ -344,11 +365,11 @@ export const appRouter = createBrowserRouter([
       },
       {
         path: 'archive',
-        element: <ChapanArchivePage />,
+        element: <RequirePermission check="chapan_archive"><ChapanArchivePage /></RequirePermission>,
       },
       {
         path: 'archive/:id',
-        element: <ChapanOrderDetailPage />,
+        element: <RequirePermission check="chapan_archive"><ChapanOrderDetailPage /></RequirePermission>,
       },
       {
         path: 'settings',

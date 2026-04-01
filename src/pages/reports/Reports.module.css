@@ -23,3 +23,23 @@
 .row:hover td { background:var(--bg-hover); }
 .tdName { color:var(--text-primary)!important; font-weight:500; }
 .empty { display:flex; flex-direction:column; align-items:center; gap:10px; padding:40px 20px; text-align:center; color:var(--text-tertiary); font-size:14px; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:12px; }
+
+@media (max-width: 767px) {
+  .root { padding: 12px; gap: 12px; }
+  .header { align-items: flex-start; }
+  .tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; white-space: nowrap; }
+  .content { overflow-x: hidden; }
+  .tableCardHeader {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tableCard { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table { min-width: 520px; }
+}

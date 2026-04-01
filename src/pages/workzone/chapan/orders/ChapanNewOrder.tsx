@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ChevronLeft, Plus, Trash2, Calculator, AlertCircle, Paperclip, X, ImagePlus, Pencil } from 'lucide-react';
+import { Plus, Trash2, Calculator, AlertCircle, Paperclip, X, ImagePlus, Pencil } from 'lucide-react';
 import { useId } from 'react';
 import { useCreateOrder, useChapanCatalogs, useChapanProfile, useUpdateBankCommission } from '../../../../entities/order/queries';
 import { useAuthStore } from '../../../../shared/stores/auth';
@@ -369,12 +369,17 @@ export default function ChapanNewOrderPage() {
     return `${new Intl.NumberFormat('ru-KZ', { maximumFractionDigits: 0 }).format(n)} ₸`;
   }
 
+  // Stable idempotency key: generated once per form mount, reused on retries,
+  // rotated only after a successful submission to allow creating another order.
+  const idemKeyRef = useRef(crypto.randomUUID());
+
   async function onSubmit(data: FormData) {
     const hasPrepayment = (data.prepayment ?? 0) > 0;
     const isMixed = data.paymentMethod === 'mixed';
     const payloadItems = buildPayloadItems(data.items, orderDiscount);
 
     const created = await createOrder.mutateAsync({
+      idempotencyKey: idemKeyRef.current,
       clientName:    formatPersonNameInput(data.clientName).trim(),
       clientPhone:   formatKazakhPhoneInput(data.clientPhone),
       streetAddress: data.streetAddress?.trim() || undefined,
@@ -401,7 +406,6 @@ export default function ChapanNewOrderPage() {
       managerNote: data.managerNote?.trim() || undefined,
     });
 
-    // Sprint 9: upload receipt files after order is created
     if (receipts.length > 0 && created?.id) {
       for (const file of receipts) {
         try {
@@ -412,6 +416,8 @@ export default function ChapanNewOrderPage() {
       }
     }
 
+    // Rotate the key so the next order from this session gets its own unique key
+    idemKeyRef.current = crypto.randomUUID();
     clearDraft(userId);
     navigate('/workzone/chapan/orders');
   }
@@ -460,10 +466,6 @@ export default function ChapanNewOrderPage() {
   return (
     <div className={styles.root}>
       <div className={styles.pageHeader}>
-        <button className={styles.backLink} onClick={() => { clearDraft(userId); navigate('/workzone/chapan/orders'); }}>
-          <ChevronLeft size={14} />
-          <span>Заказы</span>
-        </button>
         <h1 className={styles.pageTitle}>Новый заказ</h1>
       </div>
 

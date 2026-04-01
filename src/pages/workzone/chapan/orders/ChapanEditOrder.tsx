@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertTriangle, Calculator, ChevronLeft, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Calculator, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useOrder, useUpdateOrder, useChapanCatalogs, useChapanProfile, useRequestItemChange, useUpdateBankCommission } from '../../../../entities/order/queries';
 import type { Urgency } from '../../../../entities/order/types';
 import { formatPersonNameInput } from '../../../../shared/utils/person';
@@ -426,10 +426,6 @@ export default function ChapanEditOrderPage() {
   return (
     <div className={styles.root}>
       <div className={styles.pageHeader}>
-        <button className={styles.backLink} onClick={() => navigate(`/workzone/chapan/orders/${id}`)}>
-          <ChevronLeft size={14} />
-          <span>#{order.orderNumber}</span>
-        </button>
         <h1 className={styles.pageTitle}>Редактировать заказ</h1>
       </div>
 

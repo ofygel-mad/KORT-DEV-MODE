@@ -555,3 +555,51 @@
     flex-wrap: wrap;
   }
 }
+
+@media (max-width: 680px) {
+  .root { font-size: 13px; }
+  .header,
+  .toolbar { padding-left: 14px; padding-right: 14px; }
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .metric {
+    min-width: 0;
+    padding: 10px 12px;
+  }
+  .searchField {
+    width: 100%;
+  }
+  .viewToggle {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .viewBtn {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+  }
+  .addBtn {
+    width: 100%;
+    justify-content: center;
+  }
+  .listWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .listHead,
+  .listRow {
+    min-width: 620px;
+  }
+  .kanban {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+}

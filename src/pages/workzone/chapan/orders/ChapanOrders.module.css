@@ -6,13 +6,15 @@
 .searchInput { width: 100%; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-primary); font-family: inherit; font-size: 13px; padding: 9px 12px 9px 36px; outline: none; transition: border-color 160ms, box-shadow 160ms, background 160ms; }
 .searchInput:focus { border-color: var(--fill-accent); background: var(--bg-surface-elevated); box-shadow: var(--shadow-focus); }
 .searchInput::placeholder { color: var(--text-placeholder); }
-.toolbarRight { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.toolbarRight { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
+.toolbarRight > * { min-width: 0; }
 .filterToggle { display: flex; align-items: center; gap: 6px; padding: 8px 13px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-secondary); font-size: 12px; font-family: inherit; cursor: pointer; transition: all 120ms; }
 .filterToggle:hover { border-color: var(--border-default); color: var(--text-primary); background: var(--bg-surface-elevated); }
 .filterToggleActive { border-color: var(--ch-plat-border) !important; color: var(--fill-accent) !important; background: var(--fill-accent-subtle) !important; }
 .filterDot { width: 5px; height: 5px; background: var(--ch-plat); border-radius: 50%; }
 .newBtn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--fill-accent); border: none; border-radius: 8px; color: var(--text-on-accent); font-weight: 700; font-size: 13px; font-family: inherit; cursor: pointer; transition: background 120ms; white-space: nowrap; box-shadow: var(--shadow-accent); }
 .newBtn:hover { background: color-mix(in srgb, var(--fill-accent) 88%, white); }
+.alertsBtn { flex-shrink: 0; min-height: 36px; }
 
 /* ── Group toggle ── */
 .groupToggle {
@@ -799,6 +801,69 @@
   .viewBtn {
     padding: 6px 10px;
     font-size: 11px;
+  }
+}
+
+@media (max-width: 960px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchWrap {
+    max-width: none;
+  }
+
+  .toolbarRight {
+    margin-left: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .toolbarRight > * {
+    width: 100%;
+  }
+
+  .viewBtn,
+  .groupToggle,
+  .filterToggle,
+  .alertsBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .newBtn {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .toolbarRight {
+    grid-template-columns: 1fr;
+  }
+
+  .viewMenu {
+    left: 0;
+    right: auto;
+    min-width: min(180px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+  }
+
+  .filterBar {
+    padding: 12px;
+  }
+
+  .filterGroup {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .clearFilters {
+    width: 100%;
+    align-self: stretch;
   }
 }
 

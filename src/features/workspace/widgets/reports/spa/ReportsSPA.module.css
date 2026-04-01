@@ -371,3 +371,48 @@
   text-align: center;
   line-height: 1.6;
 }
+
+@media (max-width: 760px) {
+  .pulse {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .pulse::-webkit-scrollbar { display: none; }
+  .kpi {
+    min-width: 150px;
+  }
+  .body {
+    flex-direction: column;
+  }
+  .panel + .panel {
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .feed {
+    max-height: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .panel,
+  .feed {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .barRow {
+    grid-template-columns: minmax(0, 1fr) 1fr auto;
+  }
+  .barVal {
+    grid-column: 2 / 4;
+  }
+  .feedItem {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .feedMeta {
+    width: 100%;
+    justify-content: space-between;
+    padding-left: 34px;
+  }
+}

@@ -400,10 +400,10 @@ export default function ChapanOrdersPage() {
           <div
             style={{
               position: 'fixed',
-              top: '70px',
-              right: '20px',
-              width: '360px',
-              maxHeight: '500px',
+              top: '64px',
+              right: '12px',
+              width: 'min(360px, calc(100vw - 24px))',
+              maxHeight: 'min(500px, calc(100dvh - 88px))',
               background: 'var(--bg-surface)',
               border: '1px solid var(--border-default)',
               borderRadius: '12px',

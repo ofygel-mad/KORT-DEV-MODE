@@ -322,8 +322,22 @@
     align-items: flex-start;
   }
 
+  .toolbarCopy {
+    width: 100%;
+  }
+
   .addBtn {
     width: 100%;
     justify-content: center;
+  }
+
+  .canvas {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .blockHeader {
+    flex-wrap: wrap;
+    align-items: flex-start;
   }
 }

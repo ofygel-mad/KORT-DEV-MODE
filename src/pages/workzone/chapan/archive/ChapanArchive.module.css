@@ -133,3 +133,11 @@
   .rowDates { grid-column: 2 / span 2; grid-row: 3; border-left: none; border-top: 1px solid var(--ch-border); }
   .rowActions { grid-column: 2 / span 2; grid-row: 4; border-left: none; border-top: 1px solid var(--ch-border); justify-content: flex-start; }
 }
+
+@media (max-width: 640px) {
+  .root { padding: 12px; gap: 12px; }
+  .headerSub { padding-left: 0; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .searchWrap { min-width: 0; max-width: none; }
+  .statusSelect { width: 100%; }
+}

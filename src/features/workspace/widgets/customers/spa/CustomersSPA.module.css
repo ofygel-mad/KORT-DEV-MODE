@@ -253,3 +253,37 @@
   color: var(--text-secondary);
   font-size: 13px;
 }
+
+@media (max-width: 680px) {
+  .toolbar {
+    flex-wrap: wrap;
+    align-items: stretch;
+    padding: 12px 14px;
+  }
+  .searchWrap {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .addBtn {
+    width: 100%;
+    justify-content: center;
+  }
+  .statsBar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .statsBar::-webkit-scrollbar { display: none; }
+  .stat {
+    min-width: 132px;
+    padding-right: 16px;
+  }
+  .tableWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tableHead,
+  .row {
+    min-width: 560px;
+  }
+}

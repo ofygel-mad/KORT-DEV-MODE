@@ -36,7 +36,8 @@ export function useUnpaidAlerts() {
     queryKey: ['unpaid-alerts'],
     queryFn: () =>
       api.get<{ results: UnpaidAlert[]; count: number }>('/chapan/alerts/unpaid'),
-    refetchInterval: 30000,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   });
 }
 

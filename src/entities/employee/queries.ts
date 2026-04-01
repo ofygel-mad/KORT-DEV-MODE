@@ -9,7 +9,7 @@ export const employeeKeys = {
 };
 
 export const useEmployees = () =>
-  useQuery({ queryKey: employeeKeys.list, queryFn: () => employeeApi.list() });
+  useQuery({ queryKey: employeeKeys.list, queryFn: () => employeeApi.list(), staleTime: 5 * 60_000 });
 
 export const useCreateEmployee = () => {
   const qc = useQueryClient();

@@ -93,3 +93,18 @@
 .confirmCancelBtn { flex:1; padding:7px; border:1px solid var(--border-subtle); border-radius:6px; background:var(--bg-surface); color:var(--text-secondary); font-size:13px; font-family:inherit; cursor:pointer; }
 .confirmOkBtn { flex:1; padding:7px; border:none; border-radius:6px; background:var(--fill-accent); color:#fff; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; }
 .confirmOkBtnDanger { background:var(--fill-negative); }
+
+@media (max-width: 767px) {
+  .root { padding: 12px; gap: 12px; }
+  .header { flex-wrap: wrap; align-items: flex-start; gap: 10px; }
+  .headerRight { width: 100%; margin-left: 0; }
+  .addBtn { width: 100%; justify-content: center; }
+  .mobileCardHead { align-items: flex-start; }
+  .mobileCardActions { flex-wrap: wrap; justify-content: flex-end; }
+  .drawerActions,
+  .confirmCardBtns { flex-wrap: wrap; }
+  .cancelBtn,
+  .submitBtn,
+  .confirmCancelBtn,
+  .confirmOkBtn { min-height: 42px; }
+}

@@ -796,6 +796,46 @@
   .footerLabel {
     white-space: normal;
   }
+
+  .headingBlock,
+  .searchField {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filters {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .filterCount {
+    margin-left: 0;
+    padding-right: 2px;
+  }
+
+  .list {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .modalOverlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: min(94dvh, 760px);
+  }
+
+  .modalHeader,
+  .typeRow,
+  .formGroup,
+  .timerSection,
+  .modalFooter {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -818,5 +858,16 @@
   .submitBtn {
     width: 100%;
     justify-content: center;
+  }
+
+  .filterCount,
+  .timerToggle,
+  .warningToggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .itemTitleRow {
+    flex-wrap: wrap;
   }
 }

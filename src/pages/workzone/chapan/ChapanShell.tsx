@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useRef, useState, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Archive, CheckCheck, ChevronLeft, Factory, Package, Trash2, Warehouse } from 'lucide-react';
 import { useAuthStore } from '../../../shared/stores/auth';
 import { useChapanPermissions } from '../../../shared/hooks/useChapanPermissions';
@@ -8,34 +9,122 @@ import ChapanInvoicesDrawer from './invoices/ChapanInvoicesDrawer';
 import styles from './ChapanShell.module.css';
 import { useEmployeePermissions } from '../../../shared/hooks/useEmployeePermissions';
 
-const BASE_NAV = [
-  { to: '/workzone/chapan/orders',     label: 'Заказы',       icon: Package  },
-  { to: '/workzone/chapan/production', label: 'Производство', icon: Factory  },
-  { to: '/workzone/chapan/ready',      label: 'Готово',       icon: CheckCheck },
-  { to: '/workzone/chapan/archive',    label: 'Архив',        icon: Archive  },
+// Статичный список используется только как источник данных; фильтрация — ниже
+const ALL_SECTION_NAV = [
+  { to: '/workzone/chapan/orders',     label: 'Заказы',       icon: Package,   perm: 'orders'     },
+  { to: '/workzone/chapan/production', label: 'Производство', icon: Factory,   perm: 'production' },
+  { to: '/workzone/chapan/ready',      label: 'Готово',       icon: CheckCheck, perm: 'ready'     },
+  { to: '/workzone/chapan/archive',    label: 'Архив',        icon: Archive,   perm: 'archive'    },
 ] as const;
+
+const SWIPE_EDGE_ZONE = 28;   // px from left edge to begin tracking
+const SWIPE_THRESHOLD  = 72;   // px of horizontal travel to trigger navigate(-1)
 
 export default function ChapanShell() {
   const { isAbsolute } = useEmployeePermissions();
   const navigate = useNavigate();
+  const location = useLocation();
   const role = useAuthStore((state) => state.membership.role);
   const isAdmin = role === 'owner' || role === 'admin';
-  const { canAccessWarehouseNav } = useChapanPermissions();
-  const selectedOrderId = useChapanUiStore((s) => s.selectedOrderId);
+  const {
+    canAccessOrders,
+    canAccessProduction,
+    canAccessReady,
+    canAccessArchive,
+    canAccessWarehouseNav,
+  } = useChapanPermissions();
   const invoicesDrawerOpen = useChapanUiStore((s) => s.invoicesDrawerOpen);
   const invoicesDrawerFilter = useChapanUiStore((s) => s.invoicesDrawerFilter);
   const setInvoicesDrawerOpen = useChapanUiStore((s) => s.setInvoicesDrawerOpen);
 
+  const isSubPage = /\/workzone\/chapan\/.+\/.+/.test(location.pathname);
+
+  // ── Swipe-back (iOS-style left-edge gesture) ─────────────────────────────
+  const dragXRef   = useRef(0);
+  const [dragX,    setDragX]    = useState(0);
+  const [settling, setSettling] = useState(false);
+
+  useEffect(() => {
+    if (!isSubPage) return;
+
+    let startX = 0, startY = 0, active = false;
+
+    function onStart(e: TouchEvent) {
+      const t = e.touches[0];
+      if (t.clientX > SWIPE_EDGE_ZONE) return;
+      startX = t.clientX;
+      startY = t.clientY;
+      active = false;
+    }
+
+    function onMove(e: TouchEvent) {
+      if (startX === 0) return;
+      const t = e.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (!active) {
+        // cancel if the gesture is more vertical than horizontal
+        if (Math.abs(dy) > Math.abs(dx) + 5) { startX = 0; return; }
+        if (dx < 5) return; // wait for clear rightward intent
+        active = true;
+      }
+      e.preventDefault(); // lock out native scroll while swiping back
+      const next = Math.max(0, Math.min(dx, window.innerWidth * 0.65));
+      dragXRef.current = next;
+      setDragX(next);
+    }
+
+    function onEnd() {
+      if (!active) { startX = 0; return; }
+      startX = 0;
+      active = false;
+      const dx = dragXRef.current;
+      dragXRef.current = 0;
+      if (dx >= SWIPE_THRESHOLD) {
+        setDragX(0);
+        navigate(-1);
+      } else {
+        // spring back: enable transition first, then reset dragX in next frame
+        setSettling(true);
+        requestAnimationFrame(() => setDragX(0));
+        setTimeout(() => setSettling(false), 300);
+      }
+    }
+
+    document.addEventListener('touchstart',  onStart, { passive: true  });
+    document.addEventListener('touchmove',   onMove,  { passive: false });
+    document.addEventListener('touchend',    onEnd);
+    document.addEventListener('touchcancel', onEnd);
+
+    return () => {
+      document.removeEventListener('touchstart',  onStart);
+      document.removeEventListener('touchmove',   onMove);
+      document.removeEventListener('touchend',    onEnd);
+      document.removeEventListener('touchcancel', onEnd);
+      dragXRef.current = 0;
+      setDragX(0);
+      setSettling(false);
+    };
+  }, [isSubPage, navigate]);
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const sectionAccess: Record<typeof ALL_SECTION_NAV[number]['perm'], boolean> = {
+    orders:     canAccessOrders,
+    production: canAccessProduction,
+    ready:      canAccessReady,
+    archive:    canAccessArchive,
+  };
+
   const navItems = [
-    ...BASE_NAV,
-    ...((isAdmin || canAccessWarehouseNav) ? [{ to: '/warehouse' as const,                       label: 'Склад',   icon: Warehouse }] : []),
-    ...(isAbsolute                         ? [{ to: '/workzone/chapan/orders/trash' as const,     label: 'Корзина', icon: Trash2   }] : []),
+    ...ALL_SECTION_NAV.filter((item) => sectionAccess[item.perm]),
+    ...((isAdmin || canAccessWarehouseNav) ? [{ to: '/warehouse' as const,                   label: 'Склад',   icon: Warehouse }] : []),
+    ...(isAbsolute                         ? [{ to: '/workzone/chapan/orders/trash' as const, label: 'Корзина', icon: Trash2   }] : []),
   ];
 
   return (
     <div className={styles.root}>
       <div className={styles.topbar}>
-        {selectedOrderId ? (
+        {isSubPage ? (
           <button className={styles.kortBackGreen} onClick={() => navigate(-1)}>
             <ChevronLeft size={14} />
             <span>Назад</span>
@@ -77,10 +166,27 @@ export default function ChapanShell() {
           <div className={styles.sidebarBottom} />
         </aside>
 
-        <main className={styles.main}>
+        <main
+          className={styles.main}
+          style={dragX > 0 || settling ? {
+            transform:  dragX > 0 ? `translateX(${dragX}px)` : 'translateX(0)',
+            transition: settling ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
+            willChange: 'transform',
+          } : undefined}
+        >
           <Outlet />
         </main>
       </div>
+
+      {/* iOS-style swipe-back edge affordance — appears only during active drag on mobile */}
+      {dragX > 0 && (
+        <div
+          className={styles.swipeEdge}
+          style={{ opacity: Math.min(dragX / SWIPE_THRESHOLD, 1) }}
+        >
+          <ChevronLeft size={20} />
+        </div>
+      )}
 
       <ChapanInvoicesDrawer open={invoicesDrawerOpen} onClose={() => setInvoicesDrawerOpen(false)} initialFilter={invoicesDrawerFilter as 'all' | 'pending_confirmation' | 'confirmed' | 'rejected' | 'archived'} />
 

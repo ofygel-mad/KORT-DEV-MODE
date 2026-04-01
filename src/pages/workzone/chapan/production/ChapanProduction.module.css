@@ -8,6 +8,30 @@
 
 .headerRight { display: flex; align-items: center; gap: 8px; }
 
+.searchFieldWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchFieldIcon {
+  position: absolute;
+  left: 8px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 180px;
+  padding: 6px 10px 6px 28px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+}
+
 /* ── Group toggle ── */
 .groupToggle {
   display: inline-flex;
@@ -56,6 +80,10 @@
   background: var(--ch-accent-soft);
   border-color: var(--ch-accent-border);
   color: var(--ch-plat-bright);
+}
+
+.invoiceQueueBtn {
+  max-width: 100%;
 }
 
 /* ── Board ── */
@@ -648,5 +676,69 @@
     min-width: 80px;
     font-size: 12px;
     padding: 7px 10px;
+  }
+}
+
+@media (max-width: 960px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .headerSub {
+    padding-left: 0;
+  }
+
+  .headerRight {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: stretch;
+    min-width: 0;
+  }
+
+  .headerRight > * {
+    min-width: 0;
+  }
+
+  .searchFieldWrap {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .searchInput {
+    width: 100%;
+  }
+
+  .invoiceQueueBtn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .groupToggle {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .viewSwitch {
+    flex: 1 1 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .viewSwitch::-webkit-scrollbar {
+    display: none;
+  }
+
+  .switchBtn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .groupToggle {
+    flex-basis: 100%;
   }
 }

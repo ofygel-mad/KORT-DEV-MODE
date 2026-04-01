@@ -227,9 +227,14 @@ apiClient.interceptors.response.use(
 );
 
 export const api = {
-  get: <T>(url: string, params?: object) => apiClient.get<T>(url, { params }).then((response) => response.data),
-  post: <T>(url: string, data?: object) => apiClient.post<T>(url, data).then((response) => response.data),
-  patch: <T>(url: string, data?: object) => apiClient.patch<T>(url, data).then((response) => response.data),
-  put: <T>(url: string, data?: object) => apiClient.put<T>(url, data).then((response) => response.data),
-  delete: <T>(url: string) => apiClient.delete<T>(url).then((response) => response.data),
+  get:    <T>(url: string, params?: object) =>
+    apiClient.get<T>(url, { params }).then((r) => r.data),
+  post:   <T>(url: string, data?: object, headers?: Record<string, string>) =>
+    apiClient.post<T>(url, data, headers ? { headers } : undefined).then((r) => r.data),
+  patch:  <T>(url: string, data?: object, headers?: Record<string, string>) =>
+    apiClient.patch<T>(url, data, headers ? { headers } : undefined).then((r) => r.data),
+  put:    <T>(url: string, data?: object, headers?: Record<string, string>) =>
+    apiClient.put<T>(url, data, headers ? { headers } : undefined).then((r) => r.data),
+  delete: <T>(url: string) =>
+    apiClient.delete<T>(url).then((r) => r.data),
 };

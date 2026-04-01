@@ -1308,6 +1308,63 @@
   }
 }
 
+@media (max-width: 640px) {
+  .sceneControlToggle {
+    min-height: 52px;
+    padding: 0 14px 0 16px;
+    border-radius: 18px;
+  }
+  .sceneControlPanel {
+    padding: 14px;
+    border-radius: 20px;
+  }
+  .sceneControlTerrainGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sceneControlBgGrid,
+  .sceneControlThemeGrid {
+    grid-template-columns: 1fr;
+  }
+  .spotlightPanel {
+    top: 10px;
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 20px);
+  }
+  .spotlightInputWrap {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px;
+  }
+  .spotlightInput {
+    order: 1;
+    width: 100%;
+    min-width: 0;
+    font-size: 15px;
+  }
+  .spotlightEsc {
+    margin-left: auto;
+  }
+  .spotlightFooter {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 14px 12px;
+  }
+  .ctxMenu {
+    min-width: 0;
+    width: min(260px, calc(100vw - 24px));
+  }
+}
+
+@media (max-width: 420px) {
+  .sceneControlTerrainGrid {
+    grid-template-columns: 1fr;
+  }
+  .spotlightEsc,
+  .spotlightEnterHint {
+    display: none;
+  }
+}
+
 @media (max-height: 760px) {
   .sceneControlDock {
     top: calc(var(--topbar-height) + 10px);

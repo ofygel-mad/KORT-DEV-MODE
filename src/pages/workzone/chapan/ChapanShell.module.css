@@ -251,6 +251,28 @@
   border-top: 1px solid var(--ch-border-plat);
 }
 
+/* ── Swipe-back edge affordance (mobile-only, shown during drag) ─────── */
+.swipeEdge {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 185, 129, 0.20);
+  border-radius: 0 12px 12px 0;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-left: none;
+  color: #10B981;
+  z-index: 50;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
 /* ── Mobile horizontal rail (hidden on desktop) ─────────────── */
 .mobileRail {
   display: none;

@@ -7,10 +7,12 @@
 
 /* ── Toolbar ── */
 .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.tabs { display: flex; gap: 2px; background: var(--ch-surface); border: 1px solid var(--ch-border); border-radius: 8px; padding: 2px; }
+.tabs { display: flex; gap: 2px; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; background: var(--ch-surface); border: 1px solid var(--ch-border); border-radius: 8px; padding: 2px; }
+.tabs::-webkit-scrollbar { display: none; }
 .tab {
   background: none; border: none; color: var(--ch-text-muted); font: inherit; font-size: 12px; font-weight: 600;
   padding: 7px 14px; border-radius: 6px; cursor: pointer; transition: background 140ms, color 140ms;
+  flex: 0 0 auto; white-space: nowrap;
 }
 .tab:hover { color: var(--ch-text-dim); }
 .tabActive { background: var(--ch-card); color: var(--ch-text); box-shadow: 0 1px 4px rgba(0,0,0,.18); }
@@ -137,4 +139,11 @@
   .rowStatus { grid-column: 1; grid-row: 2; border-left: none; border-top: 1px solid var(--ch-border); }
   .rowConfirm { grid-column: 2; grid-row: 2; border-top: 1px solid var(--ch-border); }
   .rowActions { grid-column: 1 / span 2; grid-row: 3; border-left: none; border-top: 1px solid var(--ch-border); justify-content: flex-start; }
+}
+
+@media (max-width: 640px) {
+  .root { padding: 12px; gap: 12px; }
+  .headerSub { padding-left: 0; }
+  .toolbar { align-items: stretch; }
+  .tabs { width: 100%; }
 }

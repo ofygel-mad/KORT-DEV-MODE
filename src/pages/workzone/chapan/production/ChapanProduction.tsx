@@ -260,26 +260,17 @@ export default function ChapanProductionPage() {
         </div>
 
         <div className={styles.headerRight}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--text-secondary)', pointerEvents: 'none' }} />
+          <div className={styles.searchFieldWrap}>
+            <Search size={13} className={styles.searchFieldIcon} />
             <input
+              className={styles.searchInput}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ЧП-номер или товар..."
-              style={{
-                padding: '6px 10px 6px 28px',
-                background: 'rgba(255,255,255,.05)',
-                border: '1px solid rgba(255,255,255,.1)',
-                borderRadius: 8,
-                color: 'var(--text-primary)',
-                fontSize: 12,
-                width: 180,
-                fontFamily: 'inherit',
-              }}
             />
           </div>
           <button
-            className={styles.groupToggle}
+            className={`${styles.groupToggle} ${styles.invoiceQueueBtn}`}
             onClick={() => setInvoicesDrawerOpen(true)}
           >
             <FileText size={13} />

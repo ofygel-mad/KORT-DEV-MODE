@@ -47,3 +47,18 @@
 .notesSectionTitle{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:6px}
 .notesText{font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0}
 .emptyBtn{margin-top:6px;padding:7px 16px;background:var(--bg-surface-inset);border:1px solid var(--border-subtle);border-radius:7px;color:var(--text-secondary);font-size:13px;font-family:inherit;cursor:pointer}
+
+@media(max-width:767px){
+  .root{padding:12px;gap:12px}
+  .header{align-items:flex-start}
+  .headerRight{width:100%;flex-wrap:wrap;min-width:0}
+  .searchWrap{flex:1 1 100%;min-width:0}
+  .search{width:100%}
+  .addBtn{width:100%;justify-content:center}
+  .createForm{align-items:stretch}
+  .fi{flex:1 1 100%;width:100%;min-width:0}
+  .quickOk{flex:1 1 auto;min-height:40px}
+  .quickCancel{flex:0 0 44px;min-height:40px}
+  .tableWrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .table{min-width:640px}
+}

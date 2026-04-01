@@ -80,3 +80,41 @@
 .typeBtn { flex:1; padding:8px 14px; border-radius:7px; border:1px solid var(--border-subtle); background:var(--bg-surface-inset); color:var(--text-secondary); font-size:13px; font-family:inherit; cursor:pointer; transition:all 120ms; font-weight:500; }
 .typeBtnIncome { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.08); color:var(--fill-positive); }
 .typeBtnExpense { border-color:rgba(239,68,68,.3); background:rgba(239,68,68,.08); color:var(--fill-negative); }
+
+@media (max-width: 767px) {
+  .root { padding: 12px; gap: 12px; }
+  .header { align-items: flex-start; }
+  .headerRight { width: 100%; margin-left: 0; min-width: 0; }
+  .tabs {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; white-space: nowrap; }
+  .toolbar { align-items: stretch; gap: 10px; }
+  .toolbar > .field { flex: 1 1 160px; min-width: 0; }
+  .toolbarSpacer { display: none; }
+  .monthInput,
+  .filterSelect { width: 100%; }
+  .exportBtn,
+  .addBtn {
+    flex: 1 1 calc(50% - 5px);
+    justify-content: center;
+  }
+  .drawerActions { flex-wrap: wrap; }
+  .cancelBtn,
+  .submitBtn { min-height: 42px; }
+}
+
+@media (max-width: 420px) {
+  .exportBtn,
+  .addBtn,
+  .typeBtn {
+    width: 100%;
+    flex-basis: 100%;
+    justify-content: center;
+  }
+  .typeGroup { flex-direction: column; }
+}

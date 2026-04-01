@@ -139,9 +139,11 @@
   /* Layout */
   .root { padding: 12px; gap: 10px; }
   .title { font-size: 18px; }
+  .header { align-items: flex-start; }
+  .headerRight { width: 100%; margin-left: 0; min-width: 0; flex-wrap: wrap; }
 
   /* Tabs: scroll horizontally instead of wrapping */
-  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-shrink: 0; }
+  .tabs { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-shrink: 0; }
   .tabs::-webkit-scrollbar { display: none; }
 
   /* Stats bar */
@@ -149,8 +151,11 @@
   .statValue { font-size: 16px; }
 
   /* Toolbar */
-  .toolbar { flex-wrap: wrap; }
-  .searchWrap { max-width: 100%; }
+  .toolbar { flex-wrap: wrap; align-items: stretch; }
+  .toolbarSpacer { display: none; }
+  .searchWrap { flex: 1 1 100%; max-width: 100%; }
+  .exportBtn,
+  .addBtn { flex: 1 1 calc(50% - 4px); justify-content: center; }
 
   /* Table: horizontal scroll so columns don't squish */
   .tableWrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -161,6 +166,10 @@
   .drawerBody { padding: 14px 16px; }
   .drawerFooter { padding: 12px 16px; }
   .drawerStatusItem { padding: 9px 12px; font-size: 11px; }
+}
+@media (max-width: 420px) {
+  .exportBtn,
+  .addBtn { flex-basis: 100%; }
 }
 .drawerActions { display: flex; gap: 8px; padding-top: 4px; }
 .field { display: flex; flex-direction: column; gap: 5px; }

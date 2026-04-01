@@ -37,3 +37,23 @@
 .cardMeta{display:flex;justify-content:space-between;padding-left:15px}
 .cardAssignee{font-size:11px;color:var(--fill-accent)}
 .cardDue{font-size:11px}
+
+@media (max-width:767px){
+  .root{padding:12px;gap:12px}
+  .header{align-items:flex-start}
+  .headerRight{width:100%;flex-wrap:wrap;min-width:0}
+  .filterTabs{
+    flex:1 1 100%;
+    min-width:0;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .filterTabs::-webkit-scrollbar{display:none}
+  .filterTab{flex:0 0 auto;white-space:nowrap}
+  .addBtn{width:100%;justify-content:center}
+  .quickCreate{flex-wrap:wrap;align-items:stretch}
+  .quickInput{flex:1 1 100%;max-width:none;min-width:0}
+  .quickOk{flex:1 1 auto;min-height:40px}
+  .quickCancel{flex:0 0 44px;min-height:40px}
+}
