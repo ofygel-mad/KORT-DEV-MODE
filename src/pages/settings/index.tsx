@@ -350,7 +350,6 @@ function OrgSection() {
   );
 }
 
-const ALL_EMP_PERMS: EmployeePermission[] = ['full_access', 'financial_report', 'sales', 'production', 'warehouse_manager', 'observer'];
 const EMP_DEPT_PRESETS = ['Менеджмент', 'Продажи', 'Производство', 'Склад', 'Финансы', 'IT'];
 
 function AddEmpDrawer({ onClose }: { onClose: () => void }) {
@@ -410,16 +409,39 @@ function AddEmpDrawer({ onClose }: { onClose: () => void }) {
             {errors.department && <span className={s.empErrMsg}>{errors.department}</span>}
           </div>
           <div className={s.empField}>
-            <label className={s.empLabel}>Права доступа <span className={s.empReq}>*</span></label>
-            <div className={s.empPermGrid}>
-              {ALL_EMP_PERMS.map(p => (
-                <button key={p} type="button"
-                  className={`${s.empPermBtn} ${form.permissions.includes(p) ? s.empPermBtnActive : ''}`}
-                  onClick={() => togglePerm(p)}
-                >{PERMISSION_LABEL[p]}</button>
-              ))}
+            <div className={s.empPermSectionLabel}><ShieldCheck size={12} />Права доступа <span className={s.empReq}>*</span></div>
+            <div className={s.empPermChecklist}>
+              {BASE_PERMISSIONS.map(p => {
+                const checked = form.permissions.includes(p);
+                return (
+                  <label key={p} className={`${s.empPermCheckItem} ${checked ? s.empPermCheckItemActive : ''}`}>
+                    <input type="checkbox" checked={checked} onChange={() => togglePerm(p)} className={s.empPermCheckbox} />
+                    <div>
+                      <span className={s.empPermCheckLabel}>{PERMISSION_LABEL[p]}</span>
+                      <span className={s.empPermCheckDesc}>{PERMISSION_DESCRIPTION[p]}</span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
             {errors.permissions && <span className={s.empErrMsg}>{errors.permissions}</span>}
+          </div>
+          <div className={s.empField}>
+            <div className={s.empPermModuleDivider}>Модуль Чапан</div>
+            <div className={s.empPermChecklist}>
+              {CHAPAN_PERMISSIONS.map(p => {
+                const checked = form.permissions.includes(p);
+                return (
+                  <label key={p} className={`${s.empPermCheckItem} ${checked ? s.empPermCheckItemActive : ''}`}>
+                    <input type="checkbox" checked={checked} onChange={() => togglePerm(p)} className={s.empPermCheckbox} />
+                    <div>
+                      <span className={s.empPermCheckLabel}>{PERMISSION_LABEL[p]}</span>
+                      <span className={s.empPermCheckDesc}>{PERMISSION_DESCRIPTION[p]}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
           </div>
           <div className={s.empDrawerNote}>
             Система создаст учётную запись. Временный пароль будет показан после создания.

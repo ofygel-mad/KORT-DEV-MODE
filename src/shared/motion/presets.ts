@@ -84,6 +84,23 @@ export const popoverVariants = {
   },
 } as const;
 
+// ─── Modal (centered dialog) ─────────────────────────────────────────────────
+export const modalVariants = {
+  hidden:  { opacity: 0, scale: 0.97, y: 8 },
+  visible: {
+    opacity: 1,
+    scale:   1,
+    y:       0,
+    transition: { duration: duration.base / 1000, ease: easing.standard },
+  },
+  exit: {
+    opacity: 0,
+    scale:   0.97,
+    y:       8,
+    transition: { duration: duration.fast / 1000, ease: easing.exit },
+  },
+} as const;
+
 // ─── Drawer / Side panel ────────────────────────────────────────────────────
 /**
  * 180-240ms, translateX + fade overlay.

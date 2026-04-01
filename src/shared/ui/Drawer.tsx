@@ -2,10 +2,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { sheetVariants, overlayVariants } from '../motion/presets';
+import { sheetVariants, overlayVariants, modalVariants } from '../motion/presets';
 import s from './Drawer.module.css';
 
 type DrawerSize = 'sm' | 'md' | 'lg';
+/** modal = centered dialog (default); panel = right-side drawer */
+type DrawerVariant = 'modal' | 'panel';
 
 interface DrawerProps {
   open:      boolean;
@@ -15,14 +17,15 @@ interface DrawerProps {
   children:  ReactNode;
   size?:     DrawerSize;
   footer?:   ReactNode;
+  variant?:  DrawerVariant;
   /** @deprecated use size instead */
   width?:    number;
 }
 
-const SIZE_WIDTH: Record<DrawerSize, number> = { sm: 380, md: 480, lg: 600 };
+const SIZE_WIDTH: Record<DrawerSize, number> = { sm: 480, md: 560, lg: 680 };
 
-export function Drawer({ open, onClose, title, subtitle, children, size = 'md', footer, width }: DrawerProps) {
-  const isMobile  = useIsMobile();
+export function Drawer({ open, onClose, title, subtitle, children, size = 'md', footer, variant = 'modal', width }: DrawerProps) {
+  const isMobile   = useIsMobile();
   const panelWidth = width ?? SIZE_WIDTH[size];
 
   useEffect(() => {
@@ -61,6 +64,7 @@ export function Drawer({ open, onClose, title, subtitle, children, size = 'md', 
     </button>
   );
 
+  // Mobile: always bottom sheet
   if (isMobile) {
     return (
       <AnimatePresence>
@@ -81,6 +85,35 @@ export function Drawer({ open, onClose, title, subtitle, children, size = 'md', 
     );
   }
 
+  // Desktop: centered modal (default)
+  if (variant === 'modal') {
+    return (
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className={s.overlayModal}
+            variants={overlayVariants}
+            initial="hidden" animate="visible" exit="hidden"
+            onClick={onClose}
+          >
+            <motion.div
+              className={s.panelModal}
+              style={{ width: panelWidth }}
+              variants={modalVariants}
+              initial="hidden" animate="visible" exit="hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className={s.header}>{titleBlock}{closeBtn}</div>
+              <div className={s.body}>{children}</div>
+              {footer && <div className={s.footer}>{footer}</div>}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
+  // Desktop: right-side panel (variant="panel")
   return (
     <AnimatePresence>
       {open && (
