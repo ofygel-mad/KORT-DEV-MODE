@@ -128,67 +128,67 @@ function buildSession(args: SessionArgs): MockAuthSession {
 export const MOCK_COMPANIES: CompanyDirectoryItem[] = [
   {
     id: 'org-001',
-    name: 'Demo Company',
-    slug: 'demo-company',
+    name: 'Workspace',
+    slug: 'workspace',
     mode: 'advanced',
     currency: 'KZT',
     onboarding_completed: false,
-    industry: 'CRM и продажи',
+    industry: 'Operations',
   },
   {
     id: 'org-002',
-    name: 'Northwind Logistics',
-    slug: 'northwind-logistics',
+    name: 'Sandbox',
+    slug: 'sandbox',
     mode: 'basic',
     currency: 'KZT',
     onboarding_completed: true,
-    industry: 'Логистика',
+    industry: 'Testing',
   },
 ];
 
-const DEMO_COMPANY = MOCK_COMPANIES[0];
+const PRIMARY_COMPANY = MOCK_COMPANIES[0];
 
 export const MOCK_AUTH_SESSIONS: MockAuthSession[] = [
   buildSession({
     id: 'u-001',
-    full_name: 'Алибек Сейткали',
-    email: 'owner@demo.kz',
+    full_name: 'Owner',
+    email: 'owner@mock.local',
     phone: '+7 777 000 01 01',
     password: 'demo',
-    org: DEMO_COMPANY,
+    org: PRIMARY_COMPANY,
     role: 'owner',
     membershipStatus: 'active',
     source: 'company_registration',
   }),
   buildSession({
     id: 'u-002',
-    full_name: 'Айгерим Касымова',
-    email: 'admin@demo.kz',
+    full_name: 'Admin',
+    email: 'admin@mock.local',
     phone: '+7 777 000 02 02',
     password: 'demo',
-    org: DEMO_COMPANY,
+    org: PRIMARY_COMPANY,
     role: 'admin',
     membershipStatus: 'active',
     source: 'manual',
   }),
   buildSession({
     id: 'u-003',
-    full_name: 'Ержан Тулеубаев',
-    email: 'manager@demo.kz',
+    full_name: 'Manager',
+    email: 'manager@mock.local',
     phone: '+7 777 000 03 03',
     password: 'demo',
-    org: DEMO_COMPANY,
+    org: PRIMARY_COMPANY,
     role: 'manager',
     membershipStatus: 'active',
     source: 'manual',
   }),
   buildSession({
     id: 'u-004',
-    full_name: 'Жанна Ибраева',
-    email: 'pending@demo.kz',
+    full_name: 'Pending User',
+    email: 'pending@mock.local',
     phone: '+7 777 000 04 04',
     password: 'demo',
-    org: DEMO_COMPANY,
+    org: PRIMARY_COMPANY,
     role: 'viewer',
     membershipStatus: 'pending',
     membershipRole: 'viewer',
@@ -199,8 +199,8 @@ export const MOCK_AUTH_SESSIONS: MockAuthSession[] = [
   }),
   buildSession({
     id: 'u-005',
-    full_name: 'Сотрудник без компании',
-    email: 'employee@demo.kz',
+    full_name: 'Standalone User',
+    email: 'standalone@mock.local',
     phone: '+7 777 000 05 05',
     password: 'demo',
     org: null,
@@ -213,16 +213,16 @@ export const MOCK_AUTH_SESSIONS: MockAuthSession[] = [
 
 export const MOCK_INVITES: InviteRecord[] = [
   {
-    token: 'demo-team-link',
-    companyId: DEMO_COMPANY.id,
-    companyName: DEMO_COMPANY.name,
-    companySlug: DEMO_COMPANY.slug,
+    token: 'mock-team-link',
+    companyId: PRIMARY_COMPANY.id,
+    companyName: PRIMARY_COMPANY.name,
+    companySlug: PRIMARY_COMPANY.slug,
     role: 'manager',
     autoApprove: true,
     kind: 'referral',
     created_at: iso('2026-03-18T10:00:00Z'),
     created_by: 'u-001',
-    share_url: 'https://kort.local/auth/accept-invite?token=demo-team-link',
+    share_url: 'https://kort.local/auth/accept-invite?token=mock-team-link',
     expiresAt: null,
     status: 'valid',
   },
@@ -232,10 +232,10 @@ export const MOCK_MEMBERSHIP_REQUESTS: MembershipRequestRecord[] = [
   {
     id: 'req-001',
     user_id: 'u-004',
-    full_name: 'Жанна Ибраева',
-    email: 'pending@demo.kz',
-    company_id: DEMO_COMPANY.id,
-    company_name: DEMO_COMPANY.name,
+    full_name: 'Pending User',
+    email: 'pending@mock.local',
+    company_id: PRIMARY_COMPANY.id,
+    company_name: PRIMARY_COMPANY.name,
     status: 'pending',
     requested_role: 'viewer',
     created_at: iso('2026-03-18T12:00:00Z'),
@@ -243,33 +243,33 @@ export const MOCK_MEMBERSHIP_REQUESTS: MembershipRequestRecord[] = [
 ];
 
 export const MOCK_CUSTOMERS = [
-  { id: 'c-001', full_name: 'Асем Нурланова', company_name: 'ТОО Альфа', phone: '+7 701 111 11 11', email: 'asem@alfa.kz', status: 'active', source: 'Instagram', created_at: '2025-01-10T10:00:00Z', health: { score: 82, band: 'healthy' } },
-  { id: 'c-002', full_name: 'Дастан Жумабеков', company_name: 'АО Бета', phone: '+7 702 222 22 22', email: 'dastan@beta.kz', status: 'new', source: 'Referral', created_at: '2025-01-14T09:00:00Z', health: { score: 55, band: 'at_risk' } },
-  { id: 'c-003', full_name: 'Мадина Сарсенова', company_name: '', phone: '+7 705 333 33 33', email: 'madina@gmail.com', status: 'inactive', source: 'Сайт', created_at: '2025-01-08T14:00:00Z', health: { score: 30, band: 'churned' } },
-  { id: 'c-004', full_name: 'Ерлан Аубакиров', company_name: 'ТОО Гамма', phone: '+7 707 444 44 44', email: 'erlan@gamma.kz', status: 'active', source: 'Instagram', created_at: '2025-01-12T11:00:00Z', health: { score: 91, band: 'healthy' } },
-  { id: 'c-005', full_name: 'Зарина Бекова', company_name: 'ИП Бекова', phone: '+7 708 555 55 55', email: 'zarina@ip.kz', status: 'active', source: 'WhatsApp', created_at: '2025-01-15T08:00:00Z', health: { score: 70, band: 'healthy' } },
+  { id: 'c-001', full_name: 'Customer 1', company_name: 'Company 1', phone: '+7 701 111 11 11', email: 'customer1@mock.local', status: 'active', source: 'Web', created_at: '2025-01-10T10:00:00Z', health: { score: 82, band: 'healthy' } },
+  { id: 'c-002', full_name: 'Customer 2', company_name: 'Company 2', phone: '+7 702 222 22 22', email: 'customer2@mock.local', status: 'new', source: 'Referral', created_at: '2025-01-14T09:00:00Z', health: { score: 55, band: 'at_risk' } },
+  { id: 'c-003', full_name: 'Customer 3', company_name: '', phone: '+7 705 333 33 33', email: 'customer3@mock.local', status: 'inactive', source: 'Site', created_at: '2025-01-08T14:00:00Z', health: { score: 30, band: 'churned' } },
+  { id: 'c-004', full_name: 'Customer 4', company_name: 'Company 4', phone: '+7 707 444 44 44', email: 'customer4@mock.local', status: 'active', source: 'Web', created_at: '2025-01-12T11:00:00Z', health: { score: 91, band: 'healthy' } },
+  { id: 'c-005', full_name: 'Customer 5', company_name: 'Company 5', phone: '+7 708 555 55 55', email: 'customer5@mock.local', status: 'active', source: 'WhatsApp', created_at: '2025-01-15T08:00:00Z', health: { score: 70, band: 'healthy' } },
 ];
 
 export const MOCK_DEALS = [
-  { id: 'd-001', title: 'Внедрение Kort', amount: 1500000, currency: 'KZT', stage: 'Переговоры', status: 'open', customer: { id: 'c-001', full_name: 'Асем Нурланова' }, customer_id: 'c-001', customer_name: 'Асем Нурланова', pipeline_id: 'p-001', stage_id: 's-002', created_at: '2025-01-10T10:00:00Z', updated_at: '2025-01-18T10:00:00Z', days_silent: 3 },
-  { id: 'd-002', title: 'Поставка оборудования', amount: 4200000, currency: 'KZT', stage: 'Коммерческое предложение', status: 'open', customer: { id: 'c-004', full_name: 'Ерлан Аубакиров' }, customer_id: 'c-004', customer_name: 'Ерлан Аубакиров', pipeline_id: 'p-001', stage_id: 's-001', created_at: '2025-01-12T11:00:00Z', updated_at: '2025-01-16T11:00:00Z', days_silent: 12 },
-  { id: 'd-003', title: 'Консалтинг Q1', amount: 800000, currency: 'KZT', stage: 'Квалификация', status: 'open', customer: { id: 'c-002', full_name: 'Дастан Жумабеков' }, customer_id: 'c-002', customer_name: 'Дастан Жумабеков', pipeline_id: 'p-001', stage_id: 's-001', created_at: '2025-01-14T09:00:00Z', updated_at: '2025-01-20T09:00:00Z', days_silent: 1 },
+  { id: 'd-001', title: 'Deal 1', amount: 1500000, currency: 'KZT', stage: 'Negotiation', status: 'open', customer: { id: 'c-001', full_name: 'Customer 1' }, customer_id: 'c-001', customer_name: 'Customer 1', pipeline_id: 'p-001', stage_id: 's-002', created_at: '2025-01-10T10:00:00Z', updated_at: '2025-01-18T10:00:00Z', days_silent: 3 },
+  { id: 'd-002', title: 'Deal 2', amount: 4200000, currency: 'KZT', stage: 'Proposal', status: 'open', customer: { id: 'c-004', full_name: 'Customer 4' }, customer_id: 'c-004', customer_name: 'Customer 4', pipeline_id: 'p-001', stage_id: 's-001', created_at: '2025-01-12T11:00:00Z', updated_at: '2025-01-16T11:00:00Z', days_silent: 12 },
+  { id: 'd-003', title: 'Deal 3', amount: 800000, currency: 'KZT', stage: 'Qualification', status: 'open', customer: { id: 'c-002', full_name: 'Customer 2' }, customer_id: 'c-002', customer_name: 'Customer 2', pipeline_id: 'p-001', stage_id: 's-001', created_at: '2025-01-14T09:00:00Z', updated_at: '2025-01-20T09:00:00Z', days_silent: 1 },
 ];
 
 export const MOCK_TASKS = [
-  { id: 't-001', title: 'Позвонить Асем по договору', priority: 'high', status: 'pending', due_at: new Date().toISOString(), customer: { id: 'c-001', full_name: 'Асем Нурланова' }, assignee: MOCK_AUTH_SESSIONS[0].user, created_at: '2025-01-15T08:00:00Z' },
-  { id: 't-002', title: 'Отправить КП Ерлану', priority: 'medium', status: 'pending', due_at: new Date().toISOString(), customer: { id: 'c-004', full_name: 'Ерлан Аубакиров' }, assignee: MOCK_AUTH_SESSIONS[0].user, created_at: '2025-01-15T09:00:00Z' },
-  { id: 't-003', title: 'Встреча с командой', priority: 'low', status: 'done', due_at: null, customer: null, assignee: MOCK_AUTH_SESSIONS[0].user, created_at: '2025-01-14T10:00:00Z' },
+  { id: 't-001', title: 'Follow up with Customer 1', priority: 'high', status: 'pending', due_at: new Date().toISOString(), customer: { id: 'c-001', full_name: 'Customer 1' }, assignee: MOCK_AUTH_SESSIONS[0].user, created_at: '2025-01-15T08:00:00Z' },
+  { id: 't-002', title: 'Send proposal to Customer 4', priority: 'medium', status: 'pending', due_at: new Date().toISOString(), customer: { id: 'c-004', full_name: 'Customer 4' }, assignee: MOCK_AUTH_SESSIONS[0].user, created_at: '2025-01-15T09:00:00Z' },
+  { id: 't-003', title: 'Team sync', priority: 'low', status: 'done', due_at: null, customer: null, assignee: MOCK_AUTH_SESSIONS[0].user, created_at: '2025-01-14T10:00:00Z' },
 ];
 
 export const MOCK_PIPELINE = {
   id: 'p-001',
-  name: 'Основная воронка',
+  name: 'Primary Pipeline',
   stages: [
-    { id: 's-001', name: 'Квалификация', position: 1, stage_type: 'open', color: '#4F8CFF', deals: ['d-002', 'd-003'] },
-    { id: 's-002', name: 'Переговоры', position: 2, stage_type: 'open', color: '#7C3AED', deals: ['d-001'] },
-    { id: 's-003', name: 'Коммерческое предложение', position: 3, stage_type: 'open', color: '#D97706', deals: [] },
-    { id: 's-004', name: 'Закрыто', position: 4, stage_type: 'won', color: '#10B981', deals: [] },
+    { id: 's-001', name: 'Qualification', position: 1, stage_type: 'open', color: '#4F8CFF', deals: ['d-002', 'd-003'] },
+    { id: 's-002', name: 'Negotiation', position: 2, stage_type: 'open', color: '#7C3AED', deals: ['d-001'] },
+    { id: 's-003', name: 'Proposal', position: 3, stage_type: 'open', color: '#D97706', deals: [] },
+    { id: 's-004', name: 'Closed', position: 4, stage_type: 'won', color: '#10B981', deals: [] },
   ],
 };
 

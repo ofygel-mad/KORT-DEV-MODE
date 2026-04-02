@@ -11,7 +11,7 @@ export function useCompanyAccess() {
   const { isAdmin, isOwner, isManager, role } = useRole();
 
   if (DEV_RUNTIME_BLOCKERS_DISABLED) {
-    const companyName = membership.companyName ?? inviteContext?.companyName ?? 'Demo Company';
+    const companyName = membership.companyName ?? inviteContext?.companyName ?? 'Workspace';
     return {
       state: 'active' as CompanyAccessState,
       role,
@@ -20,7 +20,7 @@ export function useCompanyAccess() {
         ...membership,
         companyId: membership.companyId ?? 'org-001',
         companyName,
-        companySlug: membership.companySlug ?? 'demo-company',
+        companySlug: membership.companySlug ?? 'workspace',
         status: 'active' as const,
         role: membership.role ?? role,
         source: membership.source ?? 'manual',

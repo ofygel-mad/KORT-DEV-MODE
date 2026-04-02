@@ -398,7 +398,7 @@ function AddEmpDrawer({ onClose }: { onClose: () => void }) {
             <label className={s.empLabel}>Имя <span className={s.empReq}>*</span></label>
             <input className={`${s.empInput} ${errors.full_name ? s.empInputErr : ''}`}
               value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
-              placeholder="Аманова Айгерим" autoFocus />
+              placeholder="Новый сотрудник" autoFocus />
             {errors.full_name && <span className={s.empErrMsg}>{errors.full_name}</span>}
           </div>
           <div className={s.empField}>

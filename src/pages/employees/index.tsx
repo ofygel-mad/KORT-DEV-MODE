@@ -53,7 +53,7 @@ function AddEmployeeDrawer({ onClose }: { onClose: () => void }) {
             <label className={styles.label}>Имя <span className={styles.req}>*</span></label>
             <input className={`${styles.input} ${errors.full_name ? styles.inputErr : ''}`}
               value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
-              placeholder="Аманова Айгерим" autoFocus />
+              placeholder="Новый сотрудник" autoFocus />
             {errors.full_name && <span className={styles.errMsg}>{errors.full_name}</span>}
           </div>
           <div className={styles.field}>

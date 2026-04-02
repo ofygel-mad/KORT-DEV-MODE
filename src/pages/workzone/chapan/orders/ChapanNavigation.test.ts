@@ -119,14 +119,14 @@ describe('A2: draft autosave contract', () => {
 
   it('draft serializes and deserializes without data loss', () => {
     const original = {
-      clientName: 'Асем Нурланова',
+      clientName: 'Customer 1',
       clientPhone: '+77015554433',
       items: [{ productName: 'Чапан', size: '48', quantity: 2, unitPrice: 50000 }],
     };
     const serialized = JSON.stringify(original);
     const deserialized = JSON.parse(serialized);
     expect(deserialized).toEqual(original);
-    expect(deserialized.clientName).toBe('Асем Нурланова');
+    expect(deserialized.clientName).toBe('Customer 1');
     expect(deserialized.items[0].quantity).toBe(2);
   });
 });

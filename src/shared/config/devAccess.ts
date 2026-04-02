@@ -10,7 +10,7 @@ export const DEV_AUTH_BYPASS_ENABLED = import.meta.env.DEV
 
 export const DEV_RUNTIME_BLOCKERS_DISABLED = DEV_AUTH_BYPASS_ENABLED;
 
-const DEFAULT_DEV_AUTH_EMAIL = String(import.meta.env.VITE_DEV_AUTH_EMAIL ?? 'owner@demo.kz')
+const DEFAULT_DEV_AUTH_EMAIL = String(import.meta.env.VITE_DEV_AUTH_EMAIL ?? 'owner@mock.local')
   .trim()
   .toLowerCase();
 
@@ -36,7 +36,7 @@ export function ensureDevAuthBypass() {
   }
 
   const seed = resolveMockAuthSessionByEmail(DEFAULT_DEV_AUTH_EMAIL)
-    ?? resolveMockAuthSessionByEmail('owner@demo.kz');
+    ?? resolveMockAuthSessionByEmail('owner@mock.local');
   if (!seed) {
     return false;
   }

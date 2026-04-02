@@ -4,14 +4,14 @@ import { DEFAULT_MEMBERSHIP, useAuthStore, type Membership, type Org, type User 
 
 const MOCK_USER: User = {
   id: 'user-1',
-  full_name: 'Demo User',
-  email: 'demo@example.com',
+  full_name: 'Test User',
+  email: 'user@example.test',
 };
 
 const MOCK_ORG: Org = {
   id: 'org-1',
-  name: 'Demo Company',
-  slug: 'demo-company',
+  name: 'Workspace',
+  slug: 'workspace',
   mode: 'basic',
   currency: 'KZT',
   onboarding_completed: false,

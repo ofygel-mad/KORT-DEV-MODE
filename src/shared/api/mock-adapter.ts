@@ -223,7 +223,7 @@ function getMockUserOrgs(session: MockAuthSession): OrgSummary[] {
       }]
     : [];
 
-  // u-001 (Demo Company owner) also has manager access to Northwind in the demo
+  // Primary mock owner also has manager access to the secondary workspace.
   if (session.user.id === 'u-001') {
     const northwind = companies.find((c) => c.id === 'org-002');
     if (northwind && !primary.find((o) => o.id === northwind.id)) {

@@ -64,7 +64,7 @@ export function useCapabilities() {
       role: 'owner' as Role,
       mode,
       membershipStatus: 'active' as MembershipStatus,
-      companyName: membershipCompanyName ?? 'Demo Company',
+      companyName: membershipCompanyName ?? 'Workspace',
       hasCompanyAccess: true,
       hasActiveAccess: true,
       isPendingApproval: false,
