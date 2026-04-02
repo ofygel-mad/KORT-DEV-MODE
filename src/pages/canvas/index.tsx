@@ -1,11 +1,28 @@
 import { Suspense, lazy, useMemo, useState, type ElementType } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { ArrowRight, LogOut, Settings } from 'lucide-react';
+import { isChunkLoadError, reloadForChunkErrorOnce } from '../../shared/lib/browser';
+
+async function loadCanvasChunk<T>(loader: () => Promise<T>) {
+  try {
+    return await loader();
+  } catch (error) {
+    if (isChunkLoadError(error) && reloadForChunkErrorOnce()) {
+      return new Promise<T>(() => undefined);
+    }
+    throw error;
+  }
+}
+
 const WorkspaceCanvas = lazy(() =>
-  import('../../features/workspace/components/WorkspaceCanvas').then((m) => ({ default: m.WorkspaceCanvas })),
+  loadCanvasChunk(() =>
+    import('../../features/workspace/components/WorkspaceCanvas').then((m) => ({ default: m.WorkspaceCanvas })),
+  ),
 );
 const WorkspaceAddMenu = lazy(() =>
-  import('../../features/workspace/components/WorkspaceAddMenu').then((m) => ({ default: m.WorkspaceAddMenu })),
+  loadCanvasChunk(() =>
+    import('../../features/workspace/components/WorkspaceAddMenu').then((m) => ({ default: m.WorkspaceAddMenu })),
+  ),
 );
 import { useWorkspaceStore } from '../../features/workspace/model/store';
 import type { WorkspaceWidgetKind } from '../../features/workspace/model/types';

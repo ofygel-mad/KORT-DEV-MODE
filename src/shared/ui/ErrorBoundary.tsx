@@ -3,7 +3,11 @@ import { Component, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
 import styles from './ErrorBoundary.module.css';
-import { redirectTo } from '../lib/browser';
+import {
+  isChunkLoadError,
+  redirectTo,
+  reloadWindow,
+} from '../lib/browser';
 
 interface Props {
   children: ReactNode;
@@ -32,25 +36,42 @@ export class ErrorBoundary extends Component<Props, State> {
 
     if (this.props.fallback) return this.props.fallback;
 
+    const chunkError = isChunkLoadError(this.state.error);
+    const title = chunkError ? 'Приложение обновилось' : 'Что-то пошло не так';
+    const message = chunkError
+      ? 'Открытая вкладка попыталась загрузить устаревший JS-файл после деплоя. Обновите страницу, чтобы подтянуть актуальную версию.'
+      : this.state.error?.message;
+
     return (
       <div className={styles.root}>
-        <div className={styles.icon}><AlertTriangle size={28} /></div>
-        <div className={styles.title}>
-          Что-то пошло не так
+        <div className={styles.icon}>
+          <AlertTriangle size={28} />
         </div>
-        <div className={styles.message}>
-          {this.state.error?.message}
+        <div className={styles.title}>{title}</div>
+        <div className={styles.message}>{message}</div>
+        <div className={styles.actions}>
+          {chunkError && (
+            <Button
+              size="sm"
+              onClick={() => {
+                this.setState({ hasError: false, error: undefined });
+                reloadWindow();
+              }}
+            >
+              Обновить страницу
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              this.setState({ hasError: false, error: undefined });
+              redirectTo('/');
+            }}
+          >
+            На главную
+          </Button>
         </div>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => {
-            this.setState({ hasError: false, error: undefined });
-            redirectTo('/');
-          }}
-        >
-          На главную
-        </Button>
       </div>
     );
   }

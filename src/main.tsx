@@ -12,6 +12,7 @@ import { readApiErrorMessage, readApiErrorStatus } from './shared/api/errors';
 import { ensureDevAuthBypass } from './shared/config/devAccess';
 import './shared/design/globals.css';
 import { getNavigator, getWindow, isBrowser } from './shared/lib/browser';
+import { isChunkLoadError, reloadForChunkErrorOnce } from './shared/lib/browser';
 import { useAuthStore } from './shared/stores/auth';
 import { PageLoader } from './shared/ui/PageLoader';
 
@@ -203,6 +204,25 @@ ReactDOM.createRoot(document.getElementById('root')!).render(<App />);
 
 const nav = getNavigator();
 const win = getWindow();
+if (isBrowser && win) {
+  const handleChunkLoadFailure = (error: unknown) => {
+    if (!isChunkLoadError(error)) return false;
+    return reloadForChunkErrorOnce();
+  };
+
+  win.addEventListener('error', (event) => {
+    if (handleChunkLoadFailure(event.error ?? event.message)) {
+      event.preventDefault();
+    }
+  });
+
+  win.addEventListener('unhandledrejection', (event) => {
+    if (handleChunkLoadFailure(event.reason)) {
+      event.preventDefault();
+    }
+  });
+}
+
 if (isBrowser && nav && 'serviceWorker' in nav && import.meta.env.PROD && win) {
   const clearLegacyServiceWorkers = async () => {
     try {

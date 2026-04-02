@@ -3,6 +3,7 @@ import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { AppShell } from '../layout/AppShell';
 import { PageLoader } from '../../shared/ui/PageLoader';
 import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
+import { isChunkLoadError, reloadForChunkErrorOnce } from '../../shared/lib/browser';
 import { useAuthStore } from '../../shared/stores/auth';
 import { usePlan, planIncludes, PLAN_LABELS, type OrgMode } from '../../shared/hooks/usePlan';
 import { useRole } from '../../shared/hooks/useRole';
@@ -11,7 +12,16 @@ import { useChapanPermissions } from '../../shared/hooks/useChapanPermissions';
 import { Settings } from 'lucide-react';
 
 function makePage(imp: () => Promise<{ default: ComponentType }>) {
-  const Comp = lazy(imp);
+  const Comp = lazy(async () => {
+    try {
+      return await imp();
+    } catch (error) {
+      if (isChunkLoadError(error) && reloadForChunkErrorOnce()) {
+        return new Promise<{ default: ComponentType }>(() => undefined);
+      }
+      throw error;
+    }
+  });
   return function LazyPage() {
     return (
       <ErrorBoundary>

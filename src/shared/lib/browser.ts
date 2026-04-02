@@ -114,6 +114,55 @@ export function reloadWindow() {
   getWindow()?.location.reload();
 }
 
+function readErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const candidate = (error as { message?: unknown; reason?: unknown }).message;
+    if (typeof candidate === 'string') return candidate;
+    const reason = (error as { reason?: unknown }).reason;
+    if (typeof reason === 'string') return reason;
+    if (reason instanceof Error) return reason.message;
+  }
+  return '';
+}
+
+const CHUNK_LOAD_ERROR_PATTERNS = [
+  /Failed to fetch dynamically imported module/i,
+  /error loading dynamically imported module/i,
+  /Importing a module script failed/i,
+  /ChunkLoadError/i,
+  /Loading chunk [\w-]+ failed/i,
+];
+
+function getBuildFingerprint() {
+  const doc = getDocument();
+  const script = doc?.querySelector('script[type="module"][src]') as HTMLScriptElement | null;
+  return script?.src || getWindow()?.location.pathname || 'unknown-build';
+}
+
+export function isChunkLoadError(error: unknown) {
+  const message = readErrorMessage(error);
+  return CHUNK_LOAD_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+}
+
+export function reloadForChunkErrorOnce() {
+  const win = getWindow();
+  if (!win) return false;
+
+  const key = `kort:chunk-reload:${getBuildFingerprint()}`;
+  const currentLocation = `${win.location.pathname}${win.location.search}`;
+  const previousAttempt = readStorage(key, 'session');
+
+  if (previousAttempt === currentLocation) {
+    return false;
+  }
+
+  writeStorage(key, currentLocation, 'session');
+  reloadWindow();
+  return true;
+}
+
 export function redirectTo(path: string) {
   const win = getWindow();
   if (!win) return;
