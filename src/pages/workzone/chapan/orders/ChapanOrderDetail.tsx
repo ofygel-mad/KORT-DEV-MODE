@@ -301,7 +301,12 @@ export default function ChapanOrderDetailPage() {
           <div className={styles.card}>
             <div className={styles.cardLabel}>Клиент</div>
             <div className={styles.clientName}>{order.clientName}</div>
-            <a href={`tel:${order.clientPhone}`} className={styles.clientPhone}>{order.clientPhone}</a>
+            {order.clientPhone && (
+              <a href={`tel:${order.clientPhone}`} className={styles.clientPhone}>{order.clientPhone}</a>
+            )}
+            {order.clientPhoneForeign && (
+              <a href={`tel:${order.clientPhoneForeign}`} className={styles.clientPhone}>{order.clientPhoneForeign}</a>
+            )}
             {(order.city || order.deliveryType || order.source || order.dueDate) && (
               <div className={styles.clientMeta}>
                 {order.city && (

@@ -121,9 +121,8 @@ const itemSchema = z.object({
 
 const schema = z.object({
   clientName:  z.string().min(2, 'Минимум 2 символа'),
-  clientPhone: z.string()
-    .min(1, 'Телефон обязателен')
-    .refine((value) => isKazakhPhoneComplete(value), 'Введите номер в формате +7 (777)-777-77-77'),
+  clientPhone: z.string().optional().default(''),
+  clientPhoneForeign: z.string().optional(),
   dueDate:     z.string().optional(),
   city:         z.string().optional(),
   streetAddress: z.string().optional(),
@@ -142,6 +141,14 @@ const schema = z.object({
   paymentBreakdown: z.record(z.string(), z.coerce.number().min(0)).optional(),
   items:       z.array(itemSchema).min(1, 'Добавьте хотя бы одну позицию'),
 }).superRefine((data, ctx) => {
+  const hasKzPhone = isKazakhPhoneComplete(data.clientPhone ?? '');
+  const hasForeignPhone = !!(data.clientPhoneForeign?.trim());
+  if (!hasKzPhone && !hasForeignPhone) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Укажите казахстанский или иностранный номер', path: ['clientPhone'] });
+  } else if ((data.clientPhone ?? '') && !hasKzPhone) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Введите номер в формате +7 (777)-777-77-77', path: ['clientPhone'] });
+  }
+
   const itemsTotal = (data.items ?? []).reduce((s, i) => s + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0);
   const orderDiscount = Number(data.orderDiscount) || 0;
   const deliveryFee   = Number(data.deliveryFee)   || 0;
@@ -245,7 +252,8 @@ export default function ChapanEditOrderPage() {
     formPopulated.current = true;
     reset({
       clientName:  formatPersonNameInput(order.clientName),
-      clientPhone: formatKazakhPhoneInput(order.clientPhone),
+      clientPhone: order.clientPhone ? formatKazakhPhoneInput(order.clientPhone) : '',
+      clientPhoneForeign: order.clientPhoneForeign ?? '',
       dueDate:     order.dueDate ? order.dueDate.slice(0, 10) : '',
       urgency:     (order.urgency ?? (order.priority === 'urgent' ? 'urgent' : 'normal')) as Urgency,
       isDemandingClient: order.isDemandingClient ?? (order.priority === 'vip'),
@@ -299,7 +307,8 @@ export default function ChapanEditOrderPage() {
       id,
       dto: {
         clientName:  formatPersonNameInput(data.clientName).trim(),
-        clientPhone: formatKazakhPhoneInput(data.clientPhone),
+        clientPhone: data.clientPhone ? formatKazakhPhoneInput(data.clientPhone) : '',
+        clientPhoneForeign: data.clientPhoneForeign?.trim() || undefined,
         dueDate:     data.dueDate || null,
         priority:    data.urgency === 'urgent' ? 'urgent' : data.isDemandingClient ? 'vip' : 'normal',
         urgency:     data.urgency as Urgency,
@@ -355,7 +364,8 @@ export default function ChapanEditOrderPage() {
       id,
       dto: {
         clientName:  formatPersonNameInput(pendingFormData.clientName).trim(),
-        clientPhone: formatKazakhPhoneInput(pendingFormData.clientPhone),
+        clientPhone: pendingFormData.clientPhone ? formatKazakhPhoneInput(pendingFormData.clientPhone) : '',
+        clientPhoneForeign: pendingFormData.clientPhoneForeign?.trim() || undefined,
         dueDate:     pendingFormData.dueDate || null,
         priority:    pendingFormData.urgency === 'urgent' ? 'urgent' : pendingFormData.isDemandingClient ? 'vip' : 'normal',
         urgency:     pendingFormData.urgency as Urgency,
@@ -453,7 +463,7 @@ export default function ChapanEditOrderPage() {
             <span className={styles.sectionTitle}>Данные клиента</span>
           </div>
           <div className={styles.sectionBody}>
-            <div className={styles.row2}>
+            <div className={styles.row3}>
               <div className={styles.field}>
                 <label className={styles.label}>ФИО клиента <span className={styles.req}>*</span></label>
                 <Controller
@@ -472,7 +482,7 @@ export default function ChapanEditOrderPage() {
                 {errors.clientName && <span className={styles.fieldError}>{errors.clientName.message}</span>}
               </div>
               <div className={styles.field}>
-                <label className={styles.label}>Телефон <span className={styles.req}>*</span></label>
+                <label className={styles.label}>Телефон KZ <span className={styles.req}>*</span></label>
                 <Controller
                   control={control}
                   name="clientPhone"
@@ -489,6 +499,24 @@ export default function ChapanEditOrderPage() {
                   )}
                 />
                 {errors.clientPhone && <span className={styles.fieldError}>{errors.clientPhone.message}</span>}
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label}>Для иностранных номеров</label>
+                <Controller
+                  control={control}
+                  name="clientPhoneForeign"
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type="tel"
+                      inputMode="tel"
+                      value={field.value ?? ''}
+                      onChange={(event) => field.onChange(event.target.value)}
+                      className={styles.input}
+                      placeholder="+44 7700 900123"
+                    />
+                  )}
+                />
               </div>
             </div>
 

@@ -21,6 +21,7 @@ export interface ChapanOrder {
   clientId: string;
   clientName: string;
   clientPhone: string;
+  clientPhoneForeign: string | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   priority: Priority;          // legacy field, still returned by backend
@@ -172,7 +173,8 @@ export interface OrderTransfer {
 
 export interface CreateOrderDto {
   clientName: string;          // required
-  clientPhone: string;         // required
+  clientPhone: string;         // required (can be empty if clientPhoneForeign is provided)
+  clientPhoneForeign?: string; // optional: for non-Kazakhstan numbers
   clientId?: string;           // optional: link to existing ChapanClient
   priority: Priority;
   urgency?: Urgency;
@@ -215,6 +217,7 @@ export interface CreateOrderItemDto {
 export interface UpdateOrderDto {
   clientName?: string;
   clientPhone?: string;
+  clientPhoneForeign?: string;
   dueDate?: string | null;
   priority?: Priority;
   urgency?: Urgency;

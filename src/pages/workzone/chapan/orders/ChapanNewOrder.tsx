@@ -67,9 +67,8 @@ const itemSchema = z.object({
 const schema = z
   .object({
     clientName:   z.string().min(2, 'Минимум 2 символа'),
-    clientPhone:  z.string()
-      .min(1, 'Телефон обязателен')
-      .refine((value) => isKazakhPhoneComplete(value), 'Введите номер в формате +7 (777)-777-77-77'),
+    clientPhone:  z.string().optional().default(''),
+    clientPhoneForeign: z.string().optional(),
     city:          z.string().optional(),
     streetAddress: z.string().optional(),
     postalCode:    z.string().optional(),
@@ -90,6 +89,14 @@ const schema = z
     managerNote:  z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    const hasKzPhone = isKazakhPhoneComplete(data.clientPhone ?? '');
+    const hasForeignPhone = !!(data.clientPhoneForeign?.trim());
+    if (!hasKzPhone && !hasForeignPhone) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Укажите казахстанский или иностранный номер', path: ['clientPhone'] });
+    } else if ((data.clientPhone ?? '') && !hasKzPhone) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Введите номер в формате +7 (777)-777-77-77', path: ['clientPhone'] });
+    }
+
     const itemsSubtotal = data.items.reduce((sum, item) => {
       return sum + Math.max(0,
         (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) - (Number(item.itemDiscount) || 0),
@@ -381,7 +388,8 @@ export default function ChapanNewOrderPage() {
     const created = await createOrder.mutateAsync({
       idempotencyKey: idemKeyRef.current,
       clientName:    formatPersonNameInput(data.clientName).trim(),
-      clientPhone:   formatKazakhPhoneInput(data.clientPhone),
+      clientPhone:   data.clientPhone ? formatKazakhPhoneInput(data.clientPhone) : '',
+      clientPhoneForeign: data.clientPhoneForeign?.trim() || undefined,
       streetAddress: data.streetAddress?.trim() || undefined,
       city:          data.city?.trim() || undefined,
       deliveryType:  data.deliveryType?.trim() || undefined,
@@ -501,7 +509,7 @@ export default function ChapanNewOrderPage() {
             <span className={styles.sectionTitle}>Данные клиента</span>
           </div>
           <div className={styles.sectionBody}>
-            <div className={styles.row2}>
+            <div className={styles.row3}>
               <div className={styles.field}>
                 <label className={styles.label}>ФИО клиента <span className={styles.req}>*</span></label>
                 <Controller
@@ -521,7 +529,7 @@ export default function ChapanNewOrderPage() {
                 {errors.clientName && <span className={styles.fieldError}>{errors.clientName.message}</span>}
               </div>
               <div className={styles.field}>
-                <label className={styles.label}>Телефон <span className={styles.req}>*</span></label>
+                <label className={styles.label}>Телефон KZ <span className={styles.req}>*</span></label>
                 <Controller
                   control={control}
                   name="clientPhone"
@@ -538,6 +546,24 @@ export default function ChapanNewOrderPage() {
                   )}
                 />
                 {errors.clientPhone && <span className={styles.fieldError}>{errors.clientPhone.message}</span>}
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label}>Для иностранных номеров</label>
+                <Controller
+                  control={control}
+                  name="clientPhoneForeign"
+                  render={({ field }) => (
+                    <input
+                      {...field}
+                      type="tel"
+                      inputMode="tel"
+                      value={field.value ?? ''}
+                      onChange={(event) => field.onChange(event.target.value)}
+                      className={styles.input}
+                      placeholder="+44 7700 900123"
+                    />
+                  )}
+                />
               </div>
             </div>
             <div className={styles.row3}>
