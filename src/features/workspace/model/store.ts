@@ -31,7 +31,7 @@ const VALID_SCENE_TERRAIN_MODES = new Set<WorkspaceSceneTerrainMode>(['full', 'c
 const VALID_SCENE_BG_MODES = new Set<WorkspaceSceneBgMode>(['scene', 'photo']);
 const VALID_TILE_STATUSES = new Set<WorkspaceTileStatus>(['floating', 'drifting', 'idle']);
 
-const TILE_SIZE = { width: 260, height: 170 };
+const TILE_SIZE = { width: 260, height: 210 };
 
 const DEFAULT_TILE_SIZE: Record<WorkspaceWidgetKind, { width: number; height: number }> = {
   leads: TILE_SIZE,

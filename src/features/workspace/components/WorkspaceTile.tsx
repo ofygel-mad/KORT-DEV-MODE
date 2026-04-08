@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pin, X } from 'lucide-react';
@@ -56,8 +56,10 @@ function resolveInteractiveInsets() {
 export const WorkspaceTile = memo(function WorkspaceTile({ tile, presentation = 'surface', flightLayout }: Props) {
   const navigate = useNavigate();
   const [dragging, setDragging] = useState(false);
-  const dragStart = useRef<{ mx: number; my: number; tx: number; ty: number; draggable: boolean } | null>(null);
+  const tileRef = useRef<HTMLDivElement | null>(null);
+  const dragStart = useRef<{ mx: number; my: number; tx: number; ty: number; draggable: boolean; pointerId: number } | null>(null);
   const hasDragged = useRef(false);
+  const detachDragListenersRef = useRef<(() => void) | null>(null);
 
   const setTilePosition = useWorkspaceStore((s) => s.setTilePosition);
   const bringToFront = useWorkspaceStore((s) => s.bringToFront);
@@ -98,71 +100,94 @@ export const WorkspaceTile = memo(function WorkspaceTile({ tile, presentation = 
         cursor: dragging ? 'grabbing' : 'grab',
       }) as CSSProperties;
 
+  useEffect(() => () => {
+    detachDragListenersRef.current?.();
+    detachDragListenersRef.current = null;
+  }, []);
+
   function onPointerDown(e: React.PointerEvent) {
     if (e.button !== 0) return;
     e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    detachDragListenersRef.current?.();
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore pointer-capture failures and fall back to window listeners.
+    }
     hasDragged.current = false;
-    dragStart.current = { mx: e.clientX, my: e.clientY, tx: tile.x, ty: tile.y, draggable: isDraggable };
+    dragStart.current = {
+      mx: e.clientX,
+      my: e.clientY,
+      tx: tile.x,
+      ty: tile.y,
+      draggable: isDraggable,
+      pointerId: e.pointerId,
+    };
     bringToFront(tile.id);
     markTileActive(tile.id, { status: tile.pinned ? 'idle' : 'floating' });
     setDragging(false);
-  }
 
-  function onPointerMove(e: React.PointerEvent) {
-    if (!dragStart.current) return;
-    e.stopPropagation();
-    const dx = e.clientX - dragStart.current.mx;
-    const dy = e.clientY - dragStart.current.my;
-    if (!hasDragged.current && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
-      hasDragged.current = true;
-      if (dragStart.current.draggable) {
-        setDragging(true);
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!dragStart.current || event.pointerId !== dragStart.current.pointerId) return;
+      const dx = event.clientX - dragStart.current.mx;
+      const dy = event.clientY - dragStart.current.my;
+      if (!hasDragged.current && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        hasDragged.current = true;
+        if (dragStart.current.draggable) {
+          setDragging(true);
+        }
       }
-    }
-    if (hasDragged.current && dragStart.current.draggable) {
-      const { zoom, viewport, viewportSize } = useWorkspaceStore.getState();
-      const proposedX = dragStart.current.tx + dx / zoom;
-      const proposedY = dragStart.current.ty + dy / zoom;
-      const insets = resolveInteractiveInsets();
-      const minX = Math.max(0, (insets.left - viewport.x) / zoom);
-      const minY = Math.max(0, (insets.top - viewport.y) / zoom);
-      const maxX = Math.max(minX, (viewportSize.width - insets.right - viewport.x) / zoom - tile.width);
-      const maxY = Math.max(minY, (viewportSize.height - insets.bottom - viewport.y) / zoom - tile.height);
+      if (hasDragged.current && dragStart.current.draggable) {
+        const { zoom, viewport, viewportSize } = useWorkspaceStore.getState();
+        const proposedX = dragStart.current.tx + dx / zoom;
+        const proposedY = dragStart.current.ty + dy / zoom;
+        const insets = resolveInteractiveInsets();
+        const minX = Math.max(0, (insets.left - viewport.x) / zoom);
+        const minY = Math.max(0, (insets.top - viewport.y) / zoom);
+        const maxX = Math.max(minX, (viewportSize.width - insets.right - viewport.x) / zoom - tile.width);
+        const maxY = Math.max(minY, (viewportSize.height - insets.bottom - viewport.y) / zoom - tile.height);
 
-      setTilePosition(
-        tile.id,
-        clamp(proposedX, minX, maxX),
-        clamp(proposedY, minY, maxY),
-      );
-    }
-  }
+        setTilePosition(
+          tile.id,
+          clamp(proposedX, minX, maxX),
+          clamp(proposedY, minY, maxY),
+        );
+      }
+    };
 
-  function onPointerUp(e: React.PointerEvent) {
-    if (!dragStart.current) return;
-    e.stopPropagation();
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    const wasDragging = hasDragged.current;
-    dragStart.current = null;
-    hasDragged.current = false;
-    setDragging(false);
-    if (!wasDragging) {
-      // Navigate on click
-      navigate(definition.navTo);
-    }
-  }
+    const finishDrag = (pointerId: number, shouldNavigate: boolean) => {
+      detachDragListenersRef.current?.();
+      detachDragListenersRef.current = null;
+      if (tileRef.current?.hasPointerCapture(pointerId)) {
+        tileRef.current.releasePointerCapture(pointerId);
+      }
+      const wasDragging = hasDragged.current;
+      dragStart.current = null;
+      hasDragged.current = false;
+      setDragging(false);
+      if (shouldNavigate && !wasDragging) {
+        navigate(definition.navTo);
+      }
+    };
 
-  function onPointerCancel(e: React.PointerEvent) {
-    if (!dragStart.current) return;
-    e.stopPropagation();
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    dragStart.current = null;
-    hasDragged.current = false;
-    setDragging(false);
+    const handlePointerUp = (event: PointerEvent) => {
+      if (!dragStart.current || event.pointerId !== dragStart.current.pointerId) return;
+      finishDrag(event.pointerId, true);
+    };
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      if (!dragStart.current || event.pointerId !== dragStart.current.pointerId) return;
+      finishDrag(event.pointerId, false);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    detachDragListenersRef.current = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+    };
   }
 
   function onContextMenu(e: React.MouseEvent) {
@@ -184,6 +209,7 @@ export const WorkspaceTile = memo(function WorkspaceTile({ tile, presentation = 
 
   return (
     <div
+      ref={tileRef}
       data-tile-id={tile.id}
       data-workspace-tile="true"
       className={[
@@ -198,9 +224,6 @@ export const WorkspaceTile = memo(function WorkspaceTile({ tile, presentation = 
       ].filter(Boolean).join(' ')}
       style={style}
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
       onContextMenu={onContextMenu}
       onMouseEnter={() => setHoveredTile(tile.id)}
       onMouseLeave={() => setHoveredTile(null)}

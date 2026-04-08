@@ -1,7 +1,7 @@
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Check, ChevronLeft, ChevronRight, LayoutGrid, Layers, List, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react';
-import { useOrders, useOrderWarehouseStates, useTrashOrder } from '../../../../entities/order/queries';
+import { useOrders, useOrderWarehouseStates, useTrashOrder, useOrgManagers } from '../../../../entities/order/queries';
 import type { ChapanOrder, OrderStatus, OrderWarehouseState } from '../../../../entities/order/types';
 import { useProductsAvailability } from '../../../../entities/warehouse/queries';
 import type { ProductsAvailabilityMap } from '../../../../entities/warehouse/types';
@@ -150,7 +150,9 @@ export default function ChapanOrdersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [payFilter, setPayFilter] = useState('');
+  const [managerFilter, setManagerFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const { data: orgManagers } = useOrgManagers();
   const [viewMode, setViewModeState] = useState<ViewMode>('grid');
   const [grouped, setGroupedState] = useState(true);
   const [showViewMenu, setShowViewMenu] = useState(false);
@@ -176,7 +178,7 @@ export default function ChapanOrdersPage() {
   const activeAlertOrderIds = useMemo(() => new Set(alerts.map((a) => a.orderId)), [alerts]);
 
   const deferred = useDeferredValue(search);
-  const hasActiveFilters = Boolean(search || statusFilter || payFilter || calendarDate);
+  const hasActiveFilters = Boolean(search || statusFilter || payFilter || managerFilter || calendarDate);
 
   useEffect(() => {
     const savedView = localStorage.getItem(viewStorageKey(userId));
@@ -228,6 +230,7 @@ const setViewMode = (mode: ViewMode) => {
     search: deferred || undefined,
     status: statusFilter || undefined,
     paymentStatus: payFilter || undefined,
+    managerId: managerFilter || undefined,
     archived: false,
     limit: 200,
     createdFrom: calendarDateFrom,
@@ -356,7 +359,7 @@ const setViewMode = (mode: ViewMode) => {
             onClick={() => setShowFilters(v => !v)}
           >
             <SlidersHorizontal size={13} /><span>Фильтры</span>
-            {(statusFilter || payFilter || calendarDate) && <span className={styles.filterDot} />}
+            {(statusFilter || payFilter || managerFilter || calendarDate) && <span className={styles.filterDot} />}
           </button>
 
           {/* Alerts bell icon */}
@@ -408,6 +411,15 @@ const setViewMode = (mode: ViewMode) => {
               {Object.entries(PAY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
+          {orgManagers && orgManagers.length > 1 && (
+            <div className={styles.filterGroup}>
+              <label className={styles.filterLabel}>Менеджер</label>
+              <select className={styles.filterSelect} value={managerFilter} onChange={e => setManagerFilter(e.target.value)}>
+                <option value="">Все</option>
+                {orgManagers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+          )}
           <div className={styles.filterGroupCalendar}>
             <label className={styles.filterLabel}>
               Дата оформления
@@ -430,8 +442,8 @@ const setViewMode = (mode: ViewMode) => {
               onNextMonth={() => setCalendarMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
             />
           </div>
-          {(statusFilter || payFilter || calendarDate) && (
-            <button className={styles.clearFilters} onClick={() => { setStatusFilter(''); setPayFilter(''); setCalendarDate(null); }}>Сбросить</button>
+          {(statusFilter || payFilter || managerFilter || calendarDate) && (
+            <button className={styles.clearFilters} onClick={() => { setStatusFilter(''); setPayFilter(''); setManagerFilter(''); setCalendarDate(null); }}>Сбросить</button>
           )}
         </div>
       )}
@@ -719,6 +731,9 @@ const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stoc
       </div>
       <div className={styles.cardClient}>{order.clientName}</div>
       <span className={styles.cardPhone}>{order.clientPhone}</span>
+      {order.managerName && (
+        <span className={styles.cardManager}>👤 {order.managerName}</span>
+      )}
       <div className={styles.cardDivider} />
       <div className={styles.cardFoot}>
         <span className={styles.cardAmount}>{fmt(order.totalAmount)}</span>
@@ -914,6 +929,9 @@ const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockM
       <div className={styles.rowClient}>
         <span className={styles.cardClient}>{order.clientName}</span>
         <span className={styles.cardPhone}>{order.clientPhone}</span>
+        {order.managerName && (
+          <span className={styles.cardManager}>👤 {order.managerName}</span>
+        )}
       </div>
       <div className={styles.rowFin}>
         <span className={styles.cardAmount}>{fmt(order.totalAmount)}</span>

@@ -298,6 +298,7 @@
 
 .cardClient { font-size: 14px; font-weight: 600; color: var(--ch-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cardPhone { font-size: 11px; color: var(--ch-plat-dim); font-family: 'JetBrains Mono', monospace; margin-top: -6px; }
+.cardManager { font-size: 11px; color: var(--ch-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .cardItems { display: flex; flex-direction: column; gap: 2px; }
 .cardItemName { font-size: 13px; color: var(--ch-text-dim); font-weight: 500; }

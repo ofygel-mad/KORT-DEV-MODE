@@ -192,8 +192,7 @@ export class SceneInputController {
     if (!(target instanceof HTMLElement)) return true;
     if (!target.closest('[data-workspace-viewport="true"]')) return true;
     if (
-      target.closest('[data-workspace-tile="true"]')
-      || target.closest('[data-scene-control="true"]')
+      target.closest('[data-scene-control="true"]')
       || target.closest('[data-workspace-ui="true"]')
     ) {
       return true;

@@ -22,6 +22,7 @@ export const ordersApi = {
     hasWarehouseItems?: boolean;
     createdFrom?: string;
     createdTo?: string;
+    managerId?: string;
   }) =>
     api.get<ListResponse<ChapanOrder>>('/chapan/orders', params),
 
