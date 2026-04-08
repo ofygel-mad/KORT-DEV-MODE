@@ -260,12 +260,12 @@ export default function ChapanReadyPage() {
   const orderMap = new Map<string, ReadyOrder>();
   for (const order of readyData?.results ?? []) {
     if (order.status === 'ready') {
-      orderMap.set(order.id, order);
+      orderMap.set(order.id, order as ReadyOrder);
     }
   }
   for (const order of partialData?.results ?? []) {
     if ((order.status === 'confirmed' || order.status === 'in_production') && hasWarehouseFulfillment(order)) {
-      orderMap.set(order.id, order);
+      orderMap.set(order.id, order as ReadyOrder);
     }
   }
   const orders = [...orderMap.values()];
