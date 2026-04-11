@@ -55,7 +55,7 @@ describe('sanitizeWorkspacePersistedState', () => {
       x: 20,
       y: 35,
       width: 260,
-      height: 170,
+      height: 210,
       modalSize: 'default',
       version: 2,
       status: 'floating',

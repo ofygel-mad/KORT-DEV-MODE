@@ -184,7 +184,9 @@
 .rowProduct { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-left: 1px solid var(--ch-border); min-width: 0; overflow: hidden; }
 .rowProduct .cardItemName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rowFin { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-left: 1px solid var(--ch-border); min-width: 0; }
-.rowDate { padding: 10px 14px; border-left: 1px solid var(--ch-border); font-size: 11px; text-align: right; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.rowDate { padding: 10px 14px; border-left: 1px solid var(--ch-border); font-size: 11px; text-align: right; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rowDateInner { display: flex; flex-direction: column; gap: 1px; }
+.rowDateLabel { color: var(--text-secondary); font-weight: 500; font-size: 10px; }
 .rowDateEmpty { color: var(--ch-text-muted); }
 
 /* ── Card (grid view) ── */
@@ -311,6 +313,9 @@
 .cardAmount { font-size: 15px; font-weight: 700; color: var(--ch-text); }
 .cardPay { font-size: 11px; font-weight: 600; }
 .cardDate { font-size: 11px; margin-left: auto; }
+.cardDates { display: grid; grid-template-columns: auto 1fr; gap: 4px 6px; font-size: 11px; margin-top: 6px; }
+.cardDateLabel { color: var(--text-secondary); font-weight: 500; }
+.cardDateValue { color: var(--text-primary); font-weight: 500; }
 
 /* ════════════════════════════════════════════════════════════════════════════
    BATCH CARD — grid view

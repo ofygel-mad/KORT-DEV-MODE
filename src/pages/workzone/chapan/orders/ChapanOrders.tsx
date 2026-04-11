@@ -145,12 +145,16 @@ function buildGroups(orders: ChapanOrder[]): DisplayGroup[] {
 export default function ChapanOrdersPage() {
   const navigate = useNavigate();
   const userId = useAuthStore((state) => state.user?.id);
-  const { selectedOrderId, setSelectedOrderId } = useChapanUiStore();
+  const { selectedOrderId, setSelectedOrderId, orderFilters, setOrderFilters, resetOrderFilters } = useChapanUiStore();
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [payFilter, setPayFilter] = useState('');
-  const [managerFilter, setManagerFilter] = useState('');
+  const { search, statusFilter, payFilter, managerFilter, calendarDate } = orderFilters;
+
+  const setSearch = (val: string) => setOrderFilters({ search: val });
+  const setStatusFilter = (val: string) => setOrderFilters({ statusFilter: val });
+  const setPayFilter = (val: string) => setOrderFilters({ payFilter: val });
+  const setManagerFilter = (val: string) => setOrderFilters({ managerFilter: val });
+  const setCalendarDate = (val: Date | null) => setOrderFilters({ calendarDate: val });
+
   const [showFilters, setShowFilters] = useState(false);
   const { data: orgManagers } = useOrgManagers();
   const [viewMode, setViewModeState] = useState<ViewMode>('grid');
@@ -161,7 +165,6 @@ export default function ChapanOrdersPage() {
 
   // Calendar filter state
   const today = new Date();
-  const [calendarDate, setCalendarDate] = useState<Date | null>(null); // selected day
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
 
   const { isAbsolute } = useEmployeePermissions();
@@ -443,7 +446,7 @@ const setViewMode = (mode: ViewMode) => {
             />
           </div>
           {(statusFilter || payFilter || managerFilter || calendarDate) && (
-            <button className={styles.clearFilters} onClick={() => { setStatusFilter(''); setPayFilter(''); setManagerFilter(''); setCalendarDate(null); }}>Сбросить</button>
+            <button className={styles.clearFilters} onClick={resetOrderFilters}>Сбросить</button>
           )}
         </div>
       )}
@@ -574,6 +577,47 @@ const setViewMode = (mode: ViewMode) => {
           </div>
         </div>
       )}
+
+      {/* Floating reset filter button */}
+      {hasActiveFilters && (
+        <button
+          onClick={resetOrderFilters}
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            padding: '12px 16px',
+            background: '#F59E0B',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            zIndex: 30,
+            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }}
+          title="Сбросить фильтры"
+        >
+          <span>✕</span>
+          <span>Сбросить фильтр</span>
+        </button>
+      )}
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.7;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -738,10 +782,17 @@ const OrderCard = memo(function OrderCard({ order, onSelectOrder, hasAlert, stoc
       <div className={styles.cardFoot}>
         <span className={styles.cardAmount}>{fmt(order.totalAmount)}</span>
         <span className={styles.cardPay} style={{ color: PAY_COLOR[order.paymentStatus] }}>{PAY_LABEL[order.paymentStatus]}</span>
+      </div>
+      <div className={styles.cardDates}>
+        <span className={styles.cardDateLabel}>Создан:</span>
+        <span className={styles.cardDateValue}>{fmtDate(order.createdAt)}</span>
         {order.dueDate && (
-          <span className={styles.cardDate} style={{ color: overdue ? '#EF4444' : '#4A5268' }}>
-            {fmtDate(order.dueDate)}
-          </span>
+          <>
+            <span className={styles.cardDateLabel}>Завершить до:</span>
+            <span className={styles.cardDateValue} style={{ color: overdue ? '#EF4444' : '#10B981' }}>
+              {fmtDate(order.dueDate)}
+            </span>
+          </>
         )}
       </div>
     </div>
@@ -940,10 +991,17 @@ const OrderRow = memo(function OrderRow({ order, onSelectOrder, hasAlert, stockM
         </span>
       </div>
       <div className={styles.rowDate}>
-        {order.dueDate
-          ? <span style={{ color: overdue ? '#EF4444' : '#6B7280' }}>{fmtDate(order.dueDate)}</span>
-          : <span className={styles.rowDateEmpty}>—</span>
-        }
+        <div className={styles.rowDateInner}>
+          <span className={styles.rowDateLabel}>Создан:</span>
+          <span>{fmtDate(order.createdAt)}</span>
+        </div>
+        <div className={styles.rowDateInner}>
+          <span className={styles.rowDateLabel}>До:</span>
+          {order.dueDate
+            ? <span style={{ color: overdue ? '#EF4444' : '#10B981' }}>{fmtDate(order.dueDate)}</span>
+            : <span className={styles.rowDateEmpty}>—</span>
+          }
+        </div>
         {onTrash && (
           <button type="button" className={styles.trashBtnRow} title="В корзину" onClick={e => { e.stopPropagation(); onTrash(order.id); }}>
             <Trash2 size={13} />
