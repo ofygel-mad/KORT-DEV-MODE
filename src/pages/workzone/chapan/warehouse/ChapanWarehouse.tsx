@@ -1,8 +1,9 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle, AlertTriangle, Archive, CheckCircle2, ChevronRight, Download,
-  FileText, Package, PackageCheck, Phone, Plus, RotateCcw, Search, Send, TrendingDown, User, Upload, X, XCircle, CheckSquare, BookOpen,
+  FileText, Package, PackageCheck, Phone, Plus, RefreshCcw, Search, TrendingDown, User, Upload, X, XCircle, CheckSquare, BookOpen, Truck,
 } from 'lucide-react';
 import { WarehouseCatalog } from '../../../warehouse/WarehouseCatalog';
 import ChapanInvoicePreviewModal from '../invoices/ChapanInvoicePreviewModal';
@@ -11,21 +12,25 @@ import {
   useWarehouseItems, useWarehouseMovements, useWarehouseAlerts,
   useWarehouseCategories, useCreateItem, useAddMovement, useDeleteItem, useResolveAlert,
   useWarehouseFoundationSites, useWarehouseFoundationSiteControlTower, useWarehouseFoundationSiteHealth,
-  useImportOpeningBalance,
+  useImportOpeningBalance, useWarehouseSummary, useSyncFromOrders,
+  useTransitEntries, useDispatchTransitEntry,
 } from '../../../../entities/warehouse/queries';
+import { SetBeginningBalanceModal } from './SetBeginningBalanceModal';
 import {
   useInvoices, useConfirmWarehouse, useOrders, useShipOrder, useOrder, useArchiveInvoice,
   useCloseOrder, useReturnToReady, useRejectInvoice,
 } from '../../../../entities/order/queries';
-import type { WarehouseItem, MovementType, CreateItemDto, AddMovementDto, ImportOpeningBalanceRow } from '../../../../entities/warehouse/types';
+import type { WarehouseItem, MovementType, CreateItemDto, AddMovementDto, ImportOpeningBalanceRow, WarehouseTransitEntry } from '../../../../entities/warehouse/types';
 import type { ChapanInvoice, ChapanOrder } from '../../../../entities/order/types';
-import { getStockStatus } from '../../../../entities/warehouse/types';
+import { getStockStatus, getQtyAvailable } from '../../../../entities/warehouse/types';
+import { ItemDetailDrawer } from './ItemDetailDrawer';
 import { Skeleton } from '../../../../shared/ui/Skeleton';
 import { exportToCSV } from '../../../../shared/lib/export';
+import { localizeAttrSummary } from '../../../../shared/lib/attrLocalize';
 import { toast } from 'sonner';
 import styles from '../../../warehouse/Warehouse.module.css';
 
-type Tab = 'incoming' | 'invoice_archive' | 'orders_wh' | 'shipped' | 'items' | 'movements' | 'alerts' | 'catalog';
+type Tab = 'incoming' | 'invoice_archive' | 'orders_wh' | 'shipped' | 'items' | 'movements' | 'alerts' | 'catalog' | 'transit';
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
   in: 'Приход', out: 'Расход', adjustment: 'Корректировка', write_off: 'Списание', return: 'Возврат',
@@ -433,30 +438,47 @@ function AddMovementDrawer({ items, preselectItemId, onClose }: { items: Warehou
 
 const IMPORT_TEMPLATE = 'наименование,цвет,пол,размер,остаток,цена\nЧапан классик,Синий,Мужской,52,10,15000\nЧапан классик,Чёрный,Женский,48,5,14000';
 
+function findColIdx(keys: string[], ...patterns: string[]): number {
+  return keys.findIndex(k => patterns.some(p => k.includes(p)));
+}
+
+function rowsFromMatrix(keys: string[], data: Record<string, unknown>[]): ImportOpeningBalanceRow[] {
+  const nameIdx  = findColIdx(keys, 'наим', 'name', 'товар', 'модель');
+  const colorIdx = findColIdx(keys, 'цвет', 'color');
+  const genderIdx= findColIdx(keys, 'пол', 'gender');
+  const sizeIdx  = findColIdx(keys, 'разм', 'size');
+  const qtyIdx   = findColIdx(keys, 'остат', 'кол', 'qty', 'quantity');
+  const priceIdx = findColIdx(keys, 'цена', 'price', 'cost');
+  if (nameIdx === -1 || qtyIdx === -1) return [];
+  return data.map(row => ({
+    name:      String(row[keys[nameIdx]] ?? '').trim(),
+    color:     colorIdx  >= 0 ? (String(row[keys[colorIdx]]  ?? '').trim() || undefined) : undefined,
+    gender:    genderIdx >= 0 ? (String(row[keys[genderIdx]] ?? '').trim() || undefined) : undefined,
+    size:      sizeIdx   >= 0 ? (String(row[keys[sizeIdx]]   ?? '').trim() || undefined) : undefined,
+    qty:       parseFloat(String(row[keys[qtyIdx]] ?? '0')) || 0,
+    costPrice: priceIdx  >= 0 ? (parseFloat(String(row[keys[priceIdx]] ?? '')) || undefined) : undefined,
+  })).filter(r => r.name && r.qty >= 0);
+}
+
 function parseImportCsv(raw: string): ImportOpeningBalanceRow[] {
   const lines = raw.trim().split('\n').filter(Boolean);
   if (lines.length < 2) return [];
-  const header = lines[0].split(',').map(h => h.trim().toLowerCase());
-  const nameIdx = header.findIndex(h => h.includes('наим') || h.includes('name') || h.includes('товар') || h.includes('модель'));
-  const colorIdx = header.findIndex(h => h.includes('цвет') || h === 'color');
-  const genderIdx = header.findIndex(h => h.includes('пол') || h === 'gender');
-  const sizeIdx = header.findIndex(h => h.includes('разм') || h === 'size');
-  const qtyIdx = header.findIndex(h => h.includes('остат') || h.includes('кол') || h === 'qty' || h === 'quantity');
-  const priceIdx = header.findIndex(h => h.includes('цена') || h === 'price' || h === 'cost');
-
-  if (nameIdx === -1 || qtyIdx === -1) return [];
-
-  return lines.slice(1).map(line => {
+  const keys = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const data = lines.slice(1).map(line => {
     const cells = line.split(',').map(c => c.trim());
-    return {
-      name: cells[nameIdx] ?? '',
-      color: colorIdx >= 0 ? (cells[colorIdx] || undefined) : undefined,
-      gender: genderIdx >= 0 ? (cells[genderIdx] || undefined) : undefined,
-      size: sizeIdx >= 0 ? (cells[sizeIdx] || undefined) : undefined,
-      qty: parseFloat(cells[qtyIdx] ?? '0') || 0,
-      costPrice: priceIdx >= 0 ? (parseFloat(cells[priceIdx] ?? '') || undefined) : undefined,
-    };
-  }).filter(r => r.name && r.qty >= 0);
+    return Object.fromEntries(keys.map((k, i) => [k, cells[i] ?? '']));
+  });
+  return rowsFromMatrix(keys, data);
+}
+
+function parseImportExcel(buffer: ArrayBuffer): ImportOpeningBalanceRow[] {
+  const wb = XLSX.read(buffer, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' });
+  if (!raw.length) return [];
+  const keys = Object.keys(raw[0]).map(k => k.trim().toLowerCase());
+  const data = raw.map(row => Object.fromEntries(Object.entries(row).map(([k, v]) => [k.trim().toLowerCase(), v])));
+  return rowsFromMatrix(keys, data);
 }
 
 function ImportBalanceDrawer({ onClose }: { onClose: () => void }) {
@@ -464,21 +486,44 @@ function ImportBalanceDrawer({ onClose }: { onClose: () => void }) {
   const [csvText, setCsvText] = useState('');
   const [preview, setPreview] = useState<ImportOpeningBalanceRow[]>([]);
   const [result, setResult] = useState<{ created: number; updated: number; skipped: number; errors: Array<{ row: number; reason: string }> } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleParse() {
     setPreview(parseImportCsv(csvText));
   }
 
+  function processFile(file: File) {
+    const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const rows = parseImportExcel(e.target!.result as ArrayBuffer);
+        setPreview(rows);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target!.result as string;
+        setCsvText(text);
+        setPreview(parseImportCsv(text));
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const text = evt.target?.result as string;
-      setCsvText(text);
-      setPreview(parseImportCsv(text));
-    };
-    reader.readAsText(file, 'utf-8');
+    if (file) processFile(file);
+    e.target.value = '';
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
   }
 
   async function handleImport() {
@@ -494,7 +539,7 @@ function ImportBalanceDrawer({ onClose }: { onClose: () => void }) {
         <div className={styles.drawerHeader}>
           <div>
             <div className={styles.drawerTitle}>Загрузить начальные остатки</div>
-            <div className={styles.drawerSubtitle}>CSV файл: наименование, цвет, пол, размер, остаток, цена</div>
+            <div className={styles.drawerSubtitle}>CSV или Excel: наименование, цвет, пол, размер, остаток, цена</div>
           </div>
           <button className={styles.drawerClose} onClick={onClose}><X size={14} /></button>
         </div>
@@ -576,16 +621,24 @@ function ImportBalanceDrawer({ onClose }: { onClose: () => void }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <label style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                  padding: '9px 14px', border: '1px dashed var(--border-default)', borderRadius: 8,
-                  cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)', background: 'var(--bg-surface-inset)',
-                }}>
-                  <Upload size={14} />
-                  Выбрать CSV файл
-                  <input type="file" accept=".csv,.txt" style={{ display: 'none' }} onChange={handleFileChange} />
-                </label>
+              <div
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '20px 14px', border: `2px dashed ${isDragging ? 'var(--fill-accent)' : 'var(--border-default)'}`,
+                  borderRadius: 10, cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)',
+                  background: isDragging ? 'var(--fill-accent-subtle)' : 'var(--bg-surface-inset)',
+                  transition: 'all 140ms',
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+              >
+                <Upload size={20} style={{ color: isDragging ? 'var(--fill-accent)' : 'var(--text-tertiary)' }} />
+                <span>{isDragging ? 'Отпустите файл' : 'Перетащите или выберите файл'}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>.csv / .xlsx / .xls</span>
+                <input ref={fileInputRef} type="file" accept=".csv,.txt,.xlsx,.xls" style={{ display: 'none' }} onChange={handleFileChange} />
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)', textAlign: 'center' }}>— или —</div>
               <div className={styles.field}>
@@ -599,7 +652,7 @@ function ImportBalanceDrawer({ onClose }: { onClose: () => void }) {
                 />
               </div>
               <div style={{ background: 'var(--bg-surface-inset)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: 'var(--text-tertiary)' }}>
-                <strong style={{ color: 'var(--text-secondary)' }}>Формат CSV:</strong> наименование, цвет, пол, размер, остаток, цена (первая строка — заголовок)
+                <strong style={{ color: 'var(--text-secondary)' }}>Формат (CSV или Excel):</strong> наименование, цвет, пол, размер, остаток, цена (первая строка — заголовок)
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className={styles.drawerSecondaryBtn} style={{ flex: 1 }} onClick={onClose}>Отмена</button>
@@ -839,6 +892,119 @@ function ClickRow({ children, onClick }: { children: React.ReactNode; onClick: (
   );
 }
 
+// ── Transit Tab ───────────────────────────────────────────────────────────────
+
+function TransitTab() {
+  const { data, isLoading } = useTransitEntries({ status: 'in_transit' });
+  const dispatch = useDispatchTransitEntry();
+  const entries: WarehouseTransitEntry[] = data?.results ?? [];
+
+  // Group by orderId
+  const groups = entries.reduce<Record<string, WarehouseTransitEntry[]>>((acc, e) => {
+    const key = e.orderId ?? 'no_order';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(e);
+    return acc;
+  }, {});
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Транзит</div>
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
+            Товары, зарезервированные по активным заказам. Статус: <strong>in_transit</strong>.
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+          {entries.length} позиций
+        </div>
+      </div>
+
+      {isLoading && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[1, 2, 3].map((i) => <Skeleton key={i} style={{ height: 48, borderRadius: 8 }} />)}
+        </div>
+      )}
+
+      {!isLoading && entries.length === 0 && (
+        <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>
+          Нет товаров в транзите
+        </div>
+      )}
+
+      {!isLoading && Object.entries(groups).map(([orderId, items]) => (
+        <div
+          key={orderId}
+          style={{
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 10,
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{
+            padding: '8px 14px',
+            background: 'var(--bg-surface-elevated)',
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            borderBottom: '1px solid var(--border-subtle)',
+          }}>
+            {orderId === 'no_order' ? 'Без заказа' : `Заказ: ${orderId.slice(-8)}`}
+          </div>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Товар</th>
+                  <th style={{ textAlign: 'right' }}>Кол-во</th>
+                  <th>Источник</th>
+                  <th>Дата</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((entry) => (
+                  <tr key={entry.id} className={styles.row}>
+                    <td>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{entry.item?.name ?? entry.itemId}</div>
+                      {entry.item?.attributesSummary && (
+                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{localizeAttrSummary(entry.item.attributesSummary)}</div>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{entry.qty}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                      {entry.sourceType === 'order_demand' ? 'Заказ' :
+                       entry.sourceType === 'workshop_direct' ? 'Цех (прямая)' :
+                       entry.sourceType === 'market_purchase' ? 'Закуп' : entry.sourceType}
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{fmtDate(entry.createdAt)}</td>
+                    <td>
+                      {entry.sourceType === 'workshop_direct' && (
+                        <button
+                          className={styles.actionBtn}
+                          disabled={dispatch.isPending}
+                          onClick={() => {
+                            if (!entry.zoneId) return;
+                            dispatch.mutate({ zoneId: entry.zoneId, entryId: entry.id });
+                          }}
+                          style={{ fontSize: 11, padding: '3px 10px' }}
+                        >
+                          Отгружено
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ChapanWarehousePage() {
@@ -850,15 +1016,17 @@ export default function ChapanWarehousePage() {
   const [importBalanceOpen, setImportBalanceOpen] = useState(false);
   const [preselectItem, setPreselectItem] = useState<string | undefined>();
   const [selectedCanonicalSiteId, setSelectedCanonicalSiteId] = useState('');
+  const [verifyItem, setVerifyItem] = useState<WarehouseItem | null>(null);
 
   // Detail drawers
   const [selectedInvoice, setSelectedInvoice] = useState<ChapanInvoice | null>(null);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<string | null>(null);
   const [previewInvoice, setPreviewInvoice] = useState<ChapanInvoice | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<WarehouseItem | null>(null);
 
-  // Inventory data
-  const { data: itemsData, isLoading: itemsLoading } = useWarehouseItems({ search: deferredSearch || undefined });
+  // Inventory data — limit:2000 чтобы загрузить все позиции (нужно для точного totalUnits)
+  const { data: itemsData, isLoading: itemsLoading } = useWarehouseItems({ search: deferredSearch || undefined, limit: 2000 });
   const { data: movData, isLoading: movLoading } = useWarehouseMovements({ limit: 100 });
   const { data: alertsData } = useWarehouseAlerts();
   const deleteItem = useDeleteItem();
@@ -894,7 +1062,14 @@ export default function ChapanWarehousePage() {
   const alerts = useMemo(() => alertsData?.results ?? [], [alertsData?.results]);
   const alertCount = alerts.length;
   const incomingCount = pendingInvoices.length;
-  const totalUnits = useMemo(() => items.reduce((sum, i) => sum + i.qty, 0), [items]);
+  const { data: summaryData } = useWarehouseSummary();
+  const syncFromOrders = useSyncFromOrders();
+  const totalUnits = useMemo(() => items.reduce((sum, i) => sum + getQtyAvailable(i), 0), [items]);
+  const totalReserved = useMemo(() => items.reduce((sum, i) => sum + i.qtyReserved, 0), [items]);
+  const needsVerificationCount = useMemo(
+    () => items.filter(i => i.verificationRequired || i.qty - i.qtyReserved < 0).length,
+    [items],
+  );
   const { data: canonicalSites } = useWarehouseFoundationSites();
   const { data: canonicalSiteHealth } = useWarehouseFoundationSiteHealth(selectedCanonicalSiteId || undefined);
   const { data: canonicalControlTower } = useWarehouseFoundationSiteControlTower(selectedCanonicalSiteId || undefined);
@@ -912,12 +1087,12 @@ export default function ChapanWarehousePage() {
     }
     exportToCSV(items.map(i => ({
       'Название': i.name,
-      'Вариант': i.attributesSummary ?? '',
+      'Вариант': localizeAttrSummary(i.attributesSummary) ?? '',
       'Уникальный номер': i.sku ?? '',
       'Ед.изм': i.unit,
       'Остаток': i.qty,
       'Зарезервировано': i.qtyReserved,
-      'Доступно': i.qty - i.qtyReserved,
+      'Доступно': Math.max(0, i.qty - i.qtyReserved),
       'Мин.остаток': i.qtyMin,
       'Категория': i.category?.name ?? '',
       'Цена закупки': i.costPrice ?? '',
@@ -932,54 +1107,68 @@ export default function ChapanWarehousePage() {
 
   return (
     <div className={styles.root} style={{ height: 'auto', overflow: 'visible' }}>
-      {/* Header + tabs */}
+      {/* Header */}
       <div className={styles.header}>
         <h1 className={styles.title}>Склад</h1>
-        <div className={styles.headerRight}>
-          <div className={styles.tabs}>
-            <button className={`${styles.tab} ${tab === 'items' ? styles.tabActive : ''}`} onClick={() => setTab('items')}>
-              <Package size={13} /> Остатки
-            </button>
-            <button className={`${styles.tab} ${tab === 'movements' ? styles.tabActive : ''}`} onClick={() => setTab('movements')}>
-              <TrendingDown size={13} /> Движения
-            </button>
-            <button className={`${styles.tab} ${tab === 'alerts' ? styles.tabActive : ''}`} onClick={() => setTab('alerts')}>
-              <AlertTriangle size={13} /> Оповещения {alertCount > 0 && <span className={styles.alertBadge}>{alertCount}</span>}
-            </button>
-            <button className={`${styles.tab} ${tab === 'catalog' ? styles.tabActive : ''}`} onClick={() => setTab('catalog')}>
-              <BookOpen size={13} /> Каталог
-            </button>
+      </div>
 
-            <div className={styles.tabDivider} />
-            <span className={styles.tabGroupLabel}>Чапан</span>
+      {/* Tabs — full-width row so all tabs are always visible without horizontal scroll */}
+      <div className={styles.tabs}>
+        <button className={`${styles.tab} ${tab === 'items' ? styles.tabActive : ''}`} onClick={() => setTab('items')}>
+          <Package size={13} /> Остатки
+        </button>
+        <button className={`${styles.tab} ${tab === 'movements' ? styles.tabActive : ''}`} onClick={() => setTab('movements')}>
+          <TrendingDown size={13} /> Движения
+        </button>
+        <button className={`${styles.tab} ${tab === 'alerts' ? styles.tabActive : ''}`} onClick={() => setTab('alerts')}>
+          <AlertTriangle size={13} /> Оповещения {alertCount > 0 && <span className={styles.alertBadge}>{alertCount}</span>}
+        </button>
+        <button className={`${styles.tab} ${tab === 'catalog' ? styles.tabActive : ''}`} onClick={() => setTab('catalog')}>
+          <BookOpen size={13} /> Каталог
+        </button>
 
-            <button className={`${styles.tab} ${tab === 'incoming' ? styles.tabActive : ''}`} onClick={() => setTab('incoming')}>
-              <FileText size={13} /> Приёмка от цеха {incomingCount > 0 && <span className={styles.alertBadge}>{incomingCount}</span>}
-            </button>
-            <button className={`${styles.tab} ${tab === 'invoice_archive' ? styles.tabActive : ''}`} onClick={() => setTab('invoice_archive')}>
-              <Archive size={13} /> Журнал накладных
-            </button>
-            <button className={`${styles.tab} ${tab === 'orders_wh' ? styles.tabActive : ''}`} onClick={() => setTab('orders_wh')}>
-              <Package size={13} /> Заказы на складе {(warehouseOrders.length + partialWarehouseOrders.length) > 0 && <span className={styles.alertBadge}>{warehouseOrders.length + partialWarehouseOrders.length}</span>}
-            </button>
-            <button className={`${styles.tab} ${tab === 'shipped' ? styles.tabActive : ''}`} onClick={() => setTab('shipped')}>
-              <CheckSquare size={13} /> Отправленные {shippedOrders.length > 0 && <span className={styles.alertBadge}>{shippedOrders.length}</span>}
-            </button>
-          </div>
-        </div>
+        <button className={`${styles.tab} ${tab === 'incoming' ? styles.tabActive : ''}`} onClick={() => setTab('incoming')}>
+          <FileText size={13} /> Приёмка от цеха {incomingCount > 0 && <span className={styles.alertBadge}>{incomingCount}</span>}
+        </button>
+        <button className={`${styles.tab} ${tab === 'invoice_archive' ? styles.tabActive : ''}`} onClick={() => setTab('invoice_archive')}>
+          <Archive size={13} /> Журнал накладных
+        </button>
+        <button className={`${styles.tab} ${tab === 'orders_wh' ? styles.tabActive : ''}`} onClick={() => setTab('orders_wh')}>
+          <Package size={13} /> Заказы на складе {(warehouseOrders.length + partialWarehouseOrders.length) > 0 && <span className={styles.alertBadge}>{warehouseOrders.length + partialWarehouseOrders.length}</span>}
+        </button>
+        <button className={`${styles.tab} ${tab === 'shipped' ? styles.tabActive : ''}`} onClick={() => setTab('shipped')}>
+          <CheckSquare size={13} /> Отправленные {shippedOrders.length > 0 && <span className={styles.alertBadge}>{shippedOrders.length}</span>}
+        </button>
+        <button className={`${styles.tab} ${tab === 'transit' ? styles.tabActive : ''}`} onClick={() => setTab('transit')}>
+          <Truck size={13} /> Транзит
+        </button>
       </div>
 
       {/* Summary stats */}
       {!itemsLoading && (
         <div className={styles.statsBar}>
           <div className={styles.statItem}>
-            <span className={styles.statValue}>{items.length}</span>
+            <span className={styles.statValue}>
+              {summaryData?.totalItems ?? itemsData?.count ?? items.length}
+            </span>
             <span className={styles.statLabel}>Позиций в базе</span>
           </div>
           <div className={styles.statItem}>
             <span className={styles.statValue}>{fmtNum(totalUnits)}</span>
-            <span className={styles.statLabel}>Единиц на складе</span>
+            <span className={styles.statLabel}>Доступно (ед.)</span>
           </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue} style={{ color: totalReserved > 0 ? 'var(--fill-warning)' : 'var(--text-primary)' }}>
+              {fmtNum(totalReserved)}
+            </span>
+            <span className={styles.statLabel}>Зарезервировано</span>
+          </div>
+          {needsVerificationCount > 0 && (
+            <div className={styles.statItem}>
+              <span className={styles.statValue} style={{ color: 'var(--fill-negative)' }}>{needsVerificationCount}</span>
+              <span className={styles.statLabel}>Требуют сверки</span>
+            </div>
+          )}
           {alertCount > 0 && (
             <div className={styles.statItem}>
               <span className={styles.statValue} style={{ color: 'var(--fill-warning)' }}>{alertCount}</span>
@@ -1039,9 +1228,11 @@ export default function ChapanWarehousePage() {
                         : <span style={{ color: 'var(--fill-warning)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={12} /> Ожидает цех</span>}
                     </td>
                     <td className={styles.tdActions} onClick={(e) => e.stopPropagation()}>
-                      <button className={styles.incomBtn} onClick={() => { setPreviewInvoiceId(inv.id); setPreviewInvoice(inv); }}>
-                        <FileText size={12} /> Открыть
-                      </button>
+                      <div className={styles.tdActionsInner}>
+                        <button className={styles.incomBtn} onClick={() => { setPreviewInvoiceId(inv.id); setPreviewInvoice(inv); }}>
+                          <FileText size={12} /> Открыть
+                        </button>
+                      </div>
                     </td>
                   </ClickRow>
                   );
@@ -1078,9 +1269,11 @@ export default function ChapanWarehousePage() {
                     <td className={styles.tdNum}>{inv.items?.length ?? 0} заказ(а)</td>
                     <td className={styles.tdSecondary}>{inv.createdByName}</td>
                     <td className={styles.tdActions} onClick={(e) => e.stopPropagation()}>
-                      <button className={styles.incomBtn} onClick={() => { setPreviewInvoiceId(inv.id); setPreviewInvoice(inv); }}>
-                        <FileText size={12} /> Открыть
-                      </button>
+                      <div className={styles.tdActionsInner}>
+                        <button className={styles.incomBtn} onClick={() => { setPreviewInvoiceId(inv.id); setPreviewInvoice(inv); }}>
+                          <FileText size={12} /> Открыть
+                        </button>
+                      </div>
                     </td>
                   </ClickRow>
                 ))}
@@ -1251,9 +1444,11 @@ export default function ChapanWarehousePage() {
                     <td className={styles.tdNum}>{fmtMoney(order.totalAmount)}</td>
                     <td><span style={{ color: PAY_COLOR[order.paymentStatus], fontWeight: 500, fontSize: 12 }}>{PAY_LABEL[order.paymentStatus]}</span></td>
                     <td className={styles.tdActions} onClick={(e) => e.stopPropagation()}>
-                      <button className={styles.incomBtn} onClick={() => setSelectedOrderId(order.id)}>
-                        <CheckSquare size={12} /> Завершить
-                      </button>
+                      <div className={styles.tdActionsInner}>
+                        <button className={styles.incomBtn} onClick={() => setSelectedOrderId(order.id)}>
+                          <CheckSquare size={12} /> Завершить
+                        </button>
+                      </div>
                     </td>
                   </ClickRow>
                 ))}
@@ -1273,6 +1468,14 @@ export default function ChapanWarehousePage() {
             </div>
             <button className={styles.exportBtn} onClick={handleExportItems}><Download size={13} /> Excel</button>
             <button className={styles.exportBtn} onClick={() => setImportBalanceOpen(true)}><Upload size={13} /> Импорт остатков</button>
+            <button
+              className={styles.exportBtn}
+              onClick={() => syncFromOrders.mutate()}
+              disabled={syncFromOrders.isPending}
+              title="Создать складские позиции для товаров из активных заказов"
+            >
+              <RefreshCcw size={13} /> {syncFromOrders.isPending ? 'Синхронизация...' : 'Синхр. с заказами'}
+            </button>
             <button className={styles.addBtn} onClick={() => setAddItemOpen(true)}><Plus size={14} /> Добавить</button>
           </div>
 
@@ -1282,28 +1485,61 @@ export default function ChapanWarehousePage() {
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
-                  <tr><th>Название</th><th>Вариант</th><th>Кат.</th><th>Остаток</th><th>Мин.</th><th>Статус</th><th></th></tr>
+                  <tr><th>Название</th><th>Вариант</th><th>Кат.</th><th>Остаток</th><th>Резерв</th><th>Доступно</th><th>Мин.</th><th>Статус</th><th></th></tr>
                 </thead>
                 <tbody>
                   {items.map(item => {
                     const status = getStockStatus(item);
+                    const available = getQtyAvailable(item);
+                    const needsVerify = item.verificationRequired || item.qty - item.qtyReserved < 0;
                     return (
-                      <tr key={item.id} className={styles.row}>
-                        <td className={styles.tdName}>{item.name}</td>
+                      <tr key={item.id} className={styles.row} onClick={() => setSelectedItem(item)} style={{ cursor: 'pointer' }}>
+                        <td className={styles.tdName}>
+                          {item.name}
+                          {needsVerify && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setVerifyItem(item); }}
+                              style={{
+                                marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 3,
+                                fontSize: 10, fontWeight: 700, color: 'var(--fill-negative)',
+                                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                                borderRadius: 4, padding: '2px 6px', cursor: 'pointer',
+                              }}
+                              title="Нажмите для сверки начального остатка"
+                            >
+                              <AlertTriangle size={9} /> ???
+                            </button>
+                          )}
+                          {needsVerify && (
+                            <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                              {item.qtyBeginning} + {Math.max(0, item.qty - item.qtyBeginning)} − {Math.max(0, item.qtyBeginning - item.qty)} = {item.qty}
+                            </div>
+                          )}
+                        </td>
                         <td className={styles.tdSecondary} style={{ fontSize: 11 }}>
-                          {item.attributesSummary ?? (item.sku ? <span className={styles.tdMono}>{item.sku}</span> : '—')}
+                          {item.attributesSummary ? localizeAttrSummary(item.attributesSummary) : (item.sku ? <span className={styles.tdMono}>{item.sku}</span> : '—')}
                         </td>
                         <td className={styles.tdSecondary}>{item.category?.name ?? '—'}</td>
                         <td className={styles.tdNum}>{fmtNum(item.qty)} {item.unit}</td>
+                        <td className={styles.tdSecondary} style={{ fontSize: 12 }}>
+                          {item.qtyReserved > 0
+                            ? <span style={{ color: 'var(--fill-warning)' }}>{fmtNum(item.qtyReserved)}</span>
+                            : '—'}
+                        </td>
+                        <td className={styles.tdNum} style={{ color: needsVerify ? 'var(--fill-negative)' : 'var(--fill-positive)' }}>
+                          {fmtNum(available)} {item.unit}
+                        </td>
                         <td className={styles.tdSecondary}>{fmtNum(item.qtyMin)} {item.unit}</td>
                         <td>
                           <span className={styles.stockBadge} data-status={status}>
                             {status === 'ok' ? 'Норма' : status === 'low' ? 'Мало' : 'Критично'}
                           </span>
                         </td>
-                        <td className={styles.tdActions}>
-                          <button className={styles.incomBtn} onClick={() => { setPreselectItem(item.id); setAddMovOpen(true); }}>Приход</button>
-                          <button className={styles.deleteBtn} onClick={() => { if (confirm('Удалить позицию?')) deleteItem.mutate(item.id); }}><X size={12} /></button>
+                        <td className={styles.tdActions} onClick={e => e.stopPropagation()}>
+                          <div className={styles.tdActionsInner}>
+                            <button className={styles.incomBtn} onClick={() => { setPreselectItem(item.id); setAddMovOpen(true); }}>Приход</button>
+                            <button className={styles.deleteBtn} onClick={() => { if (confirm('Удалить позицию?')) deleteItem.mutate(item.id); }}><X size={12} /></button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1411,8 +1647,10 @@ export default function ChapanWarehousePage() {
                   <td className={styles.tdSecondary}>{a.item?.unit ?? '—'}</td>
                   <td><span className={styles.alertStatusBadge}>Низкий остаток</span></td>
                   <td className={styles.tdActions}>
-                    <button className={styles.incomBtn} onClick={() => { setPreselectItem(a.itemId); setAddMovOpen(true); setTab('movements'); }}>Записать приход</button>
-                    <button className={styles.resolveBtn} onClick={() => resolveAlert.mutate(a.id)}>Закрыть</button>
+                    <div className={styles.tdActionsInner}>
+                      <button className={styles.incomBtn} onClick={() => { setPreselectItem(a.itemId); setAddMovOpen(true); setTab('movements'); }}>Записать приход</button>
+                      <button className={styles.resolveBtn} onClick={() => resolveAlert.mutate(a.id)}>Закрыть</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1494,12 +1732,18 @@ export default function ChapanWarehousePage() {
         </div>
       )}
 
+      {/* ── Транзит tab ── */}
+      {tab === 'transit' && (
+        <TransitTab />
+      )}
+
       {/* Drawers */}
       {addItemOpen && <AddItemDrawer onClose={() => setAddItemOpen(false)} />}
       {addMovOpen && (
         <AddMovementDrawer items={items} preselectItemId={preselectItem} onClose={() => { setAddMovOpen(false); setPreselectItem(undefined); }} />
       )}
       {importBalanceOpen && <ImportBalanceDrawer onClose={() => setImportBalanceOpen(false)} />}
+      {verifyItem && <SetBeginningBalanceModal item={verifyItem} onClose={() => setVerifyItem(null)} />}
       <ChapanInvoicePreviewModal
         open={Boolean(previewInvoiceId)}
         invoiceId={previewInvoiceId}
@@ -1515,6 +1759,21 @@ export default function ChapanWarehousePage() {
       />
       {selectedInvoice && (
         <InvoiceDetailDrawer invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} />
+      )}
+      {selectedItem && (
+        <ItemDetailDrawer
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onAddMovement={() => {
+            setPreselectItem(selectedItem.id);
+            setAddMovOpen(true);
+            setSelectedItem(null);
+          }}
+          onVerify={() => {
+            setVerifyItem(selectedItem);
+            setSelectedItem(null);
+          }}
+        />
       )}
       <ChapanOrderDetailModal
         open={Boolean(selectedOrderId)}

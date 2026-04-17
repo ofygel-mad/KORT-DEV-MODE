@@ -3,7 +3,7 @@ import type {
   WarehouseItem, WarehouseMovement, WarehouseAlert, WarehouseCategory,
   WarehouseSummary, PaginatedWarehouseItems, PaginatedMovements,
   CreateItemDto, AddMovementDto, ProductsAvailabilityMap, ImportOpeningBalanceRow, ImportOpeningBalanceResult,
-  VariantAvailabilityMap,
+  VariantAvailabilityMap, ItemFormulaBreakdown,
   WarehouseFieldDefinition, WarehouseProductCatalog, OrderFormCatalog,
   VariantAvailability, ImportResult, WarehouseFoundationStatus,
   WarehouseSite, WarehouseSiteStructure, WarehouseSiteHealthSnapshot, WarehouseSiteControlTowerSnapshot, WarehouseZone, WarehouseBin,
@@ -20,11 +20,12 @@ import type {
   WarehouseExceptionTimelineResponse, WarehouseLayoutVersionCompareResult,
   WarehouseLayoutPublishAuditResponse, WarehouseLayoutRollbackResult,
   WarehouseRouteHistoryResponse, WarehouseSlaEscalationResult, WarehousePoolPolicyDto,
+  TransitZonesResponse, TransitEntriesResponse,
 } from './types';
 
 export const warehouseApi = {
   // Items
-  listItems: (params?: { search?: string; categoryId?: string; lowStock?: string; page?: number }) =>
+  listItems: (params?: { search?: string; categoryId?: string; lowStock?: string; page?: number; limit?: number }) =>
     api.get<PaginatedWarehouseItems>('/warehouse/items', params),
 
   createItem: (dto: CreateItemDto) =>
@@ -38,6 +39,18 @@ export const warehouseApi = {
 
   importOpeningBalance: (rows: ImportOpeningBalanceRow[]) =>
     api.post<ImportOpeningBalanceResult>('/warehouse/items/import-opening-balance', { rows }),
+
+  // Accumulation Method
+  setBeginningBalance: (id: string, qty: number, note?: string) =>
+    api.post<ItemFormulaBreakdown>(`/warehouse/items/${id}/set-beginning-balance`, { qty, note }),
+
+  syncFromOrders: () =>
+    api.post<{ createdItemIds: string[]; matchedItemIds: string[]; scannedOrders: number }>(
+      '/warehouse/items/sync-from-orders', {},
+    ),
+
+  getItemFormula: (id: string) =>
+    api.get<ItemFormulaBreakdown>(`/warehouse/items/${id}/formula`),
 
   // Movements
   listMovements: (params?: { itemId?: string; type?: string; page?: number; limit?: number }) =>
@@ -208,6 +221,19 @@ export const warehouseApi = {
   // Pool policy
   updatePoolPolicy: (poolId: string, dto: WarehousePoolPolicyDto) =>
     api.patch<WarehouseAssigneePoolsResponse>(`/warehouse/foundation/assignee-pools/${poolId}/policy`, dto),
+
+  // Transit Zones
+  listTransitZones: () =>
+    api.get<TransitZonesResponse>('/warehouse/transit-zones'),
+
+  listTransitEntries: (params?: { status?: string; orderId?: string }) =>
+    api.get<TransitEntriesResponse>('/warehouse/transit-entries', params),
+
+  listZoneTransitEntries: (zoneId: string, params?: { status?: string; orderId?: string }) =>
+    api.get<TransitEntriesResponse>(`/warehouse/transit-zones/${zoneId}/entries`, params),
+
+  dispatchTransitEntry: (zoneId: string, entryId: string) =>
+    api.post<void>(`/warehouse/transit-zones/${zoneId}/entries/${entryId}/dispatch`, {}),
 };
 
 // ── Smart Catalog API ──────────────────────────────────────────────────────────

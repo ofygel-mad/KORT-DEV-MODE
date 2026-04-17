@@ -8,6 +8,9 @@ import type {
   WarehousePoolPolicyDto, ImportOpeningBalanceRow,
 } from './types';
 
+// New query key for formula
+const warehouseFormulaKey = (id: string) => ['warehouse', 'item-formula', id] as const;
+
 export const warehouseKeys = {
   all: ['warehouse'] as const,
   items: (params?: object) => ['warehouse', 'items', params] as const,
@@ -45,26 +48,27 @@ export const warehouseKeys = {
   },
 };
 
-export const useWarehouseItems = (params?: { search?: string; categoryId?: string; lowStock?: string; page?: number }) =>
-  useQuery({ queryKey: warehouseKeys.items(params), queryFn: () => warehouseApi.listItems(params), staleTime: 60_000 });
+export const useWarehouseItems = (params?: { search?: string; categoryId?: string; lowStock?: string; page?: number; limit?: number }) =>
+  useQuery({ queryKey: warehouseKeys.items(params), queryFn: () => warehouseApi.listItems(params), staleTime: 60_000, refetchInterval: 5 * 60_000 });
 
 export const useWarehouseMovements = (params?: { itemId?: string; type?: string; page?: number; limit?: number }) =>
-  useQuery({ queryKey: warehouseKeys.movements(params), queryFn: () => warehouseApi.listMovements(params), staleTime: 60_000 });
+  useQuery({ queryKey: warehouseKeys.movements(params), queryFn: () => warehouseApi.listMovements(params), staleTime: 60_000, refetchInterval: 5 * 60_000 });
 
 export const useWarehouseAlerts = () =>
-  useQuery({ queryKey: warehouseKeys.alerts, queryFn: () => warehouseApi.listAlerts({ status: 'open' }), staleTime: 30_000 });
+  useQuery({ queryKey: warehouseKeys.alerts, queryFn: () => warehouseApi.listAlerts({ status: 'open' }), staleTime: 30_000, refetchInterval: 5 * 60_000 });
 
 export const useWarehouseCategories = () =>
   useQuery({ queryKey: warehouseKeys.categories, queryFn: () => warehouseApi.listCategories(), staleTime: 5 * 60_000 });
 
 export const useWarehouseSummary = () =>
-  useQuery({ queryKey: warehouseKeys.summary, queryFn: () => warehouseApi.getSummary(), staleTime: 60_000 });
+  useQuery({ queryKey: warehouseKeys.summary, queryFn: () => warehouseApi.getSummary(), staleTime: 60_000, refetchInterval: 5 * 60_000 });
 
 export const useWarehouseFoundationStatus = () =>
   useQuery({
     queryKey: warehouseKeys.foundation.status,
     queryFn: () => warehouseApi.getFoundationStatus(),
     staleTime: 30_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationSites = () =>
@@ -72,6 +76,7 @@ export const useWarehouseFoundationSites = () =>
     queryKey: warehouseKeys.foundation.sites,
     queryFn: () => warehouseApi.listFoundationSites(),
     staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationSiteStructure = (siteId?: string) =>
@@ -88,6 +93,7 @@ export const useWarehouseFoundationSiteHealth = (siteId?: string) =>
     queryFn: () => warehouseApi.getFoundationSiteHealth(siteId!),
     enabled: Boolean(siteId),
     staleTime: 15_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationSiteControlTower = (siteId?: string) =>
@@ -96,6 +102,7 @@ export const useWarehouseFoundationSiteControlTower = (siteId?: string) =>
     queryFn: () => warehouseApi.getFoundationSiteControlTower(siteId!),
     enabled: Boolean(siteId),
     staleTime: 15_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationSiteFeed = (siteId?: string, params?: { limit?: number }) =>
@@ -104,6 +111,7 @@ export const useWarehouseFoundationSiteFeed = (siteId?: string, params?: { limit
     queryFn: () => warehouseApi.getFoundationSiteFeed(siteId!, params),
     enabled: Boolean(siteId),
     staleTime: 10_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationTwinRuntime = (siteId?: string, params?: { draftVersionId?: string }) =>
@@ -112,6 +120,7 @@ export const useWarehouseFoundationTwinRuntime = (siteId?: string, params?: { dr
     queryFn: () => warehouseApi.getFoundationTwinRuntime(siteId!, params),
     enabled: Boolean(siteId),
     staleTime: 10_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationAssigneePools = (siteId?: string) =>
@@ -159,6 +168,7 @@ export const useWarehouseFoundationBalances = (siteId?: string, params?: { varia
     queryFn: () => warehouseApi.listFoundationBalances(siteId!, params),
     enabled: Boolean(siteId),
     staleTime: 15_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationReservations = (siteId?: string, params?: { status?: string }) =>
@@ -167,6 +177,7 @@ export const useWarehouseFoundationReservations = (siteId?: string, params?: { s
     queryFn: () => warehouseApi.listFoundationReservations(siteId!, params),
     enabled: Boolean(siteId),
     staleTime: 15_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationTasks = (siteId?: string, params?: { status?: string; taskType?: string }) =>
@@ -175,6 +186,7 @@ export const useWarehouseFoundationTasks = (siteId?: string, params?: { status?:
     queryFn: () => warehouseApi.listFoundationTasks(siteId!, params),
     enabled: Boolean(siteId),
     staleTime: 10_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationExceptions = (siteId?: string, params?: { status?: string; severity?: string }) =>
@@ -183,6 +195,7 @@ export const useWarehouseFoundationExceptions = (siteId?: string, params?: { sta
     queryFn: () => warehouseApi.listFoundationExceptions(siteId!, params),
     enabled: Boolean(siteId),
     staleTime: 10_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useWarehouseFoundationDocuments = (siteId?: string, params?: { documentType?: string }) =>
@@ -198,7 +211,7 @@ export const useWarehouseFoundationOutboxRuntime = () =>
     queryKey: warehouseKeys.foundation.outbox,
     queryFn: () => warehouseApi.getFoundationOutboxRuntime(),
     staleTime: 10_000,
-    refetchInterval: 10_000,
+    refetchInterval: 5 * 60_000,
   });
 
 export const useCreateItem = () => {
@@ -247,6 +260,47 @@ export const useImportOpeningBalance = () => {
       result.errors.length > 0 ? toast.warning(msg) : toast.success(msg);
     },
     onError: () => toast.error('Ошибка при импорте остатков'),
+  });
+};
+
+// ── Accumulation Method hooks ──────────────────────────────────────────────────
+
+export const useItemFormula = (id: string | undefined) =>
+  useQuery({
+    queryKey: id ? warehouseFormulaKey(id) : ['warehouse', 'item-formula', '_disabled'],
+    queryFn: () => warehouseApi.getItemFormula(id!),
+    enabled: Boolean(id),
+    staleTime: 10_000,
+  });
+
+export const useSetBeginningBalance = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, qty, note }: { id: string; qty: number; note?: string }) =>
+      warehouseApi.setBeginningBalance(id, qty, note),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: warehouseKeys.items() });
+      qc.invalidateQueries({ queryKey: warehouseKeys.summary });
+      qc.invalidateQueries({ queryKey: warehouseKeys.alerts });
+      qc.invalidateQueries({ queryKey: warehouseFormulaKey(variables.id) });
+      toast.success('Начальный остаток установлен. Сверка завершена.');
+    },
+    onError: () => toast.error('Не удалось установить начальный остаток'),
+  });
+};
+
+export const useSyncFromOrders = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => warehouseApi.syncFromOrders(),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: warehouseKeys.items() });
+      qc.invalidateQueries({ queryKey: warehouseKeys.alerts });
+      toast.success(
+        `Синхронизировано: создано ${result.createdItemIds.length}, совпало ${result.matchedItemIds.length} (просмотрено ${result.scannedOrders} заказов)`,
+      );
+    },
+    onError: () => toast.error('Ошибка синхронизации с заказами'),
   });
 };
 
@@ -577,6 +631,7 @@ export const useProductsAvailability = (names: string[]) => {
     queryFn: () => warehouseApi.checkProducts(sorted),
     enabled: sorted.length > 0,
     staleTime: 30_000,
+    refetchInterval: 5 * 60_000,
   });
 };
 
@@ -593,6 +648,7 @@ export const useVariantAvailability = (
     queryFn: () => warehouseApi.checkVariants(JSON.parse(stable)),
     enabled: variants.some((v) => v.name?.trim()),
     staleTime: 30_000,
+    refetchInterval: 5 * 60_000,
   });
 };
 
@@ -885,5 +941,34 @@ export const useUpdatePoolPolicy = () => {
       toast.success('Политика пула обновлена');
     },
     onError: () => toast.error('Не удалось обновить политику пула'),
+  });
+};
+
+// ── Transit Zone hooks ─────────────────────────────────────────────────────────
+
+export const useTransitZones = () =>
+  useQuery({
+    queryKey: ['warehouse', 'transit-zones'] as const,
+    queryFn: () => warehouseApi.listTransitZones(),
+    staleTime: 60_000,
+  });
+
+export const useTransitEntries = (params?: { status?: string; orderId?: string }) =>
+  useQuery({
+    queryKey: ['warehouse', 'transit-entries', params] as const,
+    queryFn: () => warehouseApi.listTransitEntries(params),
+    staleTime: 30_000,
+  });
+
+export const useDispatchTransitEntry = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ zoneId, entryId }: { zoneId: string; entryId: string }) =>
+      warehouseApi.dispatchTransitEntry(zoneId, entryId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['warehouse', 'transit-entries'] });
+      toast.success('Отгрузка подтверждена');
+    },
+    onError: () => toast.error('Не удалось подтвердить отгрузку'),
   });
 };

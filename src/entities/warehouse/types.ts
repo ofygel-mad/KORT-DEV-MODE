@@ -13,7 +13,9 @@ export interface WarehouseItem {
   sku?: string | null;
   unit: string;
   qty: number;
+  qtyBeginning: number;
   qtyReserved: number;
+  verificationRequired: boolean;
   qtyMin: number;
   qtyMax?: number | null;
   costPrice?: number | null;
@@ -26,6 +28,16 @@ export interface WarehouseItem {
   attributesSummary?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ItemFormulaBreakdown {
+  qtyBeginning: number;
+  totalIn: number;
+  totalOut: number;
+  qtyEnd: number;
+  qtyReserved: number;
+  qtyAvailable: number;
+  verificationRequired: boolean;
 }
 
 export type MovementType = 'in' | 'out' | 'adjustment' | 'write_off' | 'return';
@@ -1080,6 +1092,7 @@ export interface CreateItemDto {
   color?: string;
   gender?: string;
   size?: string;
+  length?: string;
 }
 
 export interface AddMovementDto {
@@ -1094,6 +1107,7 @@ export interface ImportOpeningBalanceRow {
   color?: string;
   gender?: string;
   size?: string;
+  length?: string;
   qty: number;
   costPrice?: number;
 }
@@ -1210,9 +1224,21 @@ export interface ImportResult {
   errors: string[];
 }
 
+/** Доступное количество — никогда не бывает отрицательным. */
+export function getQtyAvailable(item: WarehouseItem): number {
+  return Math.max(0, item.qty - item.qtyReserved);
+}
+
+/** Доступное количество со знаком — может быть отрицательным (метод накопления). */
+export function getQtyAvailableSigned(item: WarehouseItem): number {
+  return item.qty - item.qtyReserved;
+}
+
+/** Статус товара рассчитывается по доступному, а не валовому количеству. */
 export function getStockStatus(item: WarehouseItem): StockStatus {
-  if (item.qty <= item.qtyMin) return 'critical';
-  if (item.qty <= item.qtyMin * 1.5) return 'low';
+  const available = getQtyAvailable(item);
+  if (available <= item.qtyMin) return 'critical';
+  if (available <= item.qtyMin * 1.5) return 'low';
   return 'ok';
 }
 
@@ -1286,4 +1312,40 @@ export interface WarehousePoolPolicyDto {
   assignmentPolicy?: 'fifo' | 'round_robin' | 'skill_match';
   slaTimeoutMin?: number;
   escalationPoolId?: string | null;
+}
+
+// ── Transit Zone types ─────────────────────────────────────────────────────────
+
+export type TransitEntryStatus = 'in_transit' | 'dispatched' | 'cancelled';
+export type TransitEntrySourceType = 'order_demand' | 'workshop_direct' | 'market_purchase';
+
+export interface WarehouseTransitZone {
+  id: string;
+  orgId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface WarehouseTransitEntry {
+  id: string;
+  orgId: string;
+  zoneId: string;
+  itemId: string;
+  orderId?: string | null;
+  qty: number;
+  status: TransitEntryStatus;
+  sourceType: TransitEntrySourceType;
+  createdAt: string;
+  updatedAt: string;
+  item?: Pick<WarehouseItem, 'id' | 'name' | 'unit' | 'attributesSummary'>;
+}
+
+export interface TransitZonesResponse {
+  count: number;
+  results: WarehouseTransitZone[];
+}
+
+export interface TransitEntriesResponse {
+  count: number;
+  results: WarehouseTransitEntry[];
 }

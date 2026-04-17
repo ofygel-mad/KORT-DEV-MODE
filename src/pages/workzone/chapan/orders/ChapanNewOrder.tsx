@@ -102,7 +102,11 @@ const schema = z
         (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) - (Number(item.itemDiscount) || 0),
       );
     }, 0);
-    const finalTotal = Math.max(0, itemsSubtotal - (data.orderDiscount ?? 0));
+    const subtotalAfterDiscount = Math.max(0, itemsSubtotal - (data.orderDiscount ?? 0));
+    const bankCommissionPct = data.bankCommissionPercent ?? 0;
+    const bankCommissionAmount = Math.round(subtotalAfterDiscount * bankCommissionPct / 100);
+    const deliveryFee = data.deliveryFee ?? 0;
+    const finalTotal = Math.max(0, subtotalAfterDiscount + deliveryFee + bankCommissionAmount);
 
     if ((data.prepayment ?? 0) > 0 && !data.paymentMethod) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Укажите способ оплаты', path: ['paymentMethod'] });
@@ -168,7 +172,6 @@ function buildPayloadItems(items: FormData['items'], orderDiscount: number) {
 
     return {
       productName: line.item.productName,
-      fabric: line.item.color?.trim() || undefined,  // color goes to fabric for invoice compat
       color: line.item.color?.trim() || undefined,
       gender: line.item.gender?.trim() || undefined,
       length: line.item.length?.trim() || undefined,
