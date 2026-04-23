@@ -239,6 +239,7 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
   backdrop-filter: blur(16px) saturate(140%);
   box-shadow:
     0 22px 48px -22px rgba(0,0,0,0.72),
@@ -287,4 +288,10 @@
   .mobileFooter {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.canvasLoading {
+  position: absolute;
+  inset: 0;
+  background: var(--scene-bg, #0a0a0a);
 }
