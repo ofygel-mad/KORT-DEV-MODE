@@ -21,6 +21,8 @@
   "exclude": [
     "node_modules",
     "dist",
+    "src/pages",
+    "src/features/workspace/widgets",
     "src/test",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
