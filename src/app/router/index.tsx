@@ -1,14 +1,16 @@
 import { createBrowserRouter, Navigate, NavLink, RouterProvider } from 'react-router-dom';
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { AppShell } from '../layout/AppShell';
-import { PageLoader } from '../../shared/ui/PageLoader';
-import { ErrorBoundary } from '../../shared/ui/ErrorBoundary';
-import { isChunkLoadError, reloadForChunkErrorOnce } from '../../shared/lib/browser';
-import { useAuthStore } from '../../shared/stores/auth';
-import { usePlan, planIncludes, PLAN_LABELS, type OrgMode } from '../../shared/hooks/usePlan';
-import { useRole } from '../../shared/hooks/useRole';
-import { useEmployeePermissions } from '../../shared/hooks/useEmployeePermissions';
-import { useChapanPermissions } from '../../shared/hooks/useChapanPermissions';
+import { PageLoader } from '@/shared/ui/PageLoader';
+import { ErrorBoundary } from '@/shared/ui/ErrorBoundary';
+import { isChunkLoadError, reloadForChunkErrorOnce } from '@/shared/lib/browser';
+import { useAuthStore } from '@/shared/stores/auth';
+import { usePlan, planIncludes, PLAN_LABELS, type OrgMode } from '@/shared/hooks/usePlan';
+import { useRole } from '@/shared/hooks/useRole';
+import { useEmployeePermissions } from '@/shared/hooks/useEmployeePermissions';
+import { useChapanPermissions } from '@/shared/hooks/useChapanPermissions';
+import ChapanKaspiStagePage from '@/features/auth/pages/workzone/chapan/kaspi-orders/ChapanKaspiStagePage';
+import ChapanKaspiStockPage from '@/features/auth/pages/workzone/chapan/kaspi-orders/ChapanKaspiStockPage';
 
 import { Settings } from 'lucide-react';
 
@@ -35,51 +37,54 @@ function makePage(imp: () => Promise<{ default: ComponentType }>) {
 }
 
 // Core pages
-const CanvasPage     = makePage(() => import('../../pages/canvas'));
-const LeadsPage      = makePage(() => import('../../pages/crm/leads'));
-const DealsPage      = makePage(() => import('../../pages/crm/deals'));
-const CustomersPage  = makePage(() => import('../../pages/crm/customers'));
-const TasksPage      = makePage(() => import('../../pages/crm/tasks'));
-const WarehousePage  = makePage(() => import('../../pages/warehouse'));
-const WarehouseTwinPage = makePage(() => import('../../pages/warehouse/Twin'));
-const WarehouseOperationsPage = makePage(() => import('../../pages/warehouse/Operations'));
-const WarehouseControlTowerPage = makePage(() => import('../../pages/warehouse/ControlTower'));
-const ProductionPage = makePage(() => import('../../pages/production'));
-const FinancePage    = makePage(() => import('../../pages/finance'));
-const EmployeesPage  = makePage(() => import('../../pages/employees'));
-const ReportsPage    = makePage(() => import('../../pages/reports'));
-const DocumentsPage  = makePage(() => import('../../pages/documents'));
-const SettingsPage   = makePage(() => import('../../pages/settings'));
-const OnboardingPage = makePage(() => import('../../pages/onboarding'));
+const CanvasPage     = makePage(() => import('@/features/auth/pages/canvas'));
+const LeadsPage      = makePage(() => import('@/features/auth/pages/crm/leads'));
+const DealsPage      = makePage(() => import('@/features/auth/pages/crm/deals'));
+const CustomersPage  = makePage(() => import('@/features/auth/pages/crm/customers'));
+const TasksPage      = makePage(() => import('@/features/auth/pages/crm/tasks'));
+const WarehousePage  = makePage(() => import('@/features/auth/pages/warehouse'));
+const WarehouseTwinPage = makePage(() => import('@/features/auth/pages/warehouse/Twin'));
+const WarehouseOperationsPage = makePage(() => import('@/features/auth/pages/warehouse/Operations'));
+const WarehouseControlTowerPage = makePage(() => import('@/features/auth/pages/warehouse/ControlTower'));
+const ProductionPage = makePage(() => import('@/features/auth/pages/production'));
+const FinancePage    = makePage(() => import('@/features/auth/pages/finance'));
+const EmployeesPage  = makePage(() => import('@/features/auth/pages/employees'));
+const ReportsPage    = makePage(() => import('@/features/auth/pages/reports'));
+const DocumentsPage  = makePage(() => import('@/features/auth/pages/documents'));
+const SettingsPage   = makePage(() => import('@/features/auth/pages/settings'));
+const OnboardingPage = makePage(() => import('@/features/auth/pages/onboarding'));
 
 // Landing page (public)
-const LandingPage = makePage(() => import('../../pages/landing'));
+const LandingPage = makePage(() => import('@/features/auth/pages/landing'));
 
 // Dev panel — no auth, service password only
-const DevPanelPage = makePage(() => import('../../pages/dev'));
+const DevPanelPage = makePage(() => import('@/features/auth/pages/dev'));
 
 // Auth pages
-const AcceptInvitePage  = makePage(() => import('../../pages/auth/accept-invite'));
-const ResetPasswordPage = makePage(() => import('../../pages/auth/reset-password'));
+const LoginPage         = makePage(() => import('@/features/auth/pages/auth/login'));
+const AcceptInvitePage  = makePage(() => import('@/features/auth/pages/auth/accept-invite'));
+const ResetPasswordPage = makePage(() => import('@/features/auth/pages/auth/reset-password'));
 
 // Chapan Workzone — own layout
-const ChapanShell           = makePage(() => import('../../pages/workzone/chapan/ChapanShell'));
-const ChapanWarehousePage   = makePage(() => import('../../pages/workzone/chapan/warehouse/WarehousePage'));
-const ChapanCatalogPage     = makePage(() => import('../../pages/workzone/chapan/catalog/ChapanCatalog'));
-const ChapanOrdersPage   = makePage(() => import('../../pages/workzone/chapan/orders/ChapanOrders'));
-const ChapanNewOrderPage = makePage(() => import('../../pages/workzone/chapan/orders/ChapanNewOrder'));
-const ChapanOrderDetailPage = makePage(() => import('../../pages/workzone/chapan/orders/ChapanOrderDetail'));
-const ChapanEditOrderPage   = makePage(() => import('../../pages/workzone/chapan/orders/ChapanEditOrder'));
-const ChapanProductionPage  = makePage(() => import('../../pages/workzone/chapan/production/ChapanProduction'));
-const ChapanReadyPage       = makePage(() => import('../../pages/workzone/chapan/ready/ChapanReady'));
-const ChapanInvoicesPage    = makePage(() => import('../../pages/workzone/chapan/invoices/ChapanInvoices'));
-const ChapanReturnsPage     = makePage(() => import('../../pages/workzone/chapan/returns/ChapanReturns'));
-const ChapanArchivePage     = makePage(() => import('../../pages/workzone/chapan/archive/ChapanArchive'));
-const ChapanShippingPage    = makePage(() => import('../../pages/workzone/chapan/shipping/ChapanShipping'));
-const ChapanAnalyticsPage   = makePage(() => import('../../pages/workzone/chapan/analytics/ChapanAnalytics'));
-const ChapanPurchasePage    = makePage(() => import('../../pages/workzone/chapan/purchase/ChapanPurchase'));
-const ChapanClientsPage     = makePage(() => import('../../pages/workzone/chapan/clients/ChapanClients'));
-const ChapanClientDetailPage = makePage(() => import('../../pages/workzone/chapan/clients/ChapanClientDetail'));
+const ChapanShell             = makePage(() => import('@/features/auth/pages/workzone/chapan/ChapanShell'));
+const ChapanWarehousePage     = makePage(() => import('@/features/auth/pages/workzone/chapan/warehouse/WarehousePage'));
+const ChapanCatalogPage       = makePage(() => import('@/features/auth/pages/workzone/chapan/catalog/ChapanCatalog'));
+const ChapanOrdersPage        = makePage(() => import('@/features/auth/pages/workzone/chapan/orders/ChapanOrders'));
+const ChapanKaspiOrdersPage   = makePage(() => import('@/features/auth/pages/workzone/chapan/kaspi-orders/ChapanKaspiOrders'));
+const ChapanKaspiOrderPage    = makePage(() => import('@/features/auth/pages/workzone/chapan/kaspi-orders/ChapanKaspiOrderDetail'));
+const ChapanNewOrderPage      = makePage(() => import('@/features/auth/pages/workzone/chapan/orders/ChapanNewOrder'));
+const ChapanOrderDetailPage   = makePage(() => import('@/features/auth/pages/workzone/chapan/orders/ChapanOrderDetail'));
+const ChapanEditOrderPage     = makePage(() => import('@/features/auth/pages/workzone/chapan/orders/ChapanEditOrder'));
+const ChapanProductionPage    = makePage(() => import('@/features/auth/pages/workzone/chapan/production/ChapanProduction'));
+const ChapanReadyPage         = makePage(() => import('@/features/auth/pages/workzone/chapan/ready/ChapanReady'));
+const ChapanInvoicesPage      = makePage(() => import('@/features/auth/pages/workzone/chapan/invoices/ChapanInvoices'));
+const ChapanReturnsPage       = makePage(() => import('@/features/auth/pages/workzone/chapan/returns/ChapanReturns'));
+const ChapanArchivePage       = makePage(() => import('@/features/auth/pages/workzone/chapan/archive/ChapanArchive'));
+const ChapanShippingPage      = makePage(() => import('@/features/auth/pages/workzone/chapan/shipping/ChapanShipping'));
+const ChapanAnalyticsPage     = makePage(() => import('@/features/auth/pages/workzone/chapan/analytics/ChapanAnalytics'));
+const ChapanPurchasePage      = makePage(() => import('@/features/auth/pages/workzone/chapan/purchase/ChapanPurchase'));
+const ChapanClientsPage       = makePage(() => import('@/features/auth/pages/workzone/chapan/clients/ChapanClients'));
+const ChapanClientDetailPage  = makePage(() => import('@/features/auth/pages/workzone/chapan/clients/ChapanClientDetail'));
 
 function RootIndex() {
   const user = useAuthStore((s) => s.user);
@@ -383,6 +388,44 @@ export const appRouter = createBrowserRouter([
         element: <RequirePermission check="chapan_orders"><ChapanOrdersPage /></RequirePermission>,
       },
       {
+        path: 'kaspi-orders',
+        element: <RequirePermission check="chapan_orders"><ChapanKaspiOrdersPage /></RequirePermission>,
+        children: [
+          {
+            index: true,
+            element: <Navigate to="new" replace />,
+          },
+          {
+            path: 'new',
+            element: <ChapanKaspiStagePage stage="new" />,
+          },
+          {
+            path: 'in-progress',
+            element: <ChapanKaspiStagePage stage="in_progress" />,
+          },
+          {
+            path: 'completed',
+            element: <ChapanKaspiStagePage stage="completed" />,
+          },
+          {
+            path: 'cancelled',
+            element: <ChapanKaspiStagePage stage="cancelled" />,
+          },
+          {
+            path: 'issues',
+            element: <ChapanKaspiStagePage stage="issues" />,
+          },
+          {
+            path: 'stock',
+            element: <ChapanKaspiStockPage />,
+          },
+          {
+            path: ':externalOrderId',
+            element: <ChapanKaspiOrderPage />,
+          },
+        ],
+      },
+      {
         path: 'orders/new',
         element: <RequirePermission check="chapan_orders"><ChapanNewOrderPage /></RequirePermission>,
       },
@@ -462,7 +505,7 @@ export const appRouter = createBrowserRouter([
   },
 
   // ── Auth ───────────────────────────────────────────────
-  { path: '/auth/login',         element: <Navigate to="/" replace /> },
+  { path: '/auth/login',         element: <LoginPage /> },
   { path: '/auth/register',      element: <Navigate to="/" replace /> },
   { path: '/auth/accept-invite', element: <AcceptInvitePage /> },
   { path: '/reset-password',     element: <ResetPasswordPage /> },

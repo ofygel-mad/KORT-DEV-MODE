@@ -15,6 +15,7 @@ type ReadyOrder = ChapanOrder & { status: ReadyStatus };
 type DisplayGroup =
   | { kind: 'single'; order: ReadyOrder }
   | { kind: 'batch'; orders: ReadyOrder[] };
+const READY_LAYOUT_VERSION = '2026-05-ready-ref-v1';
 
 const STATUS_LABEL: Record<ReadyStatus, string> = {
   confirmed: 'Частично готово',
@@ -57,6 +58,32 @@ function viewStorageKey(userId?: string) {
 
 function groupStorageKey(userId?: string) {
   return `chapan_ready_grouped_${userId ?? 'guest'}`;
+}
+
+function layoutVersionKey(userId?: string) {
+  return `chapan_ready_layout_version_${userId ?? 'guest'}`;
+}
+
+function ensureLayoutStorageVersion(userId?: string) {
+  if (typeof window === 'undefined') return;
+  const versionKey = layoutVersionKey(userId);
+  const current = localStorage.getItem(versionKey);
+  if (current === READY_LAYOUT_VERSION) return;
+
+  localStorage.setItem(versionKey, READY_LAYOUT_VERSION);
+  localStorage.setItem(viewStorageKey(userId), 'grid');
+  localStorage.setItem(groupStorageKey(userId), 'true');
+}
+
+function readStoredViewMode(userId?: string): ViewMode {
+  ensureLayoutStorageVersion(userId);
+  const saved = localStorage.getItem(viewStorageKey(userId));
+  return (saved === 'grid' || saved === 'list') ? saved : 'grid';
+}
+
+function readStoredGrouped(userId?: string) {
+  ensureLayoutStorageVersion(userId);
+  return localStorage.getItem(groupStorageKey(userId)) !== 'false';
 }
 
 function formatMoney(value: number) {
@@ -195,14 +222,8 @@ export default function ChapanReadyPage() {
     && membershipRole !== 'admin';
 
   const [search, setSearch] = useState('');
-  const [viewMode, setViewModeState] = useState<ViewMode>(() => {
-    const saved = localStorage.getItem(viewStorageKey(userId));
-    return (saved === 'grid' || saved === 'list') ? saved : 'grid';
-  });
-  const [grouped, setGroupedState] = useState(() => {
-    const saved = localStorage.getItem(groupStorageKey(userId));
-    return saved !== null ? saved !== 'false' : true;
-  });
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => readStoredViewMode(userId));
+  const [grouped, setGroupedState] = useState(() => readStoredGrouped(userId));
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -231,13 +252,20 @@ export default function ChapanReadyPage() {
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [showViewMenu]);
 
+  useEffect(() => {
+    setViewModeState(readStoredViewMode(userId));
+    setGroupedState(readStoredGrouped(userId));
+  }, [userId]);
+
   const setViewMode = (mode: ViewMode) => {
+    ensureLayoutStorageVersion(userId);
     setViewModeState(mode);
     setShowViewMenu(false);
     localStorage.setItem(viewStorageKey(userId), mode);
   };
 
   const toggleGrouped = () => {
+    ensureLayoutStorageVersion(userId);
     setGroupedState((value) => {
       localStorage.setItem(groupStorageKey(userId), String(!value));
       return !value;
@@ -923,47 +951,64 @@ function ReadyBatchCard({
 }) {
   const firstOrder = orders[0];
   const firstItem = firstOrder.items?.[0];
-  const totalQuantity = orders.reduce(
-    (sum, order) => sum + (order.items ?? []).reduce((itemSum, item) => itemSum + item.quantity, 0),
-    0,
-  );
-  const nextStageLabel = getStageActionLabel(firstOrder.status);
+  const totalAmount = orders.reduce((sum, order) => sum + order.totalAmount, 0);
   const allSelected = selectedIds ? orders.every((o) => selectedIds.has(o.id)) : false;
   const anyPendingWorkshop = orders.some(hasPendingProduction);
   const anyPendingRouting = orders.some(hasPendingRouting);
+  const uniqueClients = [...new Set(orders.map((order) => order.clientName).filter(Boolean))];
+  const clientPreview = uniqueClients.slice(0, 2);
+  const extraClients = uniqueClients.length - clientPreview.length;
+  const dueDates = orders
+    .map((order) => order.dueDate)
+    .filter((date): date is string => Boolean(date))
+    .sort((a, b) => +new Date(a) - +new Date(b));
+  const firstDueDate = dueDates[0] ?? null;
+  const lastDueDate = dueDates[dueDates.length - 1] ?? null;
+  const deadlineLabel = !firstDueDate
+    ? formatDate(null)
+    : firstDueDate === lastDueDate
+      ? formatDate(firstDueDate)
+      : `${formatDate(firstDueDate)} - ${formatDate(lastDueDate)}`;
 
   const handleSelectToggle = selectMode && onToggleSelectMany ? onToggleSelectMany : undefined;
 
   return (
     <div
-      className={`${styles.batchCard} ${allSelected ? styles.cardSelected : ''}`}
+      className={`${styles.card} ${allSelected ? styles.cardSelected : ''}`}
       style={{ '--status-color': STATUS_COLOR[firstOrder.status] } as CSSProperties}
       onClick={handleSelectToggle}
     >
-      <div className={styles.batchHead}>
-        {allSelected && <Check size={14} className={styles.rowCheckmark} />}
-        <span className={styles.batchCount}>{orders.length}</span>
+      <div className={`${styles.readyCell} ${styles.cellSelect}`}>
+        {allSelected && <span className={styles.selectCheckmark}><Check size={13} /></span>}
+      </div>
+
+      <div className={`${styles.readyCell} ${styles.cellOrderNum}`}>
+        <span className={styles.orderNum}>×{orders.length}</span>
         <span className={styles.statusBadge}>{STATUS_LABEL[firstOrder.status]}</span>
       </div>
 
-      {firstItem && (
-        <div className={styles.batchProduct}>
-          <span className={styles.itemName}>{buildItemLine(firstItem)}</span>
-          <span className={styles.itemMeta}>{firstItem.size ?? ''}</span>
-        </div>
-      )}
+      <div className={`${styles.readyCell} ${styles.cellClient}`}>
+        <span className={styles.clientName}>{orders.length} заказа в группе</span>
+        <span className={styles.phone}>
+          {clientPreview.join(', ')}
+          {extraClients > 0 ? ` + ещё ${extraClients}` : ''}
+        </span>
+      </div>
 
-      {orders.length <= 3 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-          {orders.map((o) => (
-            <span key={o.id} style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.7 }}>
-              #{o.orderNumber}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className={`${styles.readyCell} ${styles.cellItems}`}>
+        {firstItem && (
+          <>
+            <span className={styles.itemName}>{buildItemLine(firstItem)}</span>
+            <span className={styles.itemMeta}>{firstItem.size ?? ''}</span>
+          </>
+        )}
+        <span className={styles.itemMore}>
+          {orders.slice(0, 3).map((order) => `#${order.orderNumber}`).join(', ')}
+          {orders.length > 3 ? ` + ещё ${orders.length - 3}` : ''}
+        </span>
+      </div>
 
-      <div className={styles.batchMeta}>
+      <div className={`${styles.readyCell} ${styles.cellPayment}`}>
         <span>{totalQuantity} шт.</span>
         <span>{formatDate(firstOrder.dueDate)}</span>
       </div>

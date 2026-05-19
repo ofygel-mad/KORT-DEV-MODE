@@ -1,4 +1,4 @@
-import { api, apiClient } from '../../shared/api/client';
+import { api, apiClient } from '@/shared/api/client';
 import type {
   WarehouseItem, WarehouseMovement, WarehouseAlert, WarehouseCategory,
   WarehouseSummary, PaginatedWarehouseItems, PaginatedMovements,
@@ -21,11 +21,13 @@ import type {
   WarehouseLayoutPublishAuditResponse, WarehouseLayoutRollbackResult,
   WarehouseRouteHistoryResponse, WarehouseSlaEscalationResult, WarehousePoolPolicyDto,
   TransitZonesResponse, TransitEntriesResponse,
+  WarehouseProductPhoto,
+  VariantAvailabilityInput,
 } from './types';
 
 export const warehouseApi = {
   // Items
-  listItems: (params?: { search?: string; categoryId?: string; lowStock?: string; page?: number; limit?: number }) =>
+  listItems: (params?: { search?: string; categoryId?: string; lowStock?: string; verificationRequired?: boolean; page?: number; limit?: number }) =>
     api.get<PaginatedWarehouseItems>('/warehouse/items', params),
 
   createItem: (dto: CreateItemDto) =>
@@ -200,7 +202,7 @@ export const warehouseApi = {
     api.post<ProductsAvailabilityMap>('/warehouse/products-availability', { names }),
 
   // Chapan integration: check stock by full variant (name + color/size/gender)
-  checkVariants: (variants: Array<{ name: string; color?: string; size?: string; gender?: string }>) =>
+  checkVariants: (variants: VariantAvailabilityInput[]) =>
     api.post<VariantAvailabilityMap>('/warehouse/items/variant-availability', { variants }),
 
   // Layout rollback
@@ -339,4 +341,27 @@ export const warehouseCatalogApi = {
       })
       .then((r) => r.data);
   },
+};
+
+// ── Product Photos API ─────────────────────────────────────────────────────────
+
+export const productPhotosApi = {
+  list: (productId: string) =>
+    api.get<WarehouseProductPhoto[]>(`/warehouse/catalog/products/${productId}/photos`),
+
+  upload: (productId: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return apiClient
+      .post<WarehouseProductPhoto>(`/warehouse/catalog/products/${productId}/photos`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+
+  fileUrl: (productId: string, photoId: string) =>
+    `/api/v1/warehouse/catalog/products/${productId}/photos/${photoId}/file`,
+
+  delete: (productId: string, photoId: string) =>
+    api.delete<{ ok: boolean }>(`/warehouse/catalog/products/${productId}/photos/${photoId}`),
 };

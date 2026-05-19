@@ -1140,6 +1140,14 @@ export interface VariantAvailabilityResult {
   itemName: string | null;
 }
 
+export interface VariantAvailabilityInput {
+  name: string;
+  color?: string;
+  size?: string;
+  gender?: string;
+  length?: string;
+}
+
 /** key = variantKey (e.g. "платье:color=красный:size=m") */
 export type VariantAvailabilityMap = Record<string, VariantAvailabilityResult>;
 
@@ -1192,6 +1200,19 @@ export interface WarehouseProductCatalog {
   isActive: boolean;
   source?: string | null;
   fieldLinks: WarehouseProductField[];
+}
+
+export interface WarehouseProductPhoto {
+  id: string;
+  productId: string;
+  orgId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  storagePath: string;
+  sortOrder: number;
+  createdAt: string;
+  fileUrl?: string;
 }
 
 export interface OrderFormField {

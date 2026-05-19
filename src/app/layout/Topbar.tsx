@@ -3,20 +3,20 @@ import { useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Bell, ChevronRight, Search, User } from 'lucide-react';
-import { ThemeSwitcher } from '../../shared/ui/ThemeSwitcher';
-import { addDocumentListener } from '../../shared/lib/browser';
-import { api } from '../../shared/api/client';
-import { useSSE } from '../../shared/hooks/useSSE';
-import { useIsMobile } from '../../shared/hooks/useIsMobile';
-import { useT } from '../../shared/i18n';
-import { popoverVariants, t } from '../../shared/motion/presets';
-import { useCommandPalette } from '../../shared/stores/commandPalette';
-import { useAuthStore } from '../../shared/stores/auth';
-import { useProfileStore, ONLINE_STATUSES, getComputedOnlineStatus } from '../../shared/stores/profile';
-import { usePlan, PLAN_LABELS, PLAN_COLORS } from '../../shared/hooks/usePlan';
-import { PlanUpgradeModal } from '../../features/plan';
-import { useSharedBus } from '../../features/shared-bus';
-import type { GlobalNotifEvent } from '../../features/shared-bus';
+import { ThemeSwitcher } from '@/shared/ui/ThemeSwitcher';
+import { addDocumentListener } from '@/shared/lib/browser';
+import { api } from '@/shared/api/client';
+import { useSSE } from '@/shared/hooks/useSSE';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
+import { useT } from '@/shared/i18n';
+import { popoverVariants, t } from '@/shared/motion/presets';
+import { useCommandPalette } from '@/shared/stores/commandPalette';
+import { useAuthStore } from '@/shared/stores/auth';
+import { useProfileStore, ONLINE_STATUSES, getComputedOnlineStatus } from '@/shared/stores/profile';
+import { usePlan, PLAN_LABELS, PLAN_COLORS } from '@/shared/hooks/usePlan';
+import { PlanUpgradeModal } from '@/features/plan';
+import { useSharedBus } from '@/features/shared-bus';
+import type { GlobalNotifEvent } from '@/features/shared-bus';
 import styles from './Topbar.module.css';
 
 interface Notification {
@@ -200,25 +200,17 @@ function useDynamicCrumb(enabled: boolean): { parent: string; parentPath: string
 
 const BREADCRUMBS: Record<string, string> = {
   '/': 'Главная',
-  '/feed': 'Лента',
   '/crm/leads': 'Лиды',
   '/crm/deals': 'Сделки',
   '/crm/customers': 'Клиенты',
   '/crm/tasks': 'Задачи',
   '/warehouse': 'Склад',
   '/reports': 'Отчёты',
-  '/automations': 'Автоматизации',
   '/settings': 'Настройки',
-  '/audit': 'Аудит',
-  '/admin': 'Управление',
 };
 
 function resolveBackTarget(pathname: string) {
-  if (pathname.startsWith('/customers/')) return '/customers';
-  if (pathname.startsWith('/deals/')) return '/deals';
   if (pathname.startsWith('/settings')) return '/';
-  if (pathname.startsWith('/admin')) return '/';
-  if (pathname.startsWith('/imports')) return '/';
   return '/';
 }
 

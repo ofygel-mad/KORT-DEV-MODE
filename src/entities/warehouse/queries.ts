@@ -1,12 +1,15 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { toast } from 'sonner';
-import { warehouseApi, warehouseCatalogApi } from './api';
+import { warehouseApi, warehouseCatalogApi, productPhotosApi } from './api';
 import type {
   CreateItemDto, AddMovementDto, CreateWarehouseSiteDto,
   CreateWarehouseZoneDto, CreateWarehouseBinDto, UpsertWarehouseVariantDto,
   PostStockReceiptDto, PostStockTransferDto, CreateStockReservationDto,
   WarehousePoolPolicyDto, ImportOpeningBalanceRow,
+  VariantAvailabilityInput,
 } from './types';
+import { buildVariantLookupKey } from '@/shared/utils/variantAvailability';
 
 // New query key for formula
 const warehouseFormulaKey = (id: string) => ['warehouse', 'item-formula', id] as const;
@@ -48,7 +51,7 @@ export const warehouseKeys = {
   },
 };
 
-export const useWarehouseItems = (params?: { search?: string; categoryId?: string; lowStock?: string; page?: number; limit?: number }) =>
+export const useWarehouseItems = (params?: { search?: string; categoryId?: string; lowStock?: string; verificationRequired?: boolean; page?: number; limit?: number }) =>
   useQuery({ queryKey: warehouseKeys.items(params), queryFn: () => warehouseApi.listItems(params), staleTime: 60_000, refetchInterval: 5 * 60_000 });
 
 export const useWarehouseMovements = (params?: { itemId?: string; type?: string; page?: number; limit?: number }) =>
@@ -636,12 +639,19 @@ export const useProductsAvailability = (names: string[]) => {
 };
 
 export const useVariantAvailability = (
-  variants: Array<{ name: string; color?: string; size?: string; gender?: string }>,
+  variants: VariantAvailabilityInput[],
 ) => {
   const stable = JSON.stringify(
     [...variants]
       .filter((v) => v.name?.trim())
-      .sort((a, b) => a.name.localeCompare(b.name)),
+      .map((variant) => ({
+        name: variant.name.trim(),
+        color: variant.color?.trim() || undefined,
+        gender: variant.gender?.trim() || undefined,
+        length: variant.length?.trim() || undefined,
+        size: variant.size?.trim() || undefined,
+      }))
+      .sort((a, b) => buildVariantLookupKey(a.name, a).localeCompare(buildVariantLookupKey(b.name, b))),
   );
   return useQuery({
     queryKey: ['warehouse_variant_availability', stable],
@@ -971,4 +981,73 @@ export const useDispatchTransitEntry = () => {
     },
     onError: () => toast.error('Не удалось подтвердить отгрузку'),
   });
+};
+
+// ── Product Photo hooks ────────────────────────────────────────────────────────
+
+export const useProductPhotos = (productId: string) =>
+  useQuery({
+    queryKey: ['warehouse', 'catalog', 'product-photos', productId] as const,
+    queryFn: () => productPhotosApi.list(productId),
+    staleTime: 5 * 60_000,
+    enabled: !!productId,
+  });
+
+export const useUploadProductPhoto = (productId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => productPhotosApi.upload(productId, file),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['warehouse', 'catalog', 'product-photos', productId] }),
+    onError: () => toast.error('Не удалось загрузить фото'),
+  });
+};
+
+export const useDeleteProductPhoto = (productId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (photoId: string) => productPhotosApi.delete(productId, photoId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['warehouse', 'catalog', 'product-photos', productId] }),
+    onError: () => toast.error('Не удалось удалить фото'),
+  });
+};
+
+// ── Workshop Photo Map ─────────────────────────────────────────────────────────
+// Builds a productName → first-photo-URL map for the card view in the Workshop.
+// Uses batch useQueries so each product's photos are independently cached.
+export const useWorkshopPhotoMap = (productNames: string[], enabled = true): Map<string, string> => {
+  const { data: products = [] } = useCatalogProducts();
+
+  const nameToId = useMemo(
+    () => new Map(products.map((p) => [p.name, p.id])),
+    [products],
+  );
+
+  const relevantProducts = useMemo(() => {
+    if (!enabled) return [];
+    return [...new Set(productNames)].flatMap((name) => {
+      const id = nameToId.get(name);
+      return id ? [{ name, id }] : [];
+    });
+  }, [productNames, nameToId, enabled]);
+
+  const photoQueries = useQueries({
+    queries: relevantProducts.map(({ id }) => ({
+      queryKey: ['warehouse', 'catalog', 'product-photos', id] as const,
+      queryFn: () => productPhotosApi.list(id),
+      staleTime: 5 * 60_000,
+      enabled,
+    })),
+  });
+
+  return useMemo(() => {
+    const map = new Map<string, string>();
+    relevantProducts.forEach(({ name, id }, idx) => {
+      const photos = photoQueries[idx]?.data ?? [];
+      if (photos.length > 0) {
+        const photo = photos[0];
+        map.set(name, photo.fileUrl ?? productPhotosApi.fileUrl(id, photo.id));
+      }
+    });
+    return map;
+  }, [relevantProducts, photoQueries]);
 };
